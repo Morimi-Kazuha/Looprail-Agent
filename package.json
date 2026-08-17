@@ -1,0 +1,12 @@
+{
+  "name": "pico-repo",
+  "private": true,
+  "description": "Repository-level tooling for Pico.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "commitlint": "commitlint --config commitlint.config.cjs"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.1.0"
+  }
+}
