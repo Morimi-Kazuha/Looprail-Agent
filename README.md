@@ -186,7 +186,7 @@ in their documents. They are not production SLAs. Start with the
 
 ## Contributing
 
-Start with an issue labeled `good first issue`. Every claimable issue names its
+Start with an issue labeled `good-first-issue`. Every claimable issue names its
 target branch, relevant files, scope, and acceptance command. Comment on the
 issue before starting, then submit one pull request for that issue.
 

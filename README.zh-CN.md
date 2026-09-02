@@ -177,7 +177,7 @@ pico gateway --workspace "$PWD" --verbose
 
 ## 参与贡献
 
-第一次参与 Pico，可以从带有 `good first issue` 标签的任务开始。每个可认领任务都会
+第一次参与 Pico，可以从带有 `good-first-issue` 标签的任务开始。每个可认领任务都会
 写明目标分支、相关文件、范围和验收命令；请先在 Issue 下留言认领，再提交一个只处理
 该问题的 Pull Request。
 

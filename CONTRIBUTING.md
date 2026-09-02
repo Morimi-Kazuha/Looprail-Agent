@@ -6,12 +6,12 @@
 ## 从哪里开始
 
 1. 在 [Gitee Issues](https://gitee.com/htxoffical/pico-harness/issues) 中选择带有
-   `good first issue` 或 `help wanted` 标签的任务。
+   `good-first-issue` 或 `help-wanted` 标签的任务。
 2. 阅读 Issue 中的目标分支、范围、相关文件、非目标和验收命令。
 3. 在 Issue 下留言：`我来认领，预计在 7 天内提交 PR。`
 4. 等待维护者确认认领后再开始修改，避免多人重复实现。
 
-`good first issue` 表示任务已经完成方案决策，维护者会为第一次贡献提供额外帮助。
+`good-first-issue` 表示任务已经完成方案决策，维护者会为第一次贡献提供额外帮助。
 如果认领后 3 天没有任何进展，维护者会提醒一次；7 天没有更新时，任务会重新开放。
 
 ## 选择正确的目标分支
