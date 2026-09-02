@@ -35,6 +35,23 @@ def test_docs_are_limited_to_onboarding_evaluation_and_public_fixtures(tmp_path:
     ]
 
 
+def test_only_public_gitee_contribution_templates_are_allowed(tmp_path: Path) -> None:
+    gitee = tmp_path / ".gitee"
+    gitee.mkdir()
+    issue_template = gitee / "ISSUE_TEMPLATE.zh-CN.md"
+    issue_template.write_text("public issue template", encoding="utf-8")
+    private_note = gitee / "maintainer-notes.md"
+    private_note.write_text("internal", encoding="utf-8")
+
+    assert check_public_tree(
+        tmp_path,
+        tracked_paths=[
+            ".gitee/ISSUE_TEMPLATE.zh-CN.md",
+            ".gitee/maintainer-notes.md",
+        ],
+    ) == ["forbidden Gitee metadata path: .gitee/maintainer-notes.md"]
+
+
 def test_secret_bearing_file_extensions_are_rejected(tmp_path: Path) -> None:
     key = tmp_path / "tests" / "fixtures" / "live.pem"
     key.parent.mkdir(parents=True)

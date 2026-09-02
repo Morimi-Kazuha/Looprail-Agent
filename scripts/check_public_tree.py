@@ -21,10 +21,12 @@ ALLOWED_ROOT_FILES = {
     ".gitignore",
     ".pre-commit-config.yaml",
     "LICENSE",
+    "CONTRIBUTING.md",
     "Makefile",
     "NOTICES.md",
     "README.md",
     "README.zh-CN.md",
+    "SECURITY.md",
     "commitlint.config.cjs",
     "eslint.base.mjs",
     "hatch_build.py",
@@ -36,6 +38,10 @@ ALLOWED_ROOT_FILES = {
     "pyproject.toml",
     "uv.lock",
 }
+ALLOWED_GITEE_FILES = {
+    ".gitee/ISSUE_TEMPLATE.zh-CN.md",
+    ".gitee/PULL_REQUEST_TEMPLATE.zh-CN.md",
+}
 FORBIDDEN_PATHS = {
     "AGENTS.md",
     "CHANGELOG.md",
@@ -43,9 +49,7 @@ FORBIDDEN_PATHS = {
     "CODE_OF_CONDUCT.md",
     "CONTEXT-MAP.md",
     "CONTEXT.md",
-    "CONTRIBUTING.md",
     "RELEASING.md",
-    "SECURITY.md",
     "ui-tui/CONTEXT.md",
 }
 ALLOWED_EVALUATION_DOCS = {
@@ -132,6 +136,10 @@ def check_public_tree(root: Path, tracked_paths: Iterable[str] | None = None) ->
 
     for relative in sorted(paths):
         path = Path(relative)
+        if path.parts[0] == ".gitee":
+            if relative not in ALLOWED_GITEE_FILES:
+                findings.append(f"forbidden Gitee metadata path: {relative}")
+                continue
         if relative in FORBIDDEN_PATHS or relative.startswith((".github/", "feishu/")):
             findings.append(f"forbidden path: {relative}")
             continue
@@ -150,7 +158,7 @@ def check_public_tree(root: Path, tracked_paths: Iterable[str] | None = None) ->
             if relative not in ALLOWED_ROOT_FILES:
                 findings.append(f"unexpected root file: {relative}")
                 continue
-        elif path.parts[0] not in ALLOWED_ROOT_DIRECTORIES:
+        elif path.parts[0] != ".gitee" and path.parts[0] not in ALLOWED_ROOT_DIRECTORIES:
             findings.append(f"unexpected root directory: {path.parts[0]}")
             continue
         if path.suffix.lower() in FORBIDDEN_ASSET_SUFFIXES:

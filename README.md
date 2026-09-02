@@ -184,6 +184,16 @@ Public benchmark results apply only to the frozen workload and verifier named
 in their documents. They are not production SLAs. Start with the
 [evaluation index](docs/evaluation/README.md) and [`benchmarks/`](benchmarks/).
 
+## Contributing
+
+Start with an issue labeled `good first issue`. Every claimable issue names its
+target branch, relevant files, scope, and acceptance command. Comment on the
+issue before starting, then submit one pull request for that issue.
+
+See the [contribution guide](CONTRIBUTING.md) for branch selection, local
+verification, and safety requirements. Remove tokens, private keys, internal
+addresses, and personal data from public issue reports.
+
 ## Build and verify
 
 ```bash

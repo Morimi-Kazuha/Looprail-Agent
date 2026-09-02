@@ -175,6 +175,15 @@ pico gateway --workspace "$PWD" --verbose
 生产 SLA。评测入口见[评测索引](docs/evaluation/README.md)和
 [`benchmarks/`](benchmarks/)。
 
+## 参与贡献
+
+第一次参与 Pico，可以从带有 `good first issue` 标签的任务开始。每个可认领任务都会
+写明目标分支、相关文件、范围和验收命令；请先在 Issue 下留言认领，再提交一个只处理
+该问题的 Pull Request。
+
+完整流程、分支说明和本地验证命令见[贡献指南](CONTRIBUTING.md)。Bug 报告请使用
+Gitee Issue 模板，并在公开内容中移除 Token、私钥、内部地址和个人数据。
+
 ## 开发与验证
 
 ```bash
