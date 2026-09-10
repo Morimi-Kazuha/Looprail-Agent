@@ -24,6 +24,7 @@ class TraceCtx:
     session_key: str | None = None
     channel: str | None = None
     chat_id: str | None = None
+    turn_id: str | None = None
     parent_span_id: str | None = None
     turn_span_id: str | None = None
     # 最近一层非模型 span 的名称，表示模型调用服务的目的
@@ -56,6 +57,7 @@ def turn_scope(
     channel: str | None,
     chat_id: str | None,
     root_span_id: str,
+    turn_id: str | None = None,
 ) -> Iterator[TraceCtx]:
     """为一个 Turn 打开 Fresh Trace，使 Child Spans Parent 到 ``root_span_id``。
 
@@ -67,6 +69,7 @@ def turn_scope(
         session_key=session_key,
         channel=channel,
         chat_id=chat_id,
+        turn_id=turn_id,
         parent_span_id=root_span_id,
     )
     token = _CTX.set(ctx)
@@ -85,6 +88,7 @@ def push(
     session_key: str | None = None,
     channel: str | None = None,
     chat_id: str | None = None,
+    turn_id: str | None = None,
 ):
     """设置 Active Context，使 Descendants Parent 到 ``span_id``，并返回 Reset Token。
 
@@ -103,6 +107,7 @@ def push(
             session_key=session_key,
             channel=channel,
             chat_id=chat_id,
+            turn_id=turn_id if turn_id is not None else (cur.turn_id if cur else None),
             parent_span_id=span_id,
             turn_span_id=span_id if name == "session.turn" else (cur.turn_span_id if cur else None),
             source=source,

@@ -234,6 +234,7 @@ def span(
     session_key: str | None = None,
     channel: str | None = None,
     chat_id: str | None = None,
+    turn_id: str | None = None,
     detached: bool = False,
     root: bool = False,
     **kw,
@@ -261,6 +262,7 @@ def span(
         session_key = session_key if session_key is not None else (cur.session_key if cur else None)
         channel = channel if channel is not None else (cur.channel if cur else None)
         chat_id = chat_id if chat_id is not None else (cur.chat_id if cur else None)
+        turn_id = turn_id if turn_id is not None else (cur.turn_id if cur else None)
         span_id = _ctx.new_span_id()
         handle = Span(
             name,
@@ -289,6 +291,7 @@ def span(
                 session_key=session_key,
                 channel=channel,
                 chat_id=chat_id,
+                turn_id=turn_id,
             )
         )
     except Exception:  # noqa: BLE001 — 打开追踪绝不能影响宿主

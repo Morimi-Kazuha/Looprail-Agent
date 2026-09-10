@@ -12,6 +12,21 @@ from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import replace
 from typing import Any
 
+from loguru import logger
+
+from pico.agent.effects import (
+    EffectClass,
+    EffectJournal,
+    EffectRecord,
+    EffectStatus,
+    canonical_digest,
+    classify_effect,
+    local_write_evidence,
+    local_write_precondition_matches,
+    new_effect_id,
+    observe_local_write,
+    utc_now,
+)
 from pico.agent.tools.base import Tool, ToolResult
 from pico.agent.tools.execution import (
     ToolEffect,
@@ -23,6 +38,7 @@ from pico.tracing import semconv, trace
 
 ToolStartCallback = Callable[[ToolInvocation], Awaitable[None]]
 ToolCompleteCallback = Callable[[ToolExecution], Awaitable[None]]
+EffectCrashHook = Callable[[str, EffectRecord], None]
 
 
 class ToolRegistry:
@@ -42,11 +58,102 @@ class ToolRegistry:
     DEFAULT_TOOL_TIMEOUT_S = 300.0
     DEFAULT_MAX_PARALLEL = 4
 
-    def __init__(self, *, max_parallel: int = DEFAULT_MAX_PARALLEL):
+    def __init__(
+        self,
+        *,
+        max_parallel: int = DEFAULT_MAX_PARALLEL,
+        effect_journal: EffectJournal | None = None,
+        crash_hook: EffectCrashHook | None = None,
+    ):
         if max_parallel < 1:
             raise ValueError("max_parallel must be positive")
         self._tools: dict[str, Tool] = {}
         self._max_parallel = max_parallel
+        self._effect_journal = effect_journal
+        self._effect_crash_hook = crash_hook
+
+    @property
+    def effect_journal(self) -> EffectJournal | None:
+        """Return the optional durable fact store used by this registry."""
+
+        return self._effect_journal
+
+    def _new_effect_record(
+        self,
+        invocation: ToolInvocation,
+        tool: Tool,
+        params: dict[str, Any],
+    ) -> EffectRecord:
+        current_trace = trace.current()
+        precondition = postcondition = None
+        if classify_effect(invocation.name, tool.capability) is EffectClass.LOCAL_WRITE:
+            try:
+                evidence = local_write_evidence(tool, params)
+            except Exception:  # noqa: BLE001 — evidence failure must not expose file internals
+                evidence = None
+            if evidence is not None:
+                precondition, postcondition = evidence
+        turn_id = invocation.context.turn_id or getattr(current_trace, "turn_id", None)
+        session_key = invocation.context.session_key or getattr(current_trace, "session_key", None)
+        return EffectRecord(
+            effect_id=new_effect_id(),
+            turn_id=turn_id,
+            session_key=session_key,
+            trace_id=current_trace.trace_id if current_trace is not None else None,
+            tool_call_id=invocation.context.call_id,
+            tool_name=invocation.name,
+            effect_class=classify_effect(invocation.name, tool.capability),
+            arguments_digest=canonical_digest(params),
+            status=EffectStatus.PREPARED,
+            prepared_at=utc_now(),
+            precondition=precondition,
+            postcondition=postcondition,
+        )
+
+    def _effect_hook(self, stage: str, record: EffectRecord) -> None:
+        if self._effect_crash_hook is not None:
+            self._effect_crash_hook(stage, record)
+
+    @staticmethod
+    def _annotate_result(result: ToolResult, effect_id: str | None) -> ToolResult:
+        if effect_id is None:
+            return result
+        try:
+            result.effect_id = effect_id
+            return result
+        except AttributeError:
+            return ToolResult(result, failed=bool(getattr(result, "failed", False)))
+
+    @staticmethod
+    def _terminal_status(record: EffectRecord, result: ToolResult) -> tuple[EffectStatus, str | None]:
+        failed = bool(getattr(result, "failed", False))
+        if record.effect_class is EffectClass.READ:
+            return (EffectStatus.FAILED if failed else EffectStatus.COMMITTED, "ToolResultFailed" if failed else None)
+        if record.effect_class is EffectClass.LOCAL_WRITE:
+            evidence = observe_local_write(record)
+            current_hash = evidence.get("current_hash")
+            expected_post = (record.postcondition or {}).get("expected_post_hash")
+            expected_pre = (record.precondition or {}).get("expected_pre_hash")
+            if expected_post and current_hash == expected_post:
+                return EffectStatus.COMMITTED, None
+            precondition = record.precondition or {}
+            expected_pre_exists = precondition.get("expected_exists")
+            pre_matches = (
+                current_hash == expected_pre
+                and (
+                    expected_pre is not None
+                    or (expected_pre_exists is False and evidence.get("current_exists") is not True)
+                )
+                and (expected_pre_exists is None or evidence.get("current_exists") == expected_pre_exists)
+            )
+            if failed and pre_matches:
+                return EffectStatus.FAILED, "ToolResultFailed"
+            return EffectStatus.UNKNOWN, "ToolResultFailed" if failed else "PostconditionMismatch"
+        # A normal return is a local observation that the call boundary returned, but
+        # an error return cannot prove whether an opaque side effect happened.
+        if failed:
+            return EffectStatus.UNKNOWN, "ToolResultFailed"
+        return EffectStatus.COMMITTED, None
 
     def register(self, tool: Tool, *, replace: bool = False) -> None:
         """按稳定名称注册一个 Tool，并显式控制同名覆盖。
@@ -127,39 +234,143 @@ class ToolRegistry:
             )
 
         try:
-            # 尝试转换参数以匹配模式类型
+            # 尝试转换参数以匹配模式类型，再执行同一份 Schema 校验。
             params = tool.cast_params(params)
-
-            # 校验参数
             errors = tool.validate_params(params)
             if errors:
                 return ToolResult(
                     f"Error: Invalid parameters for tool '{name}': " + "; ".join(errors) + _hint,
                     failed=True,
                 )
+        except Exception as e:
+            return ToolResult(f"Error executing {name}: {str(e)}" + _hint, failed=True)
 
-            ceiling = tool.timeout_seconds or self.DEFAULT_TOOL_TIMEOUT_S
+        ceiling = tool.timeout_seconds or self.DEFAULT_TOOL_TIMEOUT_S
+        effect_record: EffectRecord | None = None
+        running_record: EffectRecord | None = None
+        effect_invocation = invocation
+        if self._effect_journal is not None:
+            effect_record = self._new_effect_record(invocation, tool, params)
+            try:
+                # This is the fail-closed boundary: no tool code runs until PREPARED
+                # and RUNNING are both durable facts.
+                self._effect_journal.append(effect_record)
+            except Exception:
+                logger.exception("Effect PREPARED could not be journaled for {}", name)
+                return self._annotate_result(
+                    ToolResult("Error: effect journal unavailable; tool was not executed." + _hint, failed=True),
+                    effect_record.effect_id,
+                )
+            self._effect_hook("prepared", effect_record)
+            running_record = effect_record.with_updates(status=EffectStatus.RUNNING, started_at=utc_now())
+            try:
+                self._effect_journal.append(running_record)
+            except Exception:
+                logger.exception("Effect RUNNING could not be journaled for {}", name)
+                return self._annotate_result(
+                    ToolResult("Error: effect journal unavailable; tool was not executed." + _hint, failed=True),
+                    effect_record.effect_id,
+                )
+            self._effect_hook("running", running_record)
+            if effect_record.effect_class is EffectClass.LOCAL_WRITE:
+                observed = observe_local_write(running_record)
+                if not local_write_precondition_matches(running_record, observed):
+                    terminal = running_record.with_updates(
+                        status=EffectStatus.FAILED,
+                        finished_at=utc_now(),
+                        error_class="PreconditionConflict",
+                    )
+                    # A crash hook here intentionally leaves RUNNING durable.  A
+                    # normal conflict is terminal only after that fact is journaled.
+                    self._effect_hook("before_terminal", terminal)
+                    try:
+                        self._effect_journal.append(terminal)
+                    except Exception:
+                        logger.exception("Effect precondition failure could not be journaled for {}", name)
+                        return self._annotate_result(
+                            ToolResult(
+                                "Error: write precondition changed and its outcome is unknown." + _hint,
+                                failed=True,
+                            ),
+                            running_record.effect_id,
+                        )
+                    self._effect_hook("terminal", terminal)
+                    return self._annotate_result(
+                        ToolResult(
+                            "Error: write precondition changed; file was not modified. Resolve the conflict and retry."
+                            + _hint,
+                            failed=True,
+                        ),
+                        running_record.effect_id,
+                    )
+            effect_invocation = replace(
+                invocation,
+                context=replace(invocation.context, effect_id=effect_record.effect_id),
+            )
+
+        try:
             if tool.blocking_interaction:
                 # 该工具有意等待人类，不得被超时计时器终止。
-                result = await tool.execute_with_context(invocation.context, **params)
+                result = await tool.execute_with_context(effect_invocation.context, **params)
             else:
                 result = await asyncio.wait_for(
-                    tool.execute_with_context(invocation.context, **params),
+                    tool.execute_with_context(effect_invocation.context, **params),
                     timeout=ceiling,
                 )
 
             if isinstance(result, ToolResult):
-                return result
-            if isinstance(result, str) and result.startswith("Error"):
-                return ToolResult(result + _hint, failed=True)
-            return ToolResult(result)
-        except asyncio.TimeoutError:
-            return ToolResult(
+                normalized = result
+            elif isinstance(result, str) and result.startswith("Error"):
+                normalized = ToolResult(result + _hint, failed=True)
+            else:
+                normalized = ToolResult(result)
+        except asyncio.CancelledError:
+            if running_record is not None and self._effect_journal is not None:
+                unknown = running_record.with_updates(
+                    status=EffectStatus.UNKNOWN,
+                    finished_at=utc_now(),
+                    error_class="CancelledError",
+                )
+                try:
+                    self._effect_hook("before_terminal", unknown)
+                    self._effect_journal.append(unknown)
+                    self._effect_hook("terminal", unknown)
+                except Exception:
+                    logger.exception("Effect UNKNOWN could not be journaled for {}", name)
+            raise
+        except asyncio.TimeoutError as exc:
+            normalized = ToolResult(
                 f"Error: Tool '{name}' timed out after {ceiling:.0f}s." + _hint,
                 failed=True,
             )
-        except Exception as e:
-            return ToolResult(f"Error executing {name}: {str(e)}" + _hint, failed=True)
+            execution_error = type(exc).__name__
+        except Exception as exc:
+            normalized = ToolResult(f"Error executing {name}: {str(exc)}" + _hint, failed=True)
+            execution_error = type(exc).__name__
+        else:
+            execution_error = None
+
+        if running_record is not None and self._effect_journal is not None:
+            terminal_status, inferred_error = self._terminal_status(running_record, normalized)
+            terminal = running_record.with_updates(
+                status=terminal_status,
+                finished_at=utc_now(),
+                error_class=execution_error or inferred_error,
+            )
+            # A crash here intentionally leaves RUNNING durable. Recovery can then
+            # inspect LOCAL_WRITE postcondition evidence instead of replaying blindly.
+            self._effect_hook("before_terminal", terminal)
+            try:
+                self._effect_journal.append(terminal)
+            except Exception:
+                logger.exception("Effect terminal state could not be journaled for {}", name)
+                return self._annotate_result(
+                    ToolResult("Error: tool outcome is unknown because the journal is unavailable." + _hint, failed=True),
+                    running_record.effect_id,
+                )
+            self._effect_hook("terminal", terminal)
+
+        return self._annotate_result(normalized, effect_record.effect_id if effect_record is not None else None)
 
     async def execute_invocation(self, invocation: ToolInvocation) -> ToolExecution:
         started = time.perf_counter_ns()
@@ -170,7 +381,10 @@ class ToolRegistry:
             invocation.context,
         )
         duration_ms = (time.perf_counter_ns() - started) / 1_000_000
-        return ToolExecution(invocation=invocation, result=result, duration_ms=duration_ms)
+        effect_id = getattr(result, "effect_id", None)
+        if effect_id is not None:
+            invocation = replace(invocation, context=replace(invocation.context, effect_id=effect_id))
+        return ToolExecution(invocation=invocation, result=result, duration_ms=duration_ms, effect_id=effect_id)
 
     async def execute_many(
         self,
@@ -240,6 +454,10 @@ class ToolRegistry:
             await on_start(observed)
         execution = await self.execute_invocation(invocation)
         if execution.invocation is not observed:
+            observed = replace(
+                observed,
+                context=replace(observed.context, effect_id=execution.effect_id),
+            )
             execution = replace(execution, invocation=observed)
         if on_complete is not None:
             await on_complete(execution)

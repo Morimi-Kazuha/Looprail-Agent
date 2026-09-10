@@ -50,8 +50,12 @@ class TurnRequest:
     的请求抢占正在执行的工作。
 
     ``message_id`` 是入站消息自身的 id，也是出站回复默认串回原消息的锚点；在输出侧它会
-    作为 Text 的 ``reply_to`` 字段携带。数据类使用 ``frozen=True``，提交后不会被调度器原地
-    改写，媒体也用 tuple 防止排队期间载荷漂移。
+    作为 Text 的 ``reply_to`` 字段携带。数据类使用 ``frozen=True``，媒体也用 tuple 防止
+    排队期间载荷漂移。Scheduler 只在提交边界为缺失的 ``turn_id`` 做一次内部初始化。
+
+    ``turn_id`` 是由 Core Scheduler 在接受请求时一次性补齐的可选稳定标识。保留 ``None`` 默认值
+    使旧调用方无需改动；Scheduler 会在入队前初始化缺失值，并让同一个 Request Object 继续贯穿
+    TUI request identity、Runner、AgentLoop 与 Effect Journal。
     """
 
     origin: Origin
@@ -61,3 +65,4 @@ class TurnRequest:
     message_id: str | None = None
     conversation: str | None = None
     busy: BusyPolicy = BusyPolicy.APPEND
+    turn_id: str | None = None

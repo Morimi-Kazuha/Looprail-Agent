@@ -245,6 +245,7 @@ def spine_turn_open(req: Any, conversation_id: str) -> dict[str, Any]:
         "spine.origin": str(getattr(req, "origin", "") or "") or None,
         "spine.channel": getattr(source, "channel", None),
         "spine.busy_policy": str(getattr(req, "busy", "") or "") or None,
+        "spine.turn_id": getattr(req, "turn_id", None),
     }
 
 
@@ -661,6 +662,10 @@ def _turn_ids(bound: dict[str, Any]) -> tuple[Any, Any, Any]:
     return sk, channel, chat_id
 
 
+def _turn_id(bound: dict[str, Any]) -> Any:
+    return getattr(_turn_request(bound), "turn_id", None)
+
+
 def _turn_input(bound: dict[str, Any]) -> Any:
     req = _turn_request(bound)
     text = getattr(req, "text", None)
@@ -673,7 +678,7 @@ def turn_seed(bound: dict[str, Any]) -> dict[str, Any]:
     返回 Session Key、Channel、Chat ID；缺显式 Channel/Chat 时从 ``channel:chat_id`` Session Key 拆分。
     """
     sk, channel, chat_id = _turn_ids(bound)
-    return {"session_key": sk, "channel": channel, "chat_id": chat_id}
+    return {"session_key": sk, "channel": channel, "chat_id": chat_id, "turn_id": _turn_id(bound)}
 
 
 def turn_open(span, bound: dict[str, Any]) -> None:
@@ -685,7 +690,13 @@ def turn_open(span, bound: dict[str, Any]) -> None:
     _, channel, chat_id = _turn_ids(bound)
     user_input = _turn_input(bound)
     req = _turn_request(bound)
-    span.set({"turn.input_preview": _preview(user_input), "turn.in_progress": True})
+    span.set(
+        {
+            "turn.input_preview": _preview(user_input),
+            "turn.in_progress": True,
+            "turn.id": _turn_id(bound),
+        }
+    )
     span.artifact(
         "turn.input",
         {"content": user_input, "channel": channel, "chat_id": chat_id, "media": getattr(req, "media", None)},
@@ -784,12 +795,16 @@ def tool_call(span, bound: dict[str, Any], result: Any, exc: BaseException | Non
     name = bound.get("name")
     params = bound.get("params")
     call_id = bound.get("call_id")
+    context = bound.get("context")
+    effect_id = getattr(result, "effect_id", None)
+    turn_id = getattr(context, "turn_id", None)
     explicit_failed = getattr(result, "failed", None)
     result_failed = (
         explicit_failed if isinstance(explicit_failed, bool) else isinstance(result, str) and result.startswith("Error")
     )
     if call_id:
         span.set({"tool.call_id": call_id})
+    span.set({"tool.turn_id": turn_id, "tool.effect_id": effect_id})
     skill_name = params.get("name") if name == "skill_read" and isinstance(params, dict) else None
     skill_read_path = _skill_read_path(name, params)
     if isinstance(skill_name, str) and skill_name:

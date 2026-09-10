@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable
 from loguru import logger
 
 from pico.agent.context import ContextBuilder
+from pico.agent.effects import EffectJournal
 from pico.agent.loop.recovery import (
     POST_TOOL_NUDGE,
     RecoveryAction,
@@ -340,7 +341,8 @@ class AgentLoop:
         # 供 BCP 等需要严格工具子集的评测框架使用。
         self._disabled_tools = set(disabled_tools or [])
         self._tool_search_config = tool_search_config
-        self.tools = ToolRegistry()
+        self.effect_journal = EffectJournal(self.state)
+        self.tools = ToolRegistry(effect_journal=self.effect_journal)
 
         # Context Engine 是唯一的 ContextAssembler。在 self.tools 之后于此构建，使工厂能将
         # ``self.tools.get_definitions`` 捕获为延迟可调用对象；真正的工具注册表内容
@@ -415,6 +417,7 @@ class AgentLoop:
             owned_ids=self._owned_ids,
             max_concurrent=max_concurrent_subagents,
             max_spawns_per_hour=max_subagent_spawns_per_hour,
+            effect_journal=self.effect_journal,
         )
 
         # 执行器此处只同步构建，虚拟机在 _start_executor() 中启动。
@@ -1223,6 +1226,7 @@ class AgentLoop:
         usage_sink: dict[str, Any] | None = None,
         drain: Drain | None = None,
         origin: Origin | None = None,
+        turn_id: str | None = None,
     ) -> tuple[str | None, list[str], list[dict], TurnOutcome]:
         """执行一次有预算的模型—Tool 迭代，并返回回复、证据与明确终态。
 
@@ -1411,6 +1415,7 @@ class AgentLoop:
                                 session_key=session_key,
                                 iteration=iteration,
                                 origin=origin.value if origin is not None else None,
+                                turn_id=turn_id,
                             ),
                         )
                     )
@@ -1964,6 +1969,7 @@ class AgentLoop:
             usage_sink=usage_sink,
             drain=drain,
             origin=origin,
+            turn_id=req.turn_id,
         )
         self._stash_recovery(key, outcome)
         if outcome.status == "error":

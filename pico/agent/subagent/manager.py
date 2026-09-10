@@ -18,6 +18,7 @@ from typing import Any
 
 from loguru import logger
 
+from pico.agent.effects import EffectJournal
 from pico.agent.tools.base import ToolResult
 from pico.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from pico.agent.tools.registry import ToolRegistry
@@ -82,12 +83,14 @@ class SubagentManager:
         max_concurrent: int = 4,
         max_spawns_per_hour: int = 30,
         state: Path | None = None,
+        effect_journal: EffectJournal | None = None,
     ):
         from pico.config.schema import ExecToolConfig
 
         self.provider = provider
         self.workspace = workspace
         self.state = state or workspace
+        self._effect_journal = effect_journal
         # Spine submit 延迟绑定。调度器在构建时绑定所属事件循环，并于各入口的运行循环内构建；
         # 而本管理器在 AgentLoop.__init__ 的同步前导阶段构建。任何通知前通过 set_submit 连接，
         # 结果重新注入时提交一个来源为 SUBAGENT 的 Turn。
@@ -209,7 +212,7 @@ class SubagentManager:
     ) -> SubagentOutcome:
         try:
             # 构建子 Agent 工具，不包含 message 和 spawn
-            tools = ToolRegistry()
+            tools = ToolRegistry(effect_journal=self._effect_journal)
             allowed_dir = self.workspace if self.restrict_to_workspace else None
             tools.register(ReadFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
             tools.register(WriteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))

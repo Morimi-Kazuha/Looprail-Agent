@@ -18,6 +18,7 @@ from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from typing import get_args
+from uuid import uuid4
 
 from loguru import logger
 
@@ -319,6 +320,7 @@ class Lane:
             session_key=self._conversation_id,
             channel=req.source.channel,
             chat_id=req.source.chat_id,
+            turn_id=req.turn_id,
         ) as turn_span:
             try:
                 async with self._pools.for_origin(req.origin):
@@ -411,6 +413,10 @@ class Scheduler:
         if self._draining:
             logger.info("submit rejected: scheduler draining (origin={})", req.origin)
             raise SchedulerDrainingError("scheduler is draining; new turns are not accepted")
+        # Keep the original Request Object identity. TUI and channel adapters may use it as
+        # their local correlation key, while the core scheduler owns the durable Turn ID.
+        if req.turn_id is None:
+            object.__setattr__(req, "turn_id", f"turn-{uuid4().hex}")
         policy = self._effective_busy(req)
         conversation_id = self._conversation_id(req)
         lane = self._lanes.get(conversation_id)

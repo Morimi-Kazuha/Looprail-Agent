@@ -29,6 +29,8 @@ class ToolExecutionContext:
     iteration: int | None = None
     origin: str | None = None
     parent_call_id: str | None = None
+    turn_id: str | None = None
+    effect_id: str | None = None
 
     def child(self, call_id: str | None) -> ToolExecutionContext:
         return replace(self, call_id=call_id, parent_call_id=self.call_id)
@@ -46,6 +48,7 @@ class ToolExecution:
     invocation: ToolInvocation
     result: ToolResult
     duration_ms: float
+    effect_id: str | None = None
 
 
 __all__ = [

@@ -181,13 +181,15 @@ def locked_append(
     expected_epoch: int | None = None,
     require_existing: bool = False,
     validate_existing: Callable[[str], None] | None = None,
+    repair_incomplete_tail: Callable[[str], bool] | None = None,
 ) -> int:
     """在 Lock 内可选验证 Existing Bytes 后，Append 一个完整 Block。
 
     空 `lines` 不写盘，只返回当前 Epoch。非空时可要求文件已经存在、校验 Expected Epoch，并用
-    `validate_existing` 检查锁内读到的旧内容；任何条件变化都在写入前失败。写入会 Flush + Fsync，
-    如果 Crash 曾留下无换行 Partial Line，会先补换行避免新旧 Records 粘连。返回值是写入所在 Epoch，
-    本操作不递增 Generation。
+    `validate_existing` 检查锁内读到的旧内容；任何条件变化都在写入前失败。写入会 Flush + Fsync。
+    默认情况下，如果 Crash 曾留下无换行 Partial Line，会先补换行避免新旧 Records 粘连；调用方可用
+    `repair_incomplete_tail` 在锁内确认该尾部确实是损坏残行后将其截掉再追加。返回值是写入所在
+    Epoch，本操作不递增 Generation。
     """
     if not lines:
         return read_epoch(path)
@@ -200,8 +202,11 @@ def locked_append(
             expected_epoch=expected_epoch,
             operation="append",
         )
-        if exists and validate_existing is not None:
-            validate_existing(read_utf8_with_incomplete_tail(path))
+        existing_raw = None
+        if exists and (validate_existing is not None or repair_incomplete_tail is not None):
+            existing_raw = read_utf8_with_incomplete_tail(path)
+            if validate_existing is not None:
+                validate_existing(existing_raw)
         _ensure_epoch(path, epoch)
         with open(path, "a+b") as f:
             payload = "".join(line + "\n" for line in lines).encode("utf-8")
@@ -210,7 +215,14 @@ def locked_append(
             if f.tell() > 0:
                 f.seek(-1, os.SEEK_END)
                 if f.read(1) != b"\n":
-                    payload = b"\n" + payload
+                    if existing_raw is not None and repair_incomplete_tail is not None and repair_incomplete_tail(existing_raw):
+                        f.seek(0)
+                        current = f.read()
+                        f.seek(current.rfind(b"\n") + 1)
+                        f.truncate()
+                        f.seek(0, os.SEEK_END)
+                    else:
+                        payload = b"\n" + payload
             f.write(payload)
             f.flush()
             os.fsync(f.fileno())
