@@ -2,7 +2,7 @@
 ## Luna MAX Execution Report — Phase 8
 
 **Report date:** 2026-09-16  
-**Repository:** `D:\Agent Learning\Pico Agent`  
+**Repository:** `<repo-root>`<br>
 **Working-tree HEAD:** `0ae70289b282bdc808e668bd267c7370ffd0e5b8`  
 **Approved normal Runtime surface:** `pico run`  
 **Opt-in Evolution surface:** `pico evolve run|check|status|finalize`  

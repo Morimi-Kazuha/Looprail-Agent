@@ -13,7 +13,7 @@ normal `pico run` does not automatically execute PicoBench or Evolver.
 - Windows
 - Python 3.12
 - Preferred local environment: the repository `.venv`
-- Fallback local environment: `D:\Agent Learning\.pico-baseline-venv`
+- Fallback local environment: `<parent-root>\.pico-baseline-venv`
 - No system-Python or global dependency changes are required.
 
 ## Commands
@@ -25,7 +25,7 @@ From the repository root:
 ```
 
 The script uses the repository `.venv\Scripts\python.exe` first, then
-`D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe` when present, and
+`<parent-root>\.pico-baseline-venv\Scripts\python.exe` when present, and
 otherwise the `python` on `PATH`. A different interpreter can be provided
 explicitly:
 

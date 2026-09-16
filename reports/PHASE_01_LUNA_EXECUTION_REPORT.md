@@ -2,7 +2,7 @@
 ## Luna MAX Execution Report — Phase 1
 
 **Report date:** 2026-09-15  
-**Repository:** `D:\Agent Learning\Pico Agent`  
+**Repository:** `<repo-root>`<br>
 **Branch:** `feat/durable-execution-phase0`  
 **HEAD:** `0ae70289b282bdc808e668bd267c7370ffd0e5b8`  
 **Approved demo surface:** `pico run`
@@ -47,7 +47,7 @@
 .\scripts\run_medium_baseline.ps1
 ```
 
-脚本优先使用 `D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe`；也可显式指定兼容的 Python 3.12：
+脚本优先使用 `<parent-root>\.pico-baseline-venv\Scripts\python.exe`；也可显式指定兼容的 Python 3.12：
 
 ```powershell
 .\scripts\run_medium_baseline.ps1 -Python 'D:\path\to\python.exe'
@@ -56,8 +56,8 @@
 命令/help smoke：
 
 ```powershell
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pico --version
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pico --help
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pico --version
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pico --help
 ```
 
 受支持 baseline 的运行配置必须显式选择 `memory.backend = null`，除非本地已安装并初始化 Myna memory plugin。这个 fail-closed 行为是当前插件 contract，不通过隐式吞掉缺失插件来伪造成功。
@@ -104,7 +104,7 @@ Authoritative manifest 是 `scripts/run_medium_baseline.ps1` 中的显式测试�
 | Item | Observed state |
 |---|---|
 | OS | Windows managed development host; WMI OS version query was access-denied, so no build number is claimed |
-| Python | 3.12.14, 64-bit (`D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe`) |
+| Python | 3.12.14, 64-bit (`<parent-root>\.pico-baseline-venv\Scripts\python.exe`) |
 | pytest | 9.0.3 |
 | pytest-asyncio | 1.3.0 |
 | Typer | 0.23.1 |
@@ -239,7 +239,7 @@ The labels above are the required Phase 1 classifications. No failing final base
 
 ## 9. Tests Executed
 
-All Python test commands used `D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe` from `D:\Agent Learning\Pico Agent`.
+All Python test commands used `<parent-root>\.pico-baseline-venv\Scripts\python.exe` from `<repo-root>`.
 
 ### 9.1 Supported baseline
 
@@ -254,25 +254,25 @@ The manifest contains the new two-test file plus explicit CLI/REPL/spine, AgentL
 ### 9.2 Direct smoke and affected regression commands
 
 ```powershell
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pytest -q tests/test_phase1_medium_baseline.py
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pytest -q tests/test_phase1_medium_baseline.py
 ```
 
 Result: **exit 0; 2 passed in 2.23s** on the final direct run.
 
 ```powershell
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pytest -q tests/test_cli_agent_commands.py tests/test_runtime_host_contracts.py
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pytest -q tests/test_cli_agent_commands.py tests/test_runtime_host_contracts.py
 ```
 
 Result: **exit 0; 47 passed in 4.61s**.
 
 ```powershell
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pytest --collect-only -q -m medium_baseline tests/test_phase1_medium_baseline.py
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pytest --collect-only -q -m medium_baseline tests/test_phase1_medium_baseline.py
 ```
 
 Result: **exit 0; 2 tests collected in 1.67s**.
 
 ```powershell
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m ruff check tests/test_phase1_medium_baseline.py
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m ruff check tests/test_phase1_medium_baseline.py
 ```
 
 Result: **exit 0; All checks passed**.
@@ -280,8 +280,8 @@ Result: **exit 0; All checks passed**.
 ### 9.3 CLI command/help smoke
 
 ```powershell
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pico --version
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pico --help
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pico --version
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pico --help
 ```
 
 Result: **exit 0**. Version output was `✦ Pico v0.1.7`; help exposed `run`, `evolve`, `tracing`, `sessions`, `provider` and the other registered command groups. The actual fake-provider `pico run -m` invocation is asserted by `test_medium_baseline_pico_run_invocation_is_deterministic`.
@@ -362,7 +362,7 @@ No application/runtime portability fix was required. The Phase 1 changes are lim
 
 | Problem | Root cause | Change | Why semantics are preserved | Test evidence |
 |---|---|---|---|---|
-| System Python 3.13 lacked pytest while project requires 3.12 | Environment/interpreter mismatch | Manifest prefers existing `D:\Agent Learning\.pico-baseline-venv` and accepts explicit `-Python` override | It only selects the interpreter; package behavior and dependency versions are unchanged | Final manifest exit 0, 565 passed |
+| System Python 3.13 lacked pytest while project requires 3.12 | Environment/interpreter mismatch | Manifest prefers existing `<parent-root>\.pico-baseline-venv` and accepts explicit `-Python` override | It only selects the interpreter; package behavior and dependency versions are unchanged | Final manifest exit 0, 565 passed |
 | Windows baseline test needed temporary filesystem and non-ASCII-safe I/O | Test harness must be platform-safe and deterministic | New test uses pytest `tmp_path`, `Path`, and explicit UTF-8 reads/writes | This changes no production path/security/timeout behavior; it makes the fixture's bytes explicit | New real-spine smoke 2 passed; ruff passed |
 | Deferred POSIX/AppWorld failures were not needed for mainline acceptance | `fcntl`, `/tmp`, symlink privileges, CRLF and external sandbox assumptions | No fix was applied; those paths are explicitly excluded | Avoids weakening or hiding their contracts and keeps Phase 1 scoped to `pico run` | Supported manifest passes without those files |
 

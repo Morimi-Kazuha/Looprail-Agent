@@ -13,7 +13,7 @@ committed-tree status was clean, and the authoritative baseline passed again.
 
 ## 2. Repository Path
 
-`D:\Agent Learning\Pico Agent`
+`<repo-root>`
 
 ## 3. Branch
 

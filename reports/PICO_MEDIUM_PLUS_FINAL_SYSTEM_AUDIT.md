@@ -2,7 +2,7 @@
 
 Audit mode: AUDIT ONLY  
 Audit date: 2026-09-16 (Asia/Shanghai)  
-Repository under audit: D:\Agent Learning\Pico Agent  
+Repository under audit: <repo-root><br>
 Final status: **PASS WITH DEBT — READY FOR WEB FINAL ACCEPTANCE**
 
 This report is an independent audit of the current working tree. It does not
@@ -38,7 +38,7 @@ explicit Medium+ baseline.
 
 | Field | Observed value |
 |---|---|
-| Repository path | D:\Agent Learning\Pico Agent |
+| Repository path | <repo-root> |
 | Branch | feat/durable-execution-phase0 |
 | HEAD | 0ae70289b282bdc808e668bd267c7370ffd0e5b8 |
 | Python | 3.12.14 |
@@ -46,7 +46,7 @@ explicit Medium+ baseline.
 | CLI version | pico --version -> Pico v0.1.7 |
 | Platform | Windows 11, platform release 11, build 10.0.26200 |
 | Shell | PowerShell 7.6.5 Core |
-| Interpreter used | D:\Agent Learning\Pico Agent\.venv\Scripts\python.exe |
+| Interpreter used | <repo-root>\.venv\Scripts\python.exe |
 | Working-tree status at audit start | 67 entries: 47 modified, 20 untracked |
 | Existing phase reports | PHASE_00 through PHASE_08 under reports/ |
 
@@ -789,8 +789,8 @@ The following are exact current drift locations; they were not edited:
    evidence/evolution,” but it is stale as a description of the final test
    manifest.
 2. The same document says the parent
-   D:\Agent Learning\.pico-baseline-venv is preferred. The current script first
-   prefers D:\Agent Learning\Pico Agent\.venv and only then the parent
+   <parent-root>\.pico-baseline-venv is preferred. The current script first
+   prefers <repo-root>\.venv and only then the parent
    environment. The actual audit used the repository .venv.
 3. pico/cli/tui_commands.py:828 tells users to use pico run --legacy-repl when
    Node is missing. Current pico run --help has no --legacy-repl option. This is
@@ -990,61 +990,61 @@ must retain the explicit limitations above.
 Key inspected implementation files:
 
 ~~~text
-D:\Agent Learning\Pico Agent\pico\cli\agent_commands.py
-D:\Agent Learning\Pico Agent\pico\cli\_runtime_assembly.py
-D:\Agent Learning\Pico Agent\pico\cli\_repl_spine.py
-D:\Agent Learning\Pico Agent\pico\spine\scheduler.py
-D:\Agent Learning\Pico Agent\pico\agent\spine_runner.py
-D:\Agent Learning\Pico Agent\pico\agent\loop\main.py
-D:\Agent Learning\Pico Agent\pico\agent\tools\registry.py
-D:\Agent Learning\Pico Agent\pico\agent\effects.py
-D:\Agent Learning\Pico Agent\pico\agent\recovery\projector.py
-D:\Agent Learning\Pico Agent\pico\agent\recovery\planner.py
-D:\Agent Learning\Pico Agent\pico\agent\recovery\state.py
-D:\Agent Learning\Pico Agent\pico\agent\loop\checkpoint.py
-D:\Agent Learning\Pico Agent\pico\session\manager.py
-D:\Agent Learning\Pico Agent\pico\context_engine\factory.py
-D:\Agent Learning\Pico Agent\pico\context_engine\assembler.py
-D:\Agent Learning\Pico Agent\pico\context_engine\budget.py
-D:\Agent Learning\Pico Agent\pico\memory_engine\backend.py
-D:\Agent Learning\Pico Agent\pico\memory_engine\consolidate\consolidator.py
-D:\Agent Learning\Pico Agent\pico\context_engine\segments\memory.py
-D:\Agent Learning\Pico Agent\pico\tracing\store.py
-D:\Agent Learning\Pico Agent\pico\tracing\semconv.py
-D:\Agent Learning\Pico Agent\benchmarks\picobench\host.py
-D:\Agent Learning\Pico Agent\benchmarks\picobench\verifier.py
-D:\Agent Learning\Pico Agent\benchmarks\picobench\claims.py
-D:\Agent Learning\Pico Agent\benchmarks\picobench\harness.py
-D:\Agent Learning\Pico Agent\benchmarks\picobench\reproducibility.py
-D:\Agent Learning\Pico Agent\pico\evolver\candidate_manifest.py
-D:\Agent Learning\Pico Agent\pico\evolver\lineage.py
-D:\Agent Learning\Pico Agent\pico\evolver\activation\artifacts.py
-D:\Agent Learning\Pico Agent\pico\evolver\orchestrator\production.py
-D:\Agent Learning\Pico Agent\pico\evolver\orchestrator\sealed\runner.py
+<repo-root>\pico\cli\agent_commands.py
+<repo-root>\pico\cli\_runtime_assembly.py
+<repo-root>\pico\cli\_repl_spine.py
+<repo-root>\pico\spine\scheduler.py
+<repo-root>\pico\agent\spine_runner.py
+<repo-root>\pico\agent\loop\main.py
+<repo-root>\pico\agent\tools\registry.py
+<repo-root>\pico\agent\effects.py
+<repo-root>\pico\agent\recovery\projector.py
+<repo-root>\pico\agent\recovery\planner.py
+<repo-root>\pico\agent\recovery\state.py
+<repo-root>\pico\agent\loop\checkpoint.py
+<repo-root>\pico\session\manager.py
+<repo-root>\pico\context_engine\factory.py
+<repo-root>\pico\context_engine\assembler.py
+<repo-root>\pico\context_engine\budget.py
+<repo-root>\pico\memory_engine\backend.py
+<repo-root>\pico\memory_engine\consolidate\consolidator.py
+<repo-root>\pico\context_engine\segments\memory.py
+<repo-root>\pico\tracing\store.py
+<repo-root>\pico\tracing\semconv.py
+<repo-root>\benchmarks\picobench\host.py
+<repo-root>\benchmarks\picobench\verifier.py
+<repo-root>\benchmarks\picobench\claims.py
+<repo-root>\benchmarks\picobench\harness.py
+<repo-root>\benchmarks\picobench\reproducibility.py
+<repo-root>\pico\evolver\candidate_manifest.py
+<repo-root>\pico\evolver\lineage.py
+<repo-root>\pico\evolver\activation\artifacts.py
+<repo-root>\pico\evolver\orchestrator\production.py
+<repo-root>\pico\evolver\orchestrator\sealed\runner.py
 ~~~
 
 Key inspected tests/docs/reports:
 
 ~~~text
-D:\Agent Learning\Pico Agent\scripts\run_medium_baseline.ps1
-D:\Agent Learning\Pico Agent\tests\test_phase1_medium_baseline.py
-D:\Agent Learning\Pico Agent\tests\test_phase3_recovery_contract.py
-D:\Agent Learning\Pico Agent\tests\test_phase5_memory_contract.py
-D:\Agent Learning\Pico Agent\tests\test_phase6_evidence_contract.py
-D:\Agent Learning\Pico Agent\tests\test_phase8_evolution_contract.py
-D:\Agent Learning\Pico Agent\docs\medium-plus-baseline.md
-D:\Agent Learning\Pico Agent\docs\tool-runtime-contract.md
-D:\Agent Learning\Pico Agent\README.md
-D:\Agent Learning\Pico Agent\reports\PHASE_00_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\reports\PHASE_01_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\reports\PHASE_02_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\reports\PHASE_03_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\reports\PHASE_04_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\reports\PHASE_05_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\reports\PHASE_06_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\reports\PHASE_07_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\reports\PHASE_08_LUNA_EXECUTION_REPORT.md
-D:\Agent Learning\Pico Agent\.pico\evidence\picobench-semantic\.locks\
+<repo-root>\scripts\run_medium_baseline.ps1
+<repo-root>\tests\test_phase1_medium_baseline.py
+<repo-root>\tests\test_phase3_recovery_contract.py
+<repo-root>\tests\test_phase5_memory_contract.py
+<repo-root>\tests\test_phase6_evidence_contract.py
+<repo-root>\tests\test_phase8_evolution_contract.py
+<repo-root>\docs\medium-plus-baseline.md
+<repo-root>\docs\tool-runtime-contract.md
+<repo-root>\README.md
+<repo-root>\reports\PHASE_00_LUNA_EXECUTION_REPORT.md
+<repo-root>\reports\PHASE_01_LUNA_EXECUTION_REPORT.md
+<repo-root>\reports\PHASE_02_LUNA_EXECUTION_REPORT.md
+<repo-root>\reports\PHASE_03_LUNA_EXECUTION_REPORT.md
+<repo-root>\reports\PHASE_04_LUNA_EXECUTION_REPORT.md
+<repo-root>\reports\PHASE_05_LUNA_EXECUTION_REPORT.md
+<repo-root>\reports\PHASE_06_LUNA_EXECUTION_REPORT.md
+<repo-root>\reports\PHASE_07_LUNA_EXECUTION_REPORT.md
+<repo-root>\reports\PHASE_08_LUNA_EXECUTION_REPORT.md
+<repo-root>\.pico\evidence\picobench-semantic\.locks\
 ~~~
 
 No retained fresh .pico run_meta.json, evolution_freeze.json, activation

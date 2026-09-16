@@ -13,6 +13,7 @@ ALLOWED_ROOT_DIRECTORIES = {
     "benchmarks",
     "docs",
     "pico",
+    "reports",
     "scripts",
     "tests",
     "ui-tui",
@@ -57,6 +58,24 @@ ALLOWED_EVALUATION_DOCS = {
     "docs/evaluation/runtime-scheduler-experiments.md",
     "docs/evaluation/tokenwise-cost.md",
     "docs/evaluation/tracing-overhead.md",
+}
+ALLOWED_PUBLIC_DOCS = {
+    "docs/medium-plus-baseline.md",
+    "docs/tool-runtime-contract.md",
+}
+ALLOWED_REPORT_FILES = {
+    "reports/PHASE_00_LUNA_EXECUTION_REPORT.md",
+    "reports/PHASE_01_LUNA_EXECUTION_REPORT.md",
+    "reports/PHASE_02_LUNA_EXECUTION_REPORT.md",
+    "reports/PHASE_03_LUNA_EXECUTION_REPORT.md",
+    "reports/PHASE_04_LUNA_EXECUTION_REPORT.md",
+    "reports/PHASE_05_LUNA_EXECUTION_REPORT.md",
+    "reports/PHASE_06_LUNA_EXECUTION_REPORT.md",
+    "reports/PHASE_07_LUNA_EXECUTION_REPORT.md",
+    "reports/PHASE_08_LUNA_EXECUTION_REPORT.md",
+    "reports/PICO_GITHUB_PACKAGING_REPORT.md",
+    "reports/PICO_MEDIUM_PLUS_FINAL_SYSTEM_AUDIT.md",
+    "reports/PICO_MEDIUM_PLUS_FINAL_FREEZE.md",
 }
 FORBIDDEN_ASSET_SUFFIXES = {
     ".gif",
@@ -127,6 +146,7 @@ def _documentation_allowed(path: str) -> bool:
         path.startswith("docs/onboarding/")
         or path.startswith("docs/examples/")
         or path in ALLOWED_EVALUATION_DOCS
+        or path in ALLOWED_PUBLIC_DOCS
     )
 
 
@@ -145,6 +165,9 @@ def check_public_tree(root: Path, tracked_paths: Iterable[str] | None = None) ->
             continue
         if path.parts[0] == "docs" and not _documentation_allowed(relative):
             findings.append(f"forbidden documentation path: {relative}")
+            continue
+        if path.parts[0] == "reports" and relative not in ALLOWED_REPORT_FILES:
+            findings.append(f"forbidden report path: {relative}")
             continue
         if path.parts[0] == "benchmarks" and any(
             part.lower() in FORBIDDEN_BENCHMARK_DIRECTORIES for part in path.parts[1:-1]

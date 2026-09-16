@@ -35,6 +35,32 @@ def test_docs_are_limited_to_onboarding_evaluation_and_public_fixtures(tmp_path:
     ]
 
 
+def test_accepted_medium_plus_docs_and_reports_are_allowed(tmp_path: Path) -> None:
+    for relative in (
+        "docs/medium-plus-baseline.md",
+        "docs/tool-runtime-contract.md",
+        "reports/PHASE_00_LUNA_EXECUTION_REPORT.md",
+        "reports/PICO_GITHUB_PACKAGING_REPORT.md",
+        "reports/PICO_MEDIUM_PLUS_FINAL_SYSTEM_AUDIT.md",
+        "reports/PICO_MEDIUM_PLUS_FINAL_FREEZE.md",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("public release evidence", encoding="utf-8")
+
+    assert check_public_tree(
+        tmp_path,
+        tracked_paths=[
+            "docs/medium-plus-baseline.md",
+            "docs/tool-runtime-contract.md",
+            "reports/PHASE_00_LUNA_EXECUTION_REPORT.md",
+            "reports/PICO_GITHUB_PACKAGING_REPORT.md",
+            "reports/PICO_MEDIUM_PLUS_FINAL_SYSTEM_AUDIT.md",
+            "reports/PICO_MEDIUM_PLUS_FINAL_FREEZE.md",
+        ],
+    ) == []
+
+
 def test_only_public_gitee_contribution_templates_are_allowed(tmp_path: Path) -> None:
     gitee = tmp_path / ".gitee"
     gitee.mkdir()

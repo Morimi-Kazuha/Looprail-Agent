@@ -2,7 +2,7 @@
 ## Luna MAX Execution Report — Phase 7
 
 **Report date:** 2026-09-16  
-**Repository:** `D:\Agent Learning\Pico Agent`  
+**Repository:** `<repo-root>`<br>
 **Working-tree HEAD:** `0ae70289b282bdc808e668bd267c7370ffd0e5b8`  
 **Approved product/demo surface:** `pico run`  
 **Authoritative baseline command:** `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_medium_baseline.ps1`
@@ -710,7 +710,7 @@ were preserved and were not reset, checked out or rewritten as part of Phase 7.
 
 ## 22. Verification Evidence
 
-All commands below ran from `D:\Agent Learning\Pico Agent` on Windows.
+All commands below ran from `<repo-root>` on Windows.
 
 ### Phase 7 focused contract
 

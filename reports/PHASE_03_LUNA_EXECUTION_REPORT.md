@@ -2,7 +2,7 @@
 ## Luna MAX Execution Report — Phase 3
 
 **Report date:** 2026-09-15  
-**Repository:** `D:\Agent Learning\Pico Agent`  
+**Repository:** `<repo-root>`<br>
 **Working-tree HEAD:** `0ae70289b282bdc808e668bd267c7370ffd0e5b8`  
 **Approved demo surface:** `pico run`  
 **Authoritative baseline:** `.\scripts\run_medium_baseline.ps1`

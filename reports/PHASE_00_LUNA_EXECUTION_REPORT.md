@@ -2,7 +2,7 @@
 ## Luna MAX Execution Report — Phase 0
 
 **Report date:** 2026-09-15  
-**Repository:** `D:\Agent Learning\Pico Agent`  
+**Repository:** `<repo-root>`<br>
 **Branch:** `feat/durable-execution-phase0`  
 **HEAD:** `0ae70289b282bdc808e668bd267c7370ffd0e5b8` (`feat(runtime): add durable tool effect journal and recovery semantics`)
 
@@ -47,7 +47,7 @@
 | Current tracked diff | 无 tracked diff |
 | Pre-existing untracked files | `pico/agent/recovery/`、`tests/test_phase0b1_recovery.py`；本次未修改 |
 
-依赖包括 Typer、LiteLLM、Pydantic、HTTPX、Loguru、Rich、croniter、PyYAML、prompt-toolkit、tiktoken、questionary、MCP、orjson、numpy、Pillow 等；channel extras 另依赖 `lark_oapi`、`botpy`、`wecom_aibot_sdk`。系统 Python 3.13.3 不具备 pytest；使用已有的 `D:\Agent Learning\.pico-baseline-venv`，未安装或更换依赖。
+依赖包括 Typer、LiteLLM、Pydantic、HTTPX、Loguru、Rich、croniter、PyYAML、prompt-toolkit、tiktoken、questionary、MCP、orjson、numpy、Pillow 等；channel extras 另依赖 `lark_oapi`、`botpy`、`wecom_aibot_sdk`。系统 Python 3.13.3 不具备 pytest；使用已有的 `<parent-root>\.pico-baseline-venv`，未安装或更换依赖。
 
 ### 4.2 真实入口和主运行路径
 
@@ -256,15 +256,15 @@ Expected artifacts include `run_meta.json`, journal/rounds JSONL, node files, fi
 
 ## 9. Tests Executed
 
-All Python commands below used the existing environment `D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe` and were run from the repository root. No application source was changed in response to failures.
+All Python commands below used the existing environment `<parent-root>\.pico-baseline-venv\Scripts\python.exe` and were run from the repository root. No application source was changed in response to failures.
 
 ### 9.1 Command/help smoke
 
 ```powershell
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pico --version
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pico --help
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pico evolve --help
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m pico.evolver --help
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pico --version
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pico --help
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pico evolve --help
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m pico.evolver --help
 ```
 
 Result: exit 0 for all four commands. Version output: `✦ Pico v0.1.7`. Help exposed the expected CLI and Evolver command surfaces.
@@ -290,7 +290,7 @@ The TUI RPC group (`tests/test_tui_rpc_*`, `tests/test_tui_turn_logging.py`, `te
 ### 9.3 PicoBench and UI commands
 
 ```powershell
-& 'D:\Agent Learning\.pico-baseline-venv\Scripts\python.exe' -m benchmarks.picobench --mode smoke
+& '<parent-root>\.pico-baseline-venv\Scripts\python.exe' -m benchmarks.picobench --mode smoke
 npm test --prefix ui-tui -- --run
 ```
 
