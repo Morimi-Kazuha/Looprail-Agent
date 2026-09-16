@@ -11,7 +11,6 @@ ForgeAgent 是一个面向真实代码仓库的个人开源 Coding Agent。它�
 
 模型负责推理和决策；本地 Runtime 负责受控执行、状态管理、检查点、记忆以及过程证据。
 
-项目的公开身份是 ForgeAgent；当前 Python 包和 CLI 仍保留 `pico` 兼容标识，因此下方命令使用 `uv run pico`。
 
 ## 项目简介
 
@@ -42,8 +41,6 @@ ForgeAgent 面向无法靠一次问答完成的工程任务。一个任务可以
 - **Controlled Self-Evolution** —— 基于执行证据评估候选 Runtime 改进，并由人明确控制是否采用。
 
 ## 架构
-
-从产品视角看，主循环保持简单：
 
 ```mermaid
 flowchart TD
