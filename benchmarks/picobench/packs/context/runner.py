@@ -292,7 +292,19 @@ class RuntimeContextTrialRunner:
                 "end_to_end_latency_ms": latency_ms,
             },
             findings=tuple(findings),
-            artifact_refs=(relative_root.as_posix(),),
+            artifact_refs=tuple(
+                dict.fromkeys(
+                    (
+                        relative_root.as_posix(),
+                        *(verification.result.artifact_refs or ()),
+                        *((observation.trace_artifact_ref,) if observation.trace_artifact_ref else ()),
+                    )
+                )
+            ),
+            measurement_valid=(verification.infrastructure_error is None),
+            run_id=observation.run_id,
+            turn_id=observation.turn_id,
+            trace_artifact_ref=observation.trace_artifact_ref,
         )
 
 

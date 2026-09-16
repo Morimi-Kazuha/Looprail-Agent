@@ -65,12 +65,27 @@ class Span:
         "_session_key",
         "_channel",
         "_chat_id",
+        "_turn_id",
         "_perf0",
         "_cancelled",
         "_source",
     )
 
-    def __init__(self, name, kind, *, trace_id, span_id, parent, session_key, channel, chat_id, start, source=None):
+    def __init__(
+        self,
+        name,
+        kind,
+        *,
+        trace_id,
+        span_id,
+        parent,
+        session_key,
+        channel,
+        chat_id,
+        turn_id,
+        start,
+        source=None,
+    ):
         self.name = name
         self.kind = kind
         self.trace_id = trace_id
@@ -79,6 +94,7 @@ class Span:
         self._session_key = session_key
         self._channel = channel
         self._chat_id = chat_id
+        self._turn_id = turn_id
         self._start = start
         self._source = source
         self._perf0 = time.monotonic()
@@ -109,7 +125,12 @@ class Span:
         Reference，仍需检查 Error/Path。
         """
         try:
-            meta = {"traceId": self.trace_id, "sessionKey": self._session_key}
+            meta = {
+                "traceId": self.trace_id,
+                "runId": self.trace_id,
+                "turnId": self._turn_id,
+                "sessionKey": self._session_key,
+            }
             art = _spans.persist_artifact(key, meta, sanitize_persisted_payload(payload), label=key)
             self._attrs.update(_spans.artifact_attributes(key, art))
         except Exception:  # noqa: BLE001 — tracing 不得破坏 Host
@@ -172,6 +193,8 @@ class Span:
                     trace_id=self.trace_id,
                     span_id=self.span_id,
                     parent_span_id=self._parent,
+                    run_id=self.trace_id,
+                    turn_id=self._turn_id,
                     session_key=self._session_key,
                     channel=self._channel,
                     chat_id=self._chat_id,
@@ -197,6 +220,7 @@ class _NoopSpan:
 
     trace_id = ""
     span_id = ""
+    turn_id = ""
     name = ""
     invocation_source = None
 
@@ -273,6 +297,7 @@ def span(
             session_key=session_key,
             channel=channel,
             chat_id=chat_id,
+            turn_id=turn_id,
             start=_spans.now_iso(),
             source=cur.source if cur else None,
         )
@@ -319,6 +344,8 @@ def span(
                         trace_id=handle.trace_id,
                         span_id=handle.span_id,
                         parent_span_id=handle._parent,
+                        run_id=handle.trace_id,
+                        turn_id=handle._turn_id,
                         session_key=handle._session_key,
                         channel=handle._channel,
                         chat_id=handle._chat_id,

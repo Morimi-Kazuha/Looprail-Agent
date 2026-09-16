@@ -825,7 +825,7 @@ def _print_node_help(out=None) -> None:
     msg = (
         "✗ TUI 启动失败：未找到 Node.js ≥ 22。\n"
         "  安装：https://nodejs.org/  或  brew install node@22  或  nvm install 22\n"
-        "  或：临时使用行式 REPL  ->  pico run --legacy-repl\n"
+        "  或：使用当前支持的行式 Agent 入口  ->  pico run --help\n"
     )
     typer.echo(msg, file=out)
 

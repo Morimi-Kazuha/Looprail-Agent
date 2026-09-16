@@ -92,6 +92,9 @@ class ContextConfig(_Base):
     protect_first_n: int = 3
     """Context 中始终保留的 Head Exchanges 数量，防止初始约束被 Curator 丢弃。"""
 
+    runtime_margin_tokens: int = Field(default=1_024, ge=0)
+    """从 Provider 输入预算中额外保留的运行时余量，覆盖序列化/计数差异。"""
+
     archive_dir: str = "memory/.curator/archive"
     """Workspace 下 Lossless Message Archives 的 Relative Path；目录创建与写入由 Context Engine 负责。"""
 
@@ -426,9 +429,10 @@ class PluginsConfig(_Base):
 class MemoryConfig(_Base):
     """选择 Active Memory Backend，并配置 Recall Identity/Top-K。
 
-    ``backend`` 是 Activated ``memory_backend`` Contribution Name；设 `None` 会禁用 Implicit Memory Recall、
-    Persistence、Personalization 与 Curator Memory Tools，同时保留 Sessions/Local Skills。``user_id`` 是
-    User Recall Track 的 Public Interface Identity。Backend 成功 Resolve 不代表远端 Store 可访问。
+    ``backend`` 是 Activated ``memory_backend`` Contribution Name；设 `None` 会禁用外部 Backend 的
+    Implicit Recall、Persistence、Personalization 与 Curator Memory Tools，同时保留 Sessions/Local Skills。
+    若本地 Structured Memory 已由 Runtime 明确写入，Context 仍可在无外部 Backend 时读取它。``user_id``
+    是 User Recall Track 的 Public Interface Identity。Backend 成功 Resolve 不代表远端 Store 可访问。
     """
 
     backend: str | None = "myna"
@@ -441,6 +445,15 @@ class MemoryConfig(_Base):
 
     memory_top_k: int = 5
     """每 Turn 为 ``# Recalled memory`` Block 传给 ``backend.recall(user_id=user_id)`` 的 Top-K Upper Bound。"""
+
+    project_id: str | None = None
+    """可选的显式 Project Boundary；缺省时 repo identity 作为 Project Boundary。"""
+
+    structured_top_k: int = Field(default=5, ge=0, le=64)
+    """本地结构化 Memory 每 Turn 的最大候选数；这是 bounded retrieval，不是 whole-store dump。"""
+
+    structured_max_chars: int = Field(default=6_000, ge=0, le=32_000)
+    """本地结构化 Memory 每 Turn 的文本预算；不能挤占 L0/L1/L2 保护层。"""
 
 
 class SkillForgeRouterConfig(_Base):

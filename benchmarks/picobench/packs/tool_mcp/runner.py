@@ -455,7 +455,19 @@ async def _run_runtime_trial(
             "end_to_end_latency_ms": latency_ms,
         },
         findings=tuple(findings),
-        artifact_refs=(isolation.root.relative_to(context.experiment.output_root).as_posix(),),
+        artifact_refs=tuple(
+            dict.fromkeys(
+                (
+                    isolation.root.relative_to(context.experiment.output_root).as_posix(),
+                    *(verification.artifact_refs or ()),
+                    *((observation.trace_artifact_ref,) if observation.trace_artifact_ref else ()),
+                )
+            )
+        ),
+        measurement_valid=(verification.state is not VerificationState.NOT_RUN),
+        run_id=observation.run_id,
+        turn_id=observation.turn_id,
+        trace_artifact_ref=observation.trace_artifact_ref,
     )
 
 

@@ -130,6 +130,13 @@ def _message_token_parts(message: dict[str, Any]) -> list[str]:
                 text = part.get("text", "")
                 if text:
                     parts.append(text)
+            elif isinstance(part, dict) and part.get("type") in {"image_url", "input_image"}:
+                # Provider image accounting is not proportional to the
+                # base64 transport payload.  Counting the inline bytes here
+                # would make a valid multimodal request look many thousands
+                # of text tokens over budget and would also leak transport
+                # representation into Context decisions.
+                parts.append("[image]")
             else:
                 parts.append(json.dumps(part, ensure_ascii=False))
     elif content is not None:

@@ -11,7 +11,26 @@ Contract Test Classes 采用 Lazy Export，避免 Production ``import pico.memor
 
 from typing import TYPE_CHECKING
 
-from pico.memory_engine.backend import Memory, MemoryBackend
+from pico.memory_engine.backend import (
+    MEMORY_ITEM_SCHEMA,
+    MEMORY_KINDS,
+    MEMORY_SCOPES,
+    MEMORY_STATUSES,
+    MEMORY_VERIFICATIONS,
+    Memory,
+    MemoryBackend,
+    MemoryItem,
+    MemoryKind,
+    MemoryProvenance,
+    MemoryScope,
+    MemoryStatus,
+    MemoryVerification,
+    MemoryWriteResult,
+    StructuredMemoryBackend,
+    memory_content_digest,
+    normalize_memory_provenance,
+    normalize_memory_text,
+)
 from pico.memory_engine.base import AssembledContext, TokenBudget
 
 if TYPE_CHECKING:
@@ -22,11 +41,27 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AssembledContext",
+    "MEMORY_ITEM_SCHEMA",
+    "MEMORY_KINDS",
+    "MEMORY_SCOPES",
+    "MEMORY_STATUSES",
+    "MEMORY_VERIFICATIONS",
     "LifecycleContractTests",
     "Memory",
     "MemoryBackend",
     "MemoryBackendContractTests",
+    "MemoryItem",
+    "MemoryKind",
+    "MemoryProvenance",
+    "MemoryScope",
+    "MemoryStatus",
+    "MemoryVerification",
+    "MemoryWriteResult",
+    "StructuredMemoryBackend",
     "TokenBudget",
+    "memory_content_digest",
+    "normalize_memory_provenance",
+    "normalize_memory_text",
 ]
 
 

@@ -13,8 +13,9 @@ Behavior。
 from __future__ import annotations
 
 from . import config, trace
+from .store import TraceStore
 
-__all__ = ["enabled", "trace"]
+__all__ = ["TraceStore", "enabled", "trace"]
 
 
 def enabled() -> bool:

@@ -102,6 +102,12 @@ class ToolEvent:
     duration_ms: float | None = None
     source: Source | None = None
     conversation_id: str | None = None
+    # Optional receipts from the Phase 2 Tool Runtime.  Presentation layers
+    # may render these, but must not manufacture them.  Kept after the
+    # pre-existing fields so positional compatibility remains intact.
+    effect_id: str | None = None
+    effect_status: str | None = None
+    failure_category: str | None = None
 
 
 @dataclass(frozen=True)

@@ -39,6 +39,10 @@ class HostTurnObservation:
     runtime_state: TurnTerminalState
     delivery_state: DeliveryOutcome
     failure_category: str | None
+    run_id: str | None = None
+    turn_id: str | None = None
+    trace_artifact_ref: str | None = None
+    trace_summary: dict[str, Any] | None = None
 
 
 class RuntimeTrialHost:
@@ -131,12 +135,42 @@ class RuntimeTrialHost:
             delivery = DeliveryOutcome.DELIVERED
         else:
             delivery = DeliveryOutcome.DROPPED
+        # Correlation is observational and lives in the durable trace index;
+        # keep TurnOutcome's frozen public shape unchanged for lightweight
+        # runners and existing scheduler callers.
+        run_id = None
+        turn_id = request.turn_id
+        trace_artifact_ref = None
+        trace_summary = None
+        # A failed/cancelled Scheduler path returns no outcome. Resolve its
+        # run from the durable root-span index so the Trial can still point at
+        # execution evidence; the terminal status remains owned by lifecycle
+        # events and the runtime outcome classifier above.
+        try:
+            from pico.tracing import config as trace_config
+            from pico.tracing import trace as trace_api
+            from pico.tracing.store import TraceStore
+
+            if trace_api.enabled():
+                trace_store = TraceStore(trace_config.state_dir())
+                run_id = run_id or trace_store.find_run_id(turn_id)
+                if run_id:
+                    trace_artifact_ref = trace_store.trace_artifact_ref(run_id)
+                    trace_summary = trace_store.trace_summary(run_id)
+        except Exception:
+            # Trace is observational. A missing optional summary must not
+            # change the host's already-determined task/runtime result.
+            pass
         return HostTurnObservation(
             outcome=outcome,
             events=events,
             runtime_state=terminal,
             delivery_state=delivery,
             failure_category=failure_category,
+            run_id=run_id,
+            turn_id=turn_id,
+            trace_artifact_ref=trace_artifact_ref,
+            trace_summary=trace_summary,
         )
 
     async def close(self) -> None:

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
-import fcntl
 import json
 import math
 import os
@@ -17,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+from pico.utils.portable_lock import LockTimeoutError, file_lock
 
 from benchmarks.picobench.budget import (
     ProviderBudgetConfig,
@@ -759,12 +760,16 @@ def _inspect_semantic_budget_ledger(
                 "semantic embedding budget ledger bootstrap failed",
             ) from exc
     try:
-        with path.open("r", encoding="utf-8") as handle:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
-            events = [json.loads(line) for line in handle if line.strip()]
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        # A shared/read lock is not available as a portable project-level
+        # contract. An exclusive anchor lock keeps this short ledger snapshot
+        # consistent on both Windows and POSIX.
+        with file_lock(path.with_suffix(path.suffix + ".lock")):
+            with path.open("r", encoding="utf-8") as handle:
+                events = [json.loads(line) for line in handle if line.strip()]
     except (OSError, json.JSONDecodeError) as exc:
         raise SemanticCampaignError("semantic embedding budget ledger is unreadable") from exc
+    except LockTimeoutError as exc:
+        raise SemanticCampaignError("semantic embedding budget ledger is busy") from exc
     reservations: dict[str, float] = {}
     terminal: dict[str, float] = {}
     for event in events:
@@ -1363,18 +1368,11 @@ def _exclusive_semantic_lock(
     lock_root = output_root / ".locks"
     lock_root.mkdir(parents=True, exist_ok=True)
     lock_path = lock_root / f"{experiment_id}.lock"
-    with lock_path.open("a+b") as handle:
-        try:
-            fcntl.flock(
-                handle.fileno(),
-                fcntl.LOCK_EX | fcntl.LOCK_NB,
-            )
-        except BlockingIOError as exc:
-            raise SemanticCampaignError("semantic experiment already has an active writer") from exc
-        try:
+    try:
+        with file_lock(lock_path, blocking=False):
             yield
-        finally:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    except LockTimeoutError as exc:
+        raise SemanticCampaignError("semantic experiment already has an active writer") from exc
 
 
 def _freeze_json(path: Path, value: dict[str, Any]) -> None:
@@ -1427,9 +1425,14 @@ def _atomic_write(path: Path, payload: bytes) -> None:
 
 
 def _fsync_directory(path: Path) -> None:
-    directory_fd = os.open(path, os.O_RDONLY)
+    try:
+        directory_fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
     try:
         os.fsync(directory_fd)
+    except OSError:
+        pass
     finally:
         os.close(directory_fd)
 

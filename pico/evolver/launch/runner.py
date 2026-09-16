@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 from pico.evolver.activation import write_evolution_summary
+from pico.evolver.lineage import finalize_candidate_lineages
 from pico.evolver.launch.config import RunSpec, RunSpecError, load_run_spec
 from pico.evolver.launch.contract import BenchBundle, LaunchContext
 from pico.evolver.launch.models import build_role_call_fns, describe_models
@@ -274,6 +275,13 @@ def _unseal_and_report(
     if not meta.unsealed_at:
         meta.stamp_unsealed(reason=reason)
     atomic_write_json(Path(spec.work_dir) / "retention.json", report)
+    # Candidate lineage sidecars are updated only after the sealed runner has
+    # completed.  This preserves the train-time firewall while leaving a
+    # durable correlation from candidate identity to held-out evidence.
+    try:
+        finalize_candidate_lineages(spec.work_dir, spec.funnel.sealed_output_dir or (spec.work_dir / "sealed"))
+    except ValueError as exc:
+        print(f"candidate lineage finalization warning: {exc}", file=sys.stderr)
     _say(f"retention report -> {Path(spec.work_dir) / 'retention.json'}")
     for key in (
         "best_round",

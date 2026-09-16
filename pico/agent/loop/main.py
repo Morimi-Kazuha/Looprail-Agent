@@ -16,6 +16,7 @@ Provider 获得模型输出，再执行模型选择的 Tool。只要模型继续
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import re
 from contextlib import AsyncExitStack
@@ -34,6 +35,7 @@ from pico.agent.loop.recovery import (
     RecoveryLimits,
     classify_empty_response,
 )
+from pico.agent.recovery import RecoveryProjector, RecoveryState
 from pico.agent.subagent import SubagentManager
 from pico.agent.tools.ask_user import AskUserTool
 from pico.agent.tools.base import ToolResult
@@ -47,8 +49,10 @@ from pico.agent.tools.skill import SkillReadTool
 from pico.agent.tools.spawn import SpawnTool
 from pico.agent.tools.web import WebFetchTool, WebSearchTool
 from pico.call_efficiency.pricing import resolve_context_window
+from pico.context_engine.budget import resolve_context_limits
+from pico.context_engine.history_trimmer import RuntimeContextTrimmer
 from pico.memory_engine.base import TokenBudget
-from pico.memory_engine.consolidate.consolidator import MemoryConsolidator, MemoryStore
+from pico.memory_engine.consolidate.consolidator import MemoryConsolidator
 from pico.providers.base import ErrorClassification, LLMProvider, LLMResponse, ToolCallRequest
 from pico.sandbox import SandboxConfig, SandboxExecutor, SandboxInitError, build_executor
 from pico.session.manager import Session, SessionManager
@@ -335,6 +339,8 @@ class AgentLoop:
             skill_forge_config=skill_forge_config,
             llm_provider=self.provider,
             now_fn=now_fn,
+            project_id=getattr(memory_config, "project_id", None),
+            user_id=getattr(memory_config, "user_id", "default"),
         )
         self.sessions = session_manager or SessionManager(self.state)
         # 从注册表中排除的工具名称。在默认工具注册和 MCP 连接后均应用，因此可同时限制两组。
@@ -400,6 +406,17 @@ class AgentLoop:
         # Turn 因迭代上限中断时，保存 session_key -> {"checkpoint_id", "files"}；
         # 下一个 Turn 的恢复提示词会消费它。
         self._pending_recovery: dict[str, dict] = {}
+        # Durable recovery is loaded only when a Host explicitly selects
+        # ``--resume``/``--continue``.  The projection is a fresh-Turn hint;
+        # it is never a live process/provider/tool handle.
+        self.recovery_projector = RecoveryProjector(
+            self.state,
+            workspace=self.workspace,
+            session_manager=self.sessions,
+            effect_journal=self.effect_journal,
+            checkpoint_dir=getattr(self._checkpoint, "_git_dir", None),
+        )
+        self._resume_projections: dict[str, RecoveryState] = {}
 
         self._sandbox_config = sandbox_config
         self._owned_ids: set[str] = set()
@@ -446,6 +463,7 @@ class AgentLoop:
             build_messages=self.context.build_messages,
             get_tool_definitions=self.tools.get_definitions,
             now_fn=now_fn,
+            store=self.context.memory,
         )
 
         self._personalization_tasks: set[asyncio.Task[Any]] = set()
@@ -456,7 +474,8 @@ class AgentLoop:
         # B-3 阶段已移除 L4 外观（``DefaultMemoryEngine`` / ``MemoryEngine`` 抽象基类）。
         # AgentLoop 现在直接持有底层子系统：
         #
-        # - ``self.memory_consolidator`` 负责 Markdown 压缩策略，并拥有它构建的 ``MemoryStore``；
+        # - ``self.memory_consolidator`` 负责 Markdown 压缩策略，并复用 ``ContextBuilder`` 的唯一
+        #   ``MemoryStore``；
         #   需要时通过 ``self.memory_consolidator.store`` 访问。
         # - ``self.context.skills`` 是 :class:`LocalSkillCatalog`，负责常驻 Skill 和 ``# Skills`` 渲染路径。
         #   由 ``context_engine.factory`` 组装的 SkillForgeRouter 栈拥有检索职责。
@@ -608,7 +627,12 @@ class AgentLoop:
             return list(session.messages)
         return session.get_history(max_messages=0)
 
-    def _make_token_budget(self, selected_skills: list[Any] | None = None) -> TokenBudget:
+    def _make_token_budget(
+        self,
+        selected_skills: list[Any] | None = None,
+        *,
+        model: str | None = None,
+    ) -> TokenBudget:
         """为当前 Context Engine 计算一份保守的单 Turn Prompt 预算。
 
         预算从 `context_window_tokens` 总窗口中依次预留模型最大输出、当前 Tool definitions
@@ -618,22 +642,37 @@ class AgentLoop:
         成可用历史。返回 `TokenBudget`，不裁剪消息本身。
         """
         reserved_output = int(getattr(getattr(self.provider, "generation", None), "max_tokens", 4096) or 4096)
+        effective_model = model or self.model
+        runtime_margin = int(getattr(self.context_config, "runtime_margin_tokens", 1_024) or 0)
+        limits = resolve_context_limits(
+            self.provider,
+            effective_model,
+            self.context_window_tokens,
+            reserved_output,
+            runtime_margin,
+        )
         tool_tokens = estimate_prompt_tokens([], self.tools.get_definitions())
+        local_structured_memory = bool(getattr(self.context.memory, "memory_items_file", None)) and bool(
+            self.context.memory.memory_items_file.exists()
+        )
         system_prompt = self.context.build_system_prompt(
             selected_skills,
-            include_memory=self.memory_enabled,
+            include_memory=self.memory_enabled or local_structured_memory,
         )
         system_tokens = estimate_prompt_tokens([{"role": "system", "content": system_prompt}])
         available_history = max(
             0,
-            self.context_window_tokens - reserved_output - tool_tokens - system_tokens,
+            limits.input_context_budget - tool_tokens - system_tokens,
         )
         return TokenBudget(
-            context_length=self.context_window_tokens,
-            reserved_output=reserved_output,
+            context_length=limits.effective_context_limit,
+            reserved_output=limits.reserved_output,
             reserved_tools=tool_tokens,
             reserved_system=system_tokens,
             available_history=available_history,
+            runtime_margin=limits.runtime_margin,
+            provider_context_limit=limits.provider_context_limit,
+            budget_source=limits.source,
         )
 
     async def _select_skills_for_turn(
@@ -661,7 +700,9 @@ class AgentLoop:
         channel: str | None = None,
         chat_id: str | None = None,
         selected_skills: list[Any] | None = None,
+        model: str | None = None,
         metadata_sink: dict[str, Any] | None = None,
+        budget_sink: dict[str, TokenBudget] | None = None,
     ) -> list[dict[str, Any]]:
         """请求当前 Context Engine 组装主 Agent 本轮实际可见的消息窗口。
 
@@ -677,23 +718,99 @@ class AgentLoop:
         from pico.context_engine import TurnContext  # 延迟导入，原因见模块说明
 
         session_messages = self._context_messages_for_session(session)
+        budget = self._make_token_budget(selected_skills, model=model)
+        recovery_evidence, recovery_meta = self._recovery_context_for_turn(session_key)
+        if budget_sink is not None:
+            budget_sink["budget"] = budget
         assembled = await self.context_engine.assemble(
             session_key,
             session_messages,
-            self._make_token_budget(selected_skills),
+            budget,
             turn=TurnContext(
                 current_message=current_message,
                 media=media,
                 channel=channel,
                 chat_id=chat_id,
                 selected_skills=selected_skills,
+                recovery_evidence=recovery_evidence,
             ),
         )
         if metadata_sink is not None:
             metadata_sink.update(assembled.metadata or {})
+            if recovery_evidence:
+                metadata_sink.update(recovery_meta)
+                # This prefix is model-visible for this Turn but is not a
+                # user-authored Session fact.  _save_turn removes it after the
+                # Provider work completes.
+                metadata_sink["_context_only_prefixes"] = [recovery_evidence]
         messages = assembled.messages
-        self._inject_recovery_block(session_key, messages)
+        if recovery_evidence:
+            self._consume_recovery_context(session_key)
         return messages
+
+    def _recovery_context_for_turn(self, session_key: str) -> tuple[str | None, dict[str, Any]]:
+        """Return bounded recovery evidence before Context assembly.
+
+        Putting the evidence into ``TurnContext`` makes it part of Curator's
+        exact fixed-overhead calculation.  The projection itself remains the
+        Phase 3 read-only object; this method only renders its existing prompt
+        block and never executes recovery work.
+        """
+        projection = self._resume_projections.get(session_key)
+        if projection is not None:
+            return projection.prompt_block(), {
+                "recovery_resumed": True,
+                "recovery_projection_id": projection.projection_id,
+                "recovery_unknown_effect_ids": list(projection.unknown_effect_ids[:16]),
+                "recovery_checkpoint_id": projection.checkpoint_id,
+                "recovery_effect_count": len(projection.plans),
+                "recovery_context_source": "durable_projection",
+            }
+
+        recovery = self._pending_recovery.get(session_key)
+        if not recovery:
+            return None, {}
+        files = recovery.get("files") or []
+        checkpoint_id = recovery.get("checkpoint_id")
+        lines = ["[Recovery — the previous turn was interrupted before finishing]"]
+        if files:
+            lines.append("Files modified last turn: " + ", ".join(files))
+        if checkpoint_id:
+            lines.append(f"Checkpoint: {checkpoint_id}")
+        lines.append("Verify the current state of these files before continuing.")
+        return "\n".join(lines), {
+            "recovery_resumed": True,
+            "recovery_checkpoint_id": checkpoint_id,
+            "recovery_effect_count": 0,
+            "recovery_context_source": "same_process_pending",
+        }
+
+    @staticmethod
+    def _protected_context_positions(
+        context_metadata: dict[str, Any],
+        initial_messages: list[dict[str, Any]],
+    ) -> set[int]:
+        """Map Curator-protected Session ids to live message positions."""
+        validation = context_metadata.get("validation")
+        if not isinstance(validation, dict):
+            return set()
+        included = validation.get("included_message_ids")
+        protected = validation.get("protected_message_ids")
+        if not isinstance(included, list) or not isinstance(protected, list):
+            return set()
+        positions = {message_id: position for position, message_id in enumerate(included)}
+        return {
+            position + 1
+            for message_id, position in positions.items()
+            if message_id in protected and position + 1 < len(initial_messages) - 1
+        }
+
+    def _consume_recovery_context(self, session_key: str) -> None:
+        """Consume a recovery hint only after successful budgeted assembly."""
+        self._resume_projections.pop(session_key, None)
+        # A durable projection supersedes a same-process checkpoint hint, as in
+        # the original Phase 3 injection boundary.
+        self._pending_recovery.pop(session_key, None)
 
     @staticmethod
     def _checkpoint_active(policy: str, interactive: bool) -> bool:
@@ -709,6 +826,92 @@ class AgentLoop:
         if policy == "always":
             return True
         return interactive  # policy 为 interactive
+
+    def prepare_resume(self, session_key: str) -> RecoveryState:
+        """Load durable recovery facts for the next, newly constructed Turn.
+
+        This method is intentionally synchronous and read-only.  The CLI calls
+        it after the existing runtime assembly and before Scheduler submission;
+        Scheduler still creates/propagates the new Turn identity.
+        """
+        projection = self.recovery_projector.project(session_key)
+        self._resume_projections[session_key] = projection
+        logger.info(
+            "recovery prepared for session={} projection={} plans={} unknown_effects={}",
+            session_key,
+            projection.projection_id,
+            len(projection.plans),
+            len(projection.unknown_effect_ids),
+        )
+        return projection
+
+    def _trace_resume(self, session_key: str, new_turn_id: str | None) -> None:
+        projection = self._resume_projections.get(session_key)
+        if projection is None:
+            return
+        with trace.span(
+            "recovery.resume",
+            projection.trace_attributes(new_turn_id=new_turn_id),
+            kind="session",
+            session_key=session_key,
+            turn_id=new_turn_id,
+            detached=True,
+        ) as span:
+            span.event("recovery.resumed_continuation")
+
+    def _persist_recovery_turn(
+        self,
+        session_key: str,
+        turn_id: str | None,
+        outcome: "TurnOutcome",
+    ) -> None:
+        """Persist a marker without allowing optional recovery I/O to fail a Turn."""
+        try:
+            self.recovery_projector.record_turn(
+                session_key=session_key,
+                turn_id=turn_id,
+                status=outcome.status,
+                checkpoint_id=outcome.checkpoint_id,
+                checkpoint_files=outcome.edited_files,
+            )
+        except Exception:  # noqa: BLE001 — recovery marker is a best-effort index, not Turn truth.
+            logger.warning("could not persist recovery marker for session={}", session_key, exc_info=True)
+
+    def _inject_durable_recovery_block(
+        self,
+        session_key: str,
+        messages: list[dict],
+        metadata_sink: dict[str, Any] | None = None,
+    ) -> None:
+        """Inject a bounded projection once, after it has been safely rendered."""
+        projection = self._resume_projections.get(session_key)
+        if projection is None or not messages:
+            return
+        last = messages[-1]
+        if last.get("role") != "user":
+            return
+        content = last.get("content")
+        block = projection.prompt_block()
+        if isinstance(content, str):
+            last["content"] = f"{block}\n\n{content}"
+        elif isinstance(content, list):
+            last["content"] = [{"type": "text", "text": block}] + content
+        else:
+            return
+        if metadata_sink is not None:
+            metadata_sink.update(
+                {
+                    "recovery_resumed": True,
+                    "recovery_projection_id": projection.projection_id,
+                    "recovery_unknown_effect_ids": list(projection.unknown_effect_ids[:16]),
+                    "recovery_checkpoint_id": projection.checkpoint_id,
+                    "recovery_effect_count": len(projection.plans),
+                }
+            )
+        self._resume_projections.pop(session_key, None)
+        # The durable block subsumes the legacy same-process checkpoint hint for
+        # an explicitly resumed Session, avoiding two contradictory prompts.
+        self._pending_recovery.pop(session_key, None)
 
     def _stash_recovery(self, session_key: str, outcome: "TurnOutcome") -> None:
         """暂存一次中断 Turn 的快照证据，供同一 Session 的下一轮生成恢复提示。
@@ -1227,6 +1430,11 @@ class AgentLoop:
         drain: Drain | None = None,
         origin: Origin | None = None,
         turn_id: str | None = None,
+        context_budget: TokenBudget | None = None,
+        protected_positions: set[int] | None = None,
+        turn_start_idx: int | None = None,
+        turn_start_idx_sink: dict[str, int] | None = None,
+        context_decision_sink: dict[str, Any] | None = None,
     ) -> tuple[str | None, list[str], list[dict], TurnOutcome]:
         """执行一次有预算的模型—Tool 迭代，并返回回复、证据与明确终态。
 
@@ -1246,6 +1454,26 @@ class AgentLoop:
         会把“尚未完成”的 interrupted 事实改写成 completed。
         """
         messages = initial_messages
+        if turn_start_idx is None:
+            turn_start_idx = max(
+                (index for index, message in enumerate(messages) if message.get("role") == "user"),
+                default=max(0, len(messages) - 1),
+            )
+        protected_positions = set(protected_positions or set())
+        runtime_compactor = (
+            RuntimeContextTrimmer(
+                self.provider,
+                model or self.model,
+                self.tools.get_definitions,
+                context_limit=context_budget.context_length,
+                reserved_output=context_budget.reserved_output,
+                runtime_margin=context_budget.runtime_margin,
+            )
+            if context_budget is not None
+            else None
+        )
+        tool_observation_meta: dict[str, dict[str, Any]] = {}
+        original_tool_contents: dict[str, str] = {}
         iteration = 0
         final_content = None
         tools_used: list[str] = []
@@ -1292,6 +1520,49 @@ class AgentLoop:
                     if inj_text:
                         messages.append({"role": "user", "content": inj_text})
                         logger.info("inject: merged a mid-turn user message")
+
+            if runtime_compactor is not None:
+                compacted = runtime_compactor.fit(
+                    messages,
+                    turn_start_idx=turn_start_idx,
+                    observation_meta=tool_observation_meta,
+                    protected_positions=protected_positions,
+                )
+                if compacted.changed:
+                    messages = compacted.messages
+                    for call_id, content in compacted.original_tool_contents.items():
+                        original_tool_contents.setdefault(call_id, content)
+                    removed = set(compacted.dropped_history_positions)
+                    protected_positions = {
+                        position - sum(1 for index in removed if index < position)
+                        for position in protected_positions
+                        if position not in removed
+                    }
+                    turn_start_idx -= compacted.removed_before_turn
+                    if context_decision_sink is not None:
+                        context_decision_sink.setdefault("runtime_context_decisions", []).extend(
+                            compacted.decisions
+                        )
+                        context_decision_sink.setdefault("runtime_context_warnings", []).extend(
+                            compacted.warnings
+                        )
+                    with trace.span(
+                        "context.compact",
+                        {
+                            "context.limit": runtime_compactor.context_limit,
+                            "context.input_budget": compacted.input_context_budget,
+                            "context.estimated_tokens_after": compacted.estimated_tokens,
+                            "context.reserved_output": runtime_compactor.reserved_output,
+                            "context.runtime_margin": runtime_compactor.runtime_margin,
+                            "context.items_compacted": len(compacted.compacted_tool_call_ids),
+                            "context.items_dropped": len(compacted.dropped_history_positions),
+                            "context.reason": "live_tool_pressure",
+                            "context.estimate_source": compacted.source,
+                        },
+                        kind="memory",
+                        session_key=session_key,
+                    ) as span:
+                        span.artifact("context.decisions", compacted.decisions[:256])
 
             tool_defs = self.tools.get_definitions()
 
@@ -1446,6 +1717,25 @@ class AgentLoop:
                     result = execution.result
                     result_str = str(result)
                     preview = result_str.replace("\n", " ")[:200]
+                    effect_id = execution.effect_id or getattr(result, "effect_id", None)
+                    effect_status = None
+                    if effect_id is not None:
+                        try:
+                            effect_record = self.tools.effect_journal.latest(effect_id)
+                            effect_status = effect_record.status.value if effect_record is not None else None
+                        except Exception:  # noqa: BLE001 — event enrichment cannot change Tool truth.
+                            effect_status = None
+                    failure_category = None
+                    if _is_tool_failure(result):
+                        lowered = result_str.casefold()
+                        if "invalid parameters" in lowered or "not found" in lowered:
+                            failure_category = "tool_validation_failure"
+                        elif "timed out" in lowered:
+                            failure_category = "tool_timeout"
+                        elif "outcome is unknown" in lowered or "journal unavailable" in lowered:
+                            failure_category = "tool_effect_unknown"
+                        else:
+                            failure_category = "tool_execution_failure"
                     logger.info(
                         "Tool result: {} duration={}ms result={}",
                         invocation.name,
@@ -1468,6 +1758,9 @@ class AgentLoop:
                                 "target_name": invocation.name if nested else None,
                                 "target_arguments": invocation.arguments if nested else None,
                                 "duration_ms": execution.duration_ms,
+                                "effect_id": effect_id,
+                                "effect_status": effect_status,
+                                "failure_category": failure_category,
                             },
                         )
 
@@ -1480,6 +1773,11 @@ class AgentLoop:
                 for tool_call, execution in zip(response.tool_calls, executions, strict=True):
                     result = execution.result
                     messages = self.context.add_tool_result(messages, tool_call.id, tool_call.name, result)
+                    tool_observation_meta[tool_call.id] = {
+                        "name": tool_call.name,
+                        "failed": _is_tool_failure(result),
+                        "fingerprint": hashlib.sha256(str(result).encode("utf-8")).hexdigest(),
+                    }
                     # 跟踪同一工具的连续确定性失败；排除可通过重试清除的短暂错误。
                     if _is_hard_tool_failure(result):
                         if tool_call.name == loop_fail_tool:
@@ -1602,6 +1900,16 @@ class AgentLoop:
             if final_content:
                 messages = self.context.add_assistant_message(messages, final_content)
 
+        # Context compaction only changes the provider-facing copy. Restore
+        # full Tool observations before Session persistence; _save_turn applies
+        # its independent durable size cap.
+        if original_tool_contents:
+            for message in messages:
+                if message.get("role") == "tool":
+                    call_id = str(message.get("tool_call_id", ""))
+                    if call_id in original_tool_contents:
+                        message["content"] = original_tool_contents[call_id]
+
         # 持久化和返回前移除临时的空响应恢复脚手架。Pico 会用
         # ``_recovery_synthetic`` 标记合成的推动/预填消息，必须移除以免持久化。
         if any(m.get("_recovery_synthetic") for m in messages):
@@ -1620,6 +1928,8 @@ class AgentLoop:
             if status == "interrupted":
                 outcome.edited_files = changed
 
+        if turn_start_idx_sink is not None:
+            turn_start_idx_sink["index"] = turn_start_idx
         return final_content, tools_used, messages, outcome
 
     async def run(self) -> None:
@@ -1785,6 +2095,7 @@ class AgentLoop:
 
         key = session_key or msg_session_key
         session = self.sessions.get_or_create(key)
+        self._trace_resume(key, req.turn_id)
 
         # 斜杠命令
         cmd = content.strip().lower()
@@ -1827,7 +2138,7 @@ class AgentLoop:
 
             from pico.agent.personalizer import Personalizer
 
-            _personalizer = Personalizer(MemoryStore(self.state), self.provider, self.model)
+            _personalizer = Personalizer(self.context.memory, self.provider, self.model)
 
             # ── 步骤 2 完成阶段：用户正在回答待处理的澄清问题 ──
             if session.pending_clarification:
@@ -1930,22 +2241,10 @@ class AgentLoop:
             content,
             context_messages,
         )
-        context_metadata = context_metadata_sink if context_metadata_sink is not None else {}
-        initial_messages = await self._assemble_context_messages(
-            session=session,
-            session_key=key,
-            current_message=content,
-            media=turn_media if turn_media else None,
-            channel=channel,
-            chat_id=chat_id,
-            selected_skills=selected_skills or None,
-            metadata_sink=context_metadata,
-        )
-        injected_skill_ids = list(
-            context_metadata.get("injected_skill_ids") or self._collect_injected_skill_ids(selected_skills)
-        )
 
-        # ── 模型路由（EcoClaw 风格）──────────────────────────────────────────
+        # Resolve the primary model before Context assembly so its provider
+        # limit participates in the same budget that governs the request.  The
+        # router remains a model selector; it does not own context policy.
         routed_model: str | None = None
         fallback_models: list[str] = []
         if self.router is not None:
@@ -1954,8 +2253,32 @@ class AgentLoop:
                 logger.info("Router: {} → {}", self.model, routed_model)
             if fallback_models:
                 logger.info("Router fallback chain: {}", fallback_models)
+        effective_model = routed_model or self.model
+        replace_model = getattr(self.context_engine, "replace_model", None)
+        if callable(replace_model):
+            replace_model(effective_model)
+
+        context_metadata = context_metadata_sink if context_metadata_sink is not None else {}
+        budget_holder: dict[str, TokenBudget] = {}
+        initial_messages = await self._assemble_context_messages(
+            session=session,
+            session_key=key,
+            current_message=content,
+            media=turn_media if turn_media else None,
+            channel=channel,
+            chat_id=chat_id,
+            selected_skills=selected_skills or None,
+            model=effective_model,
+            metadata_sink=context_metadata,
+            budget_sink=budget_holder,
+        )
+        injected_skill_ids = list(
+            context_metadata.get("injected_skill_ids") or self._collect_injected_skill_ids(selected_skills)
+        )
 
         turn_start_idx = len(initial_messages) - 1
+        turn_start_idx_holder: dict[str, int] = {}
+        protected_positions = self._protected_context_positions(context_metadata, initial_messages)
         final_content, _, all_msgs, outcome = await self._run_agent_loop(
             initial_messages,
             on_progress=on_progress,
@@ -1970,8 +2293,15 @@ class AgentLoop:
             drain=drain,
             origin=origin,
             turn_id=req.turn_id,
+            context_budget=budget_holder.get("budget"),
+            protected_positions=protected_positions,
+            turn_start_idx=turn_start_idx,
+            turn_start_idx_sink=turn_start_idx_holder,
+            context_decision_sink=context_metadata,
         )
+        turn_start_idx = turn_start_idx_holder.get("index", turn_start_idx)
         self._stash_recovery(key, outcome)
+        self._persist_recovery_turn(key, req.turn_id, outcome)
         if outcome.status == "error":
             raise ProviderTurnError(outcome.error_category or "unknown")
 
@@ -1999,6 +2329,7 @@ class AgentLoop:
             all_msgs,
             turn_start_idx,
             origin,
+            context_only_prefixes=context_metadata.get("_context_only_prefixes", []),
         )
         self.sessions.save(session)
         await self.context_engine.after_turn(
@@ -2022,7 +2353,7 @@ class AgentLoop:
         if self.enable_personalization and origin is not Origin.SUBAGENT:
             from pico.agent.personalizer import Personalizer
 
-            _p4 = Personalizer(MemoryStore(self.state), self.provider, self.model)
+            _p4 = Personalizer(self.context.memory, self.provider, self.model)
 
             async def _post_learn():
                 await _p4.post_learn(content, final_content)
@@ -2054,6 +2385,7 @@ class AgentLoop:
         messages: list[dict],
         skip: int,
         origin: Origin | None = None,
+        context_only_prefixes: list[str] | None = None,
     ) -> list[dict]:
         """把本轮新增消息清理后追加到 Session，并返回实际持久化的切片。
 
@@ -2061,6 +2393,9 @@ class AgentLoop:
         `_recovery_synthetic` 的空响应恢复脚手架，以及没有正文和 Tool call 的 Assistant
         空消息都不会落盘。Tool 正文超过 `_TOOL_RESULT_MAX_CHARS` 时截断，避免单次外部输出
         无限膨胀历史；该截断只影响 Session 副本，不修改调用方的原消息。
+
+        Context-only recovery prefixes are removed here: they were shown and
+        budgeted for this Turn, but are not new user-authored Session facts.
 
         User 消息会剥离 `ContextBuilder._RUNTIME_CONTEXT_TAG` 前缀，多模态 data:image 只记录
         ``[image]`` 占位，随后统一经过 `sanitize_persisted_payload`。每条记录补入时间戳并
@@ -2105,12 +2440,69 @@ class AgentLoop:
                     if not filtered:
                         continue
                     entry["content"] = filtered
+            if role == "user" and context_only_prefixes:
+                entry["content"] = self._strip_context_only_prefixes(
+                    entry.get("content"),
+                    context_only_prefixes,
+                )
+                # Recovery prefixes can precede the runtime-context prefix.
+                # Re-run the runtime cleanup after removing the model-only
+                # block so neither prefix becomes a persisted Session fact.
+                if isinstance(entry.get("content"), str) and entry["content"].startswith(
+                    ContextBuilder._RUNTIME_CONTEXT_TAG
+                ):
+                    parts = entry["content"].split("\n\n", 1)
+                    if len(parts) > 1 and parts[1].strip():
+                        entry["content"] = parts[1]
+                    else:
+                        continue
+                elif isinstance(entry.get("content"), list):
+                    entry["content"] = [
+                        block
+                        for block in entry["content"]
+                        if not (
+                            isinstance(block, dict)
+                            and block.get("type") == "text"
+                            and isinstance(block.get("text"), str)
+                            and block["text"].startswith(ContextBuilder._RUNTIME_CONTEXT_TAG)
+                        )
+                    ]
+                if isinstance(entry.get("content"), str) and not entry["content"].strip():
+                    continue
+                if isinstance(entry.get("content"), list) and not entry["content"]:
+                    continue
             entry = sanitize_persisted_payload(entry)
             entry.setdefault("timestamp", self._now_fn().isoformat())
             session.record(entry)
             persisted.append(entry)
         session.updated_at = self._now_fn()
         return persisted
+
+    @staticmethod
+    def _strip_context_only_prefixes(content: Any, prefixes: list[str]) -> Any:
+        """Remove exact model-only prefixes from a User message copy."""
+        normalized = [prefix.strip() for prefix in prefixes if isinstance(prefix, str) and prefix.strip()]
+        if not normalized:
+            return content
+        if isinstance(content, str):
+            for prefix in normalized:
+                marker = prefix + "\n\n"
+                if content.startswith(marker):
+                    return content[len(marker) :]
+                if content == prefix:
+                    return ""
+            return content
+        if isinstance(content, list):
+            remaining = list(content)
+            while remaining and isinstance(remaining[0], dict):
+                block = remaining[0]
+                if block.get("type") != "text" or not isinstance(block.get("text"), str):
+                    break
+                if block["text"].strip() not in normalized:
+                    break
+                remaining.pop(0)
+            return remaining
+        return content
 
     async def run_turn(
         self,
@@ -2211,6 +2603,9 @@ class AgentLoop:
                             target_name=info.get("target_name"),
                             target_arguments=info.get("target_arguments"),
                             duration_ms=info.get("duration_ms"),
+                            effect_id=info.get("effect_id"),
+                            effect_status=info.get("effect_status"),
+                            failure_category=info.get("failure_category"),
                         )
                     )
 

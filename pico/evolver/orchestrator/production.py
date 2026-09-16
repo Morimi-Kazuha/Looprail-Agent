@@ -28,6 +28,8 @@ from pico.evolver.analysis.stability_bucket import (
     TaskStability,
     _bucket_for,
 )
+from pico.evolver.activation import load_activation_record
+from pico.evolver.candidate_manifest import ManifestGateError
 from pico.evolver.judge.llm_client import JudgeLLMBackend
 from pico.evolver.judge.parser import JudgeParseError, parse_pass_fail
 from pico.evolver.judge.prompts import build_pass_fail_messages
@@ -45,6 +47,15 @@ from pico.evolver.orchestrator.scoring import (
     EvalBackend,
     TaskEval,
     TrajectorySource,
+)
+from pico.evolver.lineage import (
+    CandidateLineage,
+    EvolutionRunFreeze,
+    LineageError,
+    TraceFailureEvidence,
+    claim_state_for_outcome,
+    freeze_evolution_run,
+    write_candidate_lineage,
 )
 from pico.evolver.scheduler.anchor_selection import simple_anchor
 from pico.evolver.tree.node import AppliedPatch, HarnessNode
@@ -481,6 +492,10 @@ def build_evolution_orchestrator(
     run_gate0: bool = True,
     preflight_fn=None,
     fired_source_of=None,
+    evolution_run_id: Optional[str] = None,
+    source_evidence: Optional[TraceFailureEvidence] = None,
+    verifier_identity: Optional[dict[str, str]] = None,
+    node_id_salt: Optional[str] = None,
 ) -> EvolutionOrchestrator:
     """Assemble a full evolution run, owning the wiring every bench shares.
 
@@ -518,6 +533,31 @@ def build_evolution_orchestrator(
         created_at=HarnessNode.utc_now(),
         created_at_iter=0,
     )
+    # Phase 8 source/evolution correlation is an optional hardening layer on
+    # the existing builder.  When supplied, it freezes the runtime label,
+    # allowlist, task packs, verifier identity and Claim Gate before any
+    # diagnosis/design callback can produce a candidate.  Legacy runs without
+    # source evidence retain their existing wiring and artifacts.
+    evolution_freeze: EvolutionRunFreeze | None = None
+    if source_evidence is not None:
+        identity = verifier_identity or {}
+        if not isinstance(identity, dict) or not identity.get("id") or not identity.get("digest"):
+            raise ValueError(
+                "Phase 8 source-backed Evolution Run requires an explicit independent verifier identity"
+            )
+        try:
+            evolution_freeze = freeze_evolution_run(
+                config.work_dir,
+                evolution_run_id=evolution_run_id or f"evolution-{base_sha[:12]}",
+                baseline_sha=base_sha,
+                source=source_evidence,
+                train_task_ids=backend.train_task_ids,
+                sealed_task_ids=backend.test_task_ids,
+                verifier_id=str(identity["id"]),
+                verifier_digest=str(identity["digest"]),
+            )
+        except (LineageError, TypeError, ValueError) as exc:
+            raise ValueError(f"cannot freeze Phase 8 Evolution Run: {exc}") from exc
     # 跨步骤共用状态
     sha_by_node: dict[str, str] = {root_node_id: base_sha}
     cand_by_node: dict[str, Any] = {}
@@ -555,6 +595,29 @@ def build_evolution_orchestrator(
 
     design_fn = design_of(sha_of, history, archive.summary_text)
 
+    def _prepare_candidate(node_id: str, parent_id: str, parent_sha: str, candidate: Any) -> None:
+        if evolution_freeze is not None:
+            expected = {
+                "evolution_run_id": evolution_freeze.evolution_run_id,
+                "source_run_id": source_evidence.source_run_id,
+                "source_trace_ref": source_evidence.trace_artifact,
+                "source_evidence_digest": source_evidence.evidence_digest,
+            }
+            for name, value in expected.items():
+                if getattr(candidate, name, "") != value:
+                    raise ManifestGateError(
+                        f"G5 manifest gate failed: candidate is not bound to frozen {name}"
+                    )
+        if prepare_candidate is not None:
+            prepare_candidate(node_id, parent_id, parent_sha, candidate)
+        if evolution_freeze is not None:
+            assert_frozen = getattr(candidate, "assert_frozen", None)
+            if not callable(assert_frozen) or not bool(getattr(candidate, "is_frozen", False)):
+                raise ManifestGateError(
+                    "G5 manifest gate failed: Trace-backed candidates must be manifested and frozen before evaluation"
+                )
+            assert_frozen()
+
     raw_apply = make_git_commit_apply_fn(
         repo_root,
         files_of,
@@ -563,7 +626,8 @@ def build_evolution_orchestrator(
         sha_by_node=sha_by_node,
         deletions_of=deletions_of,
         git_branch=git_branch,
-        before_commit=prepare_candidate,
+        node_id_salt=node_id_salt,
+        before_commit=_prepare_candidate if (prepare_candidate is not None or evolution_freeze is not None) else None,
         applied_patch_of=applied_patch_of,
     )
 
@@ -614,6 +678,12 @@ def build_evolution_orchestrator(
         )
         from pico.evolver.candidate_evidence import evaluate_candidate_evidence
 
+        assert_frozen = getattr(cand, "assert_frozen", None)
+        if evolution_freeze is not None:
+            if not callable(assert_frozen):
+                raise ValueError("Trace-backed candidate has no immutable evaluation identity")
+            assert_frozen()
+
         target_files = tuple(manifest.target_files)
         parent_sha = sha_by_node.get(ctx.parent_id)
         child_sha = ctx.node.git_commit_sha
@@ -630,7 +700,7 @@ def build_evolution_orchestrator(
             task_ids=ctx.train_task_ids,
             expected_attempts=config.k_confirm,
         )
-        create_activation_artifacts(
+        artifact_dir = create_activation_artifacts(
             config.work_dir,
             candidate_id=candidate_id,
             label=manifest.label.value,
@@ -643,6 +713,58 @@ def build_evolution_orchestrator(
             candidate_sha=child_sha,
             repo_root=repo_root,
         )
+        if evolution_freeze is not None:
+            activation_record = load_activation_record(artifact_dir, repo_root=repo_root)
+            train_payload = {
+                "status": outcome.status.value,
+                "verdict": outcome.verdict.value if outcome.verdict is not None else None,
+                "promoted": outcome.promoted,
+                "score": outcome.score,
+                "task_ids": list(ctx.train_task_ids),
+                "confirm_evals": [
+                    outcome.confirm_evals[task_id].to_dict()
+                    for task_id in ctx.train_task_ids
+                    if task_id in outcome.confirm_evals
+                ],
+                "stats": {
+                    key: value
+                    for key, value in (outcome.stats or {}).items()
+                    if key in {
+                        "full_lift",
+                        "full_mean",
+                        "control_full_mean",
+                        "verdict",
+                        "candidate_validity",
+                        "control_validity",
+                        "sentinel_regression",
+                    }
+                },
+            }
+            write_candidate_lineage(
+                config.work_dir,
+                CandidateLineage(
+                    evolution_run_id=evolution_freeze.evolution_run_id,
+                    source_run_id=source_evidence.source_run_id,
+                    source_trace_artifact=source_evidence.trace_artifact,
+                    source_evidence_digest=source_evidence.evidence_digest,
+                    baseline_sha=evolution_freeze.baseline_sha,
+                    parent_node_id=ctx.parent_id,
+                    candidate_id=candidate_id,
+                    label=manifest.label,
+                    patch_digest=manifest.patch_digest,
+                    fixture=str(manifest.fixture),
+                    evaluator=str(manifest.evaluator),
+                    activation_policy=manifest.activation_policy,
+                    train=train_payload,
+                    sealed={"status": "pending_unseal", "result_available": False},
+                    verifier={
+                        "id": evolution_freeze.verifier_id,
+                        "digest": evolution_freeze.verifier_digest,
+                    },
+                    claim_state=claim_state_for_outcome(outcome.verdict),
+                    activation_state=activation_record["state"],
+                ),
+            )
 
     def inert_hook(cand, outcome):
         # 预检裁剪的候选项从未得到节点，但其失败仍是设计经验：不可达的是触发器，而非机制。

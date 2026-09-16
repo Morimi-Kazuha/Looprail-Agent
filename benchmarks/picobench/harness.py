@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
+from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 from .artifacts import ArtifactStore, artifact_dict
@@ -48,7 +51,7 @@ async def run(
     plan = compile_plan(spec, packs)
     ref = ExperimentRef(
         experiment_id=plan.experiment_id,
-        root=spec.output_root / plan.experiment_id,
+        root=_portable_experiment_root(spec.output_root, plan.experiment_id, plan=plan),
     )
     store = ArtifactStore(ref)
     with store.exclusive_run_lock():
@@ -100,6 +103,55 @@ def rebuild_report(ref: ExperimentRef):
     from .report import rebuild_full_report
 
     return rebuild_full_report(ref)
+
+
+def _portable_experiment_root(
+    output_root: Path,
+    experiment_id: str,
+    *,
+    plan: ExperimentPlan | None = None,
+) -> Path:
+    """Keep the public artifact path usable by ordinary Windows ``Path`` I/O.
+
+    The benchmark identifiers remain full SHA-256 values.  When a temporary
+    directory plus that identifier would cross the conventional Windows path
+    limit, the root uses the documented extended-length namespace so callers
+    that inspect ``ref.root / ...`` do not silently hit ``WinError 206``.
+    """
+    root = Path(output_root) / experiment_id
+    if os.name != "nt":
+        return root
+    absolute = os.path.abspath(os.fspath(root))
+    if absolute.startswith("\\\\?\\"):
+        return root
+    candidates = [root / "manifest.json", root / "journal.jsonl", root / "summary.json"]
+    if plan is not None:
+        candidates.extend(
+            (
+                root
+                / "trials"
+                / trial.key.pack_id
+                / trial.key.task_id
+                / str(trial.key.repetition)
+                / trial.key.variant_id
+                / "trial-record.json"
+                for trial in plan.trials
+            )
+        )
+        candidates.extend(
+            (
+                root
+                / "retrieval"
+                / case.key.retrieval_suite_id
+                / case.key.query_id
+                / case.key.configuration_id
+                / "retrieval-case-record.json"
+                for case in plan.retrieval_cases
+            )
+        )
+    if max((len(os.path.abspath(os.fspath(path))) for path in candidates), default=len(absolute)) < 260:
+        return root
+    return Path("\\\\?\\" + absolute)
 
 
 async def _run_comparison_block(
@@ -160,7 +212,7 @@ async def _run_comparison_block(
                     }
                 )
                 continue
-            if all(record.status in MEASURABLE_TRIAL_STATUSES for record in selected_records.values()):
+            if all(_is_measurable_attempt(record) for record in selected_records.values()):
                 resolved = True
                 break
             continue
@@ -198,6 +250,12 @@ async def _run_comparison_block(
                     metrics=dict(execution.metrics),
                     findings=(*execution.findings, "variant_drift"),
                     artifact_refs=execution.artifact_refs,
+                    measurement_valid=False,
+                    run_id=execution.run_id,
+                    turn_id=execution.turn_id,
+                    trace_artifact_ref=execution.trace_artifact_ref,
+                    verifier_artifact_ref=execution.verifier_artifact_ref,
+                    reproducibility_ref=execution.reproducibility_ref,
                 )
             record = AttemptRecord(
                 key=attempt_key,
@@ -211,6 +269,12 @@ async def _run_comparison_block(
                 metrics=dict(execution.metrics),
                 findings=execution.findings,
                 artifact_refs=execution.artifact_refs,
+                measurement_valid=execution.measurement_valid,
+                run_id=execution.run_id,
+                turn_id=execution.turn_id,
+                trace_artifact_ref=execution.trace_artifact_ref,
+                verifier_artifact_ref=execution.verifier_artifact_ref,
+                reproducibility_ref=execution.reproducibility_ref,
             )
             pending_records[variant.variant_id] = record
 
@@ -232,7 +296,7 @@ async def _run_comparison_block(
             )
         selected_records = pending_records
 
-        if all(record.status in MEASURABLE_TRIAL_STATUSES for record in selected_records.values()):
+        if all(_is_measurable_attempt(record) for record in selected_records.values()):
             resolved = True
             break
 
@@ -304,10 +368,13 @@ async def _execute_trial(pack: Pack, context: TrialContext) -> TrialExecution:
             else contextlib.nullcontext()
         )
         with scope:
-            return await asyncio.wait_for(
+            execution = await asyncio.wait_for(
                 pack.run_trial(context),
                 timeout=context.experiment.execution.timeout_seconds,
             )
+            if not isinstance(execution, TrialExecution):
+                raise TypeError("Pack returned a non-TrialExecution result")
+            return _normalize_trial_execution(execution)
     except TimeoutError:
         return TrialExecution(
             status=TrialStatus.TASK_TIMEOUT,
@@ -316,6 +383,7 @@ async def _execute_trial(pack: Pack, context: TrialContext) -> TrialExecution:
             verification=VerifierResult(state=VerificationState.NOT_RUN),
             observed_variant_settings=dict(context.variant.settings),
             findings=("trial_timeout",),
+            measurement_valid=False,
         )
     except Exception as exc:
         return TrialExecution(
@@ -328,7 +396,45 @@ async def _execute_trial(pack: Pack, context: TrialContext) -> TrialExecution:
             ),
             observed_variant_settings=dict(context.variant.settings),
             findings=(f"pack_exception:{type(exc).__name__}",),
+            measurement_valid=False,
         )
+
+
+def _normalize_trial_execution(execution: TrialExecution) -> TrialExecution:
+    """Make task status and measurement validity explicit at the harness edge.
+
+    Ordinary task pass/fail/timeout outcomes remain measurable for backwards
+    compatibility. Provider, cancellation, infrastructure, inconclusive and
+    verifier-not-run outcomes are operationally incomplete and therefore never
+    become silently valid denominator rows.
+    """
+    invalid_statuses = {
+        TrialStatus.INFRASTRUCTURE_FAILURE,
+        TrialStatus.CANCELLED,
+        TrialStatus.INCONCLUSIVE,
+    }
+    measurement_valid = execution.measurement_valid is True
+    if execution.status in invalid_statuses:
+        measurement_valid = False
+    if execution.verification.state is VerificationState.NOT_RUN and execution.status not in {
+        TrialStatus.PROVIDER_FAILURE,
+        TrialStatus.TASK_TIMEOUT,
+    }:
+        measurement_valid = False
+    refs = list(execution.artifact_refs)
+    refs.extend(execution.verification.artifact_refs)
+    for reference in (
+        execution.trace_artifact_ref,
+        execution.verifier_artifact_ref,
+        execution.reproducibility_ref,
+    ):
+        if reference and reference not in refs:
+            refs.append(reference)
+    return replace(
+        execution,
+        measurement_valid=measurement_valid,
+        artifact_refs=tuple(dict.fromkeys(refs)),
+    )
 
 
 def _write_trial_and_pair_summaries(
@@ -380,6 +486,12 @@ def _write_trial_and_pair_summaries(
             metrics=record.metrics,
             findings=record.findings,
             artifact_refs=record.artifact_refs,
+            measurement_valid=record.measurement_valid,
+            run_id=record.run_id,
+            turn_id=record.turn_id,
+            trace_artifact_ref=record.trace_artifact_ref,
+            verifier_artifact_ref=record.verifier_artifact_ref,
+            reproducibility_ref=record.reproducibility_ref,
         )
         store.write_summary(store.trial_path(planned.key), artifact_dict(summary))
 
@@ -405,8 +517,8 @@ def _write_trial_and_pair_summaries(
             and control is not None
             and treatment is not None
             and set(actual_diff) == {pair_key.treatment_axis}
-            and control.status in MEASURABLE_TRIAL_STATUSES
-            and treatment.status in MEASURABLE_TRIAL_STATUSES
+            and _is_measurable_attempt(control)
+            and _is_measurable_attempt(treatment)
         )
         findings = () if valid else ("pair_invalid_or_variant_drift",)
         result = PairResult(
@@ -697,7 +809,7 @@ def _comparison_block_is_resumable(
         or tuple(block.get("variant_attempt_refs", ())) != expected_block_refs
     ):
         return False
-    measurable = all(_is_measurable_trial_status(record.get("status")) for record in records.values())
+    measurable = all(_is_measurable_record(record) for record in records.values())
     if resolved != measurable:
         return False
 
@@ -722,8 +834,8 @@ def _comparison_block_is_resumable(
         expected_valid = (
             resolved
             and set(actual_diff) == {pair_key.treatment_axis}
-            and _is_measurable_trial_status(control.get("status"))
-            and _is_measurable_trial_status(treatment.get("status"))
+            and _is_measurable_record(control)
+            and _is_measurable_record(treatment)
         )
         if pair.get("actual_variant_diff") != actual_diff or pair.get("valid") is not expected_valid:
             return False
@@ -806,6 +918,12 @@ def _trial_matches_selected_attempt(
             "metrics",
             "findings",
             "artifact_refs",
+            "measurement_valid",
+            "run_id",
+            "turn_id",
+            "trace_artifact_ref",
+            "verifier_artifact_ref",
+            "reproducibility_ref",
         )
     )
 
@@ -834,6 +952,16 @@ def _is_measurable_trial_status(value: Any) -> bool:
     except ValueError:
         return False
     return status in MEASURABLE_TRIAL_STATUSES
+
+
+def _is_measurable_record(value: Any) -> bool:
+    if not isinstance(value, dict) or value.get("measurement_valid", True) is not True:
+        return False
+    return _is_measurable_trial_status(value.get("status"))
+
+
+def _is_measurable_attempt(value: AttemptRecord) -> bool:
+    return value.measurement_valid is True and value.status in MEASURABLE_TRIAL_STATUSES
 
 
 def _is_measurable_retrieval_status(value: Any) -> bool:
@@ -900,7 +1028,7 @@ def _rebuild_comparison_block_from_attempts(
         if payload is None:
             return False
         records[trial_key.variant_id] = _attempt_record_from_dict(payload)
-    resolved = all(record.status in MEASURABLE_TRIAL_STATUSES for record in records.values())
+    resolved = all(_is_measurable_attempt(record) for record in records.values())
     if not resolved and selected != maximum:
         return False
     if block_payload is not None:
@@ -1132,12 +1260,21 @@ def _attempt_record_from_dict(value: dict[str, Any]) -> AttemptRecord:
             state=VerificationState(value["verification"]["state"]),
             findings=tuple(value["verification"].get("findings", [])),
             metrics=value["verification"].get("metrics", {}),
+            verifier_id=value["verification"].get("verifier_id"),
+            verifier_digest=value["verification"].get("verifier_digest"),
+            artifact_refs=tuple(value["verification"].get("artifact_refs", [])),
         ),
         declared_variant_settings=value["declared_variant_settings"],
         observed_variant_settings=value["observed_variant_settings"],
         metrics=value.get("metrics", {}),
         findings=tuple(value.get("findings", [])),
         artifact_refs=tuple(value.get("artifact_refs", [])),
+        measurement_valid=value.get("measurement_valid", True) is True,
+        run_id=value.get("run_id"),
+        turn_id=value.get("turn_id"),
+        trace_artifact_ref=value.get("trace_artifact_ref"),
+        verifier_artifact_ref=value.get("verifier_artifact_ref"),
+        reproducibility_ref=value.get("reproducibility_ref"),
     )
 
 
@@ -1208,6 +1345,7 @@ def _missing_attempt_record(
         declared_variant_settings=declared_settings,
         observed_variant_settings=declared_settings,
         findings=("missing_attempt_record",),
+        measurement_valid=False,
     )
 
 

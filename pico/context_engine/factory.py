@@ -7,7 +7,8 @@ Curator lane 建 manifest 并走 fast/slow/fallback History 选择，写入 ``# 
 通过 :class:`ContextBuilder` 提供 identity、bootstrap 与 always-skills。
 
 SkillForgeRouter 包装 Builder 已有 ``LocalPool`` 与 ``SkillRegistry``，不会再扫一次磁盘。
-Memory 是否启用只影响 Memory Segment，不改变 Local Skill 可用性。Factory 的责任是接线和
+    外部 Memory Backend 是否启用只影响 Plugin recall/store；显式存在的本地 Structured Memory 仍可
+    通过同一个 Memory Segment 读取，不改变 Local Skill 可用性。Factory 的责任是接线和
 默认配置，不执行某一 Turn 的选择；最终总是返回同一个 :class:`ContextAssembler` 类型。
 """
 
@@ -98,6 +99,14 @@ def build_context_engine(
     if skill_forge_router_config is None:
         skill_forge_router_config = _SkillForgeRouterConfig()
 
+    # The AgentLoop normally constructs ContextBuilder with these same
+    # values.  Keep the public factory coherent for callers that supply an
+    # already-created builder: its MemoryStore is still the one authority.
+    if getattr(memory_config, "project_id", None) is not None:
+        builder.memory.project_id = memory_config.project_id
+    if hasattr(memory_config, "user_id"):
+        builder.memory.user_id = memory_config.user_id
+
     router = _build_router(
         builder=builder,
         skill_forge_router_config=skill_forge_router_config,
@@ -108,6 +117,14 @@ def build_context_engine(
     )
     activation_max = 0 if summary_only else configured_inject_max or skill_forge_router_config.top_k
 
+    # A null external backend keeps the historical no-op behavior when the
+    # local structured store is empty, but an explicitly written local item
+    # remains usable without installing Myna.  This preserves the old
+    # no-backend fast path while making the Phase 5 deterministic core real.
+    local_structured_memory = bool(getattr(builder.memory, "memory_items_file", None)) and bool(
+        builder.memory.memory_items_file.exists()
+    )
+
     builders = [
         IdentitySegmentBuilder(workspace, builder.state),
         BootstrapSegmentBuilder(builder.state),
@@ -116,7 +133,11 @@ def build_context_engine(
             backend,
             user_id=memory_config.user_id,
             memory_top_k=memory_config.memory_top_k,
-            enabled=backend is not None,
+            enabled=backend is not None or local_structured_memory,
+            project_id=getattr(memory_config, "project_id", None),
+            structured_top_k=getattr(memory_config, "structured_top_k", 5),
+            structured_max_chars=getattr(memory_config, "structured_max_chars", 6_000),
+            allow_local_structured=True,
         ),
         ActiveSkillsSegmentBuilder(builder.skills),
         SkillsSegmentBuilder(
@@ -133,9 +154,16 @@ def build_context_engine(
             get_tool_definitions=get_tool_definitions,
             now_fn=now_fn,
             memory_enabled=backend is not None,
+            memory_store=builder.memory,
         ),
     ]
-    return ContextAssembler(builders, get_tool_definitions, now_fn=now_fn)
+    return ContextAssembler(
+        builders,
+        get_tool_definitions,
+        now_fn=now_fn,
+        provider=provider,
+        model=model,
+    )
 
 
 def _build_router(

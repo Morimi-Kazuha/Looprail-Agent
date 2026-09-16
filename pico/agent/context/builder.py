@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
-from pico.memory_engine.consolidate.consolidator import MemoryStore
+from pico.memory_engine.consolidate.consolidator import MemoryStore, repository_identity_for_path
 from pico.memory_engine.skill_forge import LocalSkillCatalog
 from pico.memory_engine.skill_local.types import SkillMeta
 from pico.product import PRODUCT_LOGO, PRODUCT_NAME
@@ -55,10 +55,20 @@ class ContextBuilder:
         *,
         state: Path | None = None,
         start_watcher: bool = True,
+        repository_id: str | None = None,
+        project_id: str | None = None,
+        user_id: str = "default",
     ):
         self.workspace = workspace
         self.state = state or workspace
-        self.memory = MemoryStore(self.state)
+        self.repository_identity = repository_id or repository_identity_for_path(workspace)
+        self.memory = MemoryStore(
+            self.state,
+            now_fn=now_fn,
+            repository_id=self.repository_identity,
+            project_id=project_id,
+            user_id=user_id,
+        )
         self.skills = LocalSkillCatalog(
             self.state,
             config=skill_forge_config,

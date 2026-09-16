@@ -5,9 +5,10 @@ import os
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
-from fcntl import LOCK_EX, LOCK_NB, LOCK_UN, flock
 from pathlib import Path
 from typing import Any, Iterator
+
+from pico.utils.portable_lock import LockTimeoutError, file_lock
 
 from .canonical import canonical_bytes, canonical_json, to_primitive
 from .records import (
@@ -46,17 +47,13 @@ class ArtifactStore:
     def exclusive_run_lock(self) -> Iterator[None]:
         self.root.mkdir(parents=True, exist_ok=True)
         lock_path = self.root / ".run.lock"
-        with lock_path.open("a+b") as lock:
-            try:
-                flock(lock.fileno(), LOCK_EX | LOCK_NB)
-            except BlockingIOError as exc:
-                raise ArtifactError(
-                    f"experiment already has an active writer: {self.ref.experiment_id}",
-                ) from exc
-            try:
+        try:
+            with file_lock(lock_path, blocking=False):
                 yield
-            finally:
-                flock(lock.fileno(), LOCK_UN)
+        except LockTimeoutError as exc:
+            raise ArtifactError(
+                f"experiment already has an active writer: {self.ref.experiment_id}",
+            ) from exc
 
     def freeze_manifest(self, manifest: dict[str, Any]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
@@ -74,27 +71,46 @@ class ArtifactStore:
     def append_journal(self, event: dict[str, Any]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         payload = canonical_json(event) + "\n"
-        with self.journal_path.open("a", encoding="utf-8") as handle:
+        journal_path = self._io_path(self.journal_path)
+        with journal_path.open("a", encoding="utf-8") as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
 
     def append_immutable(self, path: Path, value: Any) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        io_path = self._io_path(path)
+        io_path.parent.mkdir(parents=True, exist_ok=True)
         payload = canonical_bytes(value)
         temp_path: Path | None = None
         try:
             with tempfile.NamedTemporaryFile(
                 mode="wb",
-                dir=path.parent,
+                dir=io_path.parent,
                 delete=False,
             ) as handle:
                 temp_path = Path(handle.name)
                 handle.write(payload)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.link(temp_path, path)
-            self._fsync_directory(path.parent)
+            try:
+                os.link(temp_path, io_path)
+            except OSError as link_error:
+                # Hard-links are not consistently available for long Windows
+                # paths. Fall back to an exclusive create; the surrounding
+                # run/retry lock retains no-clobber semantics for this local
+                # artifact store.
+                if os.name != "nt":
+                    raise
+                try:
+                    with io_path.open("xb") as handle:
+                        handle.write(payload)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                except FileExistsError:
+                    raise
+                except OSError:
+                    raise link_error
+            self._fsync_directory(io_path.parent)
         except FileExistsError:
             try:
                 existing = canonical_bytes(self.read_json(path))
@@ -111,7 +127,7 @@ class ArtifactStore:
 
     def read_json(self, path: Path) -> dict[str, Any]:
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
+            value = json.loads(self._io_path(path).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ArtifactError(f"cannot read artifact: {path}") from exc
         if not isinstance(value, dict):
@@ -119,7 +135,7 @@ class ArtifactStore:
         return value
 
     def read_if_valid(self, path: Path, *, plan_digest: str) -> dict[str, Any] | None:
-        if not path.exists():
+        if not self._io_path(path).exists():
             return None
         try:
             value = self.read_json(path)
@@ -195,25 +211,21 @@ class ArtifactStore:
             "key": artifact_dict(key),
             "block_attempt": block_attempt,
         }
-        with lock_path.open("a+b") as lock:
-            flock(lock.fileno(), LOCK_EX)
-            try:
-                if claim_path.exists():
-                    existing = self.read_json(claim_path)
-                    if canonical_bytes(existing) != canonical_bytes(claim):
-                        raise ArtifactError(
-                            f"comparison block retry claim does not match the experiment plan: {claim_path}",
-                        )
-                    return True
-                claimed = self._count_comparison_block_retry_claims(
-                    plan_digest=plan_digest,
-                )
-                if maximum_claims is not None and claimed >= maximum_claims:
-                    return False
-                self.append_immutable(claim_path, claim)
+        with file_lock(lock_path):
+            if claim_path.exists():
+                existing = self.read_json(claim_path)
+                if canonical_bytes(existing) != canonical_bytes(claim):
+                    raise ArtifactError(
+                        f"comparison block retry claim does not match the experiment plan: {claim_path}",
+                    )
                 return True
-            finally:
-                flock(lock.fileno(), LOCK_UN)
+            claimed = self._count_comparison_block_retry_claims(
+                plan_digest=plan_digest,
+            )
+            if maximum_claims is not None and claimed >= maximum_claims:
+                return False
+            self.append_immutable(claim_path, claim)
+            return True
 
     def pair_path(self, key: PairKey) -> Path:
         return (
@@ -304,25 +316,46 @@ class ArtifactStore:
         return count
 
     def _write_atomic(self, path: Path, payload: bytes) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as handle:
+        io_path = self._io_path(path)
+        io_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=io_path.parent, delete=False) as handle:
             temp_path = Path(handle.name)
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
         try:
-            os.replace(temp_path, path)
-            self._fsync_directory(path.parent)
+            os.replace(temp_path, io_path)
+            self._fsync_directory(io_path.parent)
         finally:
             temp_path.unlink(missing_ok=True)
 
     @staticmethod
     def _fsync_directory(path: Path) -> None:
-        directory_fd = os.open(path, os.O_RDONLY)
+        # Directory handles are fsync-able on POSIX but not on Windows. The
+        # file itself is still flushed before replace; Windows provides the
+        # supported local atomic-replace boundary without a portable
+        # directory-fsync equivalent.
+        try:
+            directory_fd = os.open(ArtifactStore._io_path(path), os.O_RDONLY)
+        except OSError:
+            return
         try:
             os.fsync(directory_fd)
+        except OSError:
+            pass
         finally:
             os.close(directory_fd)
+
+    @staticmethod
+    def _io_path(path: Path) -> Path:
+        """Use the Windows extended-length namespace only for long I/O paths."""
+        path = Path(path)
+        if os.name != "nt":
+            return path
+        text = os.path.abspath(os.fspath(path))
+        if text.startswith("\\\\?\\") or len(text) < 240:
+            return path
+        return Path("\\\\?\\" + text)
 
 
 def artifact_dict(value: Any) -> dict[str, Any]:

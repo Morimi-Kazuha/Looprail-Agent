@@ -12,6 +12,7 @@ Shape 读取 Runtime 对象，保持 Framework-agnostic；只要 Documented Shap
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections import Counter
 from typing import Any
 
@@ -102,7 +103,12 @@ def _llm_attrs(resp: Any, provider: str, model: str | None, provider_class: str 
     attrs["llm.usage.cost_total"] = u["cost_usd"]
     reasoning = getattr(resp, "reasoning_content", None)
     if reasoning:
-        attrs["llm.reasoning_preview"] = _preview(reasoning)
+        # Reasoning is useful for explaining that a model returned hidden
+        # thinking, but the trace must not become a chain-of-thought store.
+        reasoning_text = _coerce_text(reasoning)
+        attrs["llm.reasoning_present"] = True
+        attrs["llm.reasoning_chars"] = len(reasoning_text)
+        attrs["llm.reasoning_sha256"] = _digest_value(reasoning_text)
     return attrs
 
 
@@ -119,6 +125,39 @@ def _coerce_text(value: Any) -> str:
         return str(value)
 
 
+def _digest_value(value: Any) -> str:
+    return hashlib.sha256(_coerce_text(value).encode("utf-8")).hexdigest()
+
+
+def _message_observation(message: Any) -> dict[str, Any]:
+    if not isinstance(message, dict):
+        text = _coerce_text(message)
+        return {
+            "role": None,
+            "content_preview": _preview(text, 400),
+            "content_chars": len(text),
+            "content_sha256": _digest_value(text),
+        }
+    content = _coerce_text(message.get("content"))
+    observation: dict[str, Any] = {
+        "role": message.get("role"),
+        "content_preview": _preview(content, 400),
+        "content_chars": len(content),
+        "content_sha256": _digest_value(content),
+    }
+    if message.get("tool_call_id") is not None:
+        observation["tool_call_id"] = message.get("tool_call_id")
+    calls = message.get("tool_calls")
+    if isinstance(calls, list):
+        observation["tool_names"] = [
+            call.get("function", {}).get("name")
+            for call in calls[:32]
+            if isinstance(call, dict) and isinstance(call.get("function"), dict)
+        ]
+        observation["tool_call_count"] = len(calls)
+    return observation
+
+
 def _llm_input_payload(
     provider: str, model: str | None, messages: Any, tools: Any, provider_class: str | None = None
 ) -> dict:
@@ -126,8 +165,9 @@ def _llm_input_payload(
 
     Pico 传入 ONE Flat ``messages`` List，包含 System + Prior Turns + Current。函数拆成 Three
     Non-overlapping Views：``systemPrompt`` 是第一条 System Message；``prompt`` 是 Latest User Message；
-    ``historyMessages`` 是 Prior Turns，即 **EXCEPT** 所有 System 与该 Latest User，避免重复。``messages`` 仍保留
-    Full Raw List，作为实际发送内容的 Ground Truth；``tools`` 也原样附带。
+    ``historyMessages`` 是 Prior Turns，即 **EXCEPT** 所有 System 与该 Latest User，避免重复。为了不让
+    Trace 成为第二个 Transcript，``messages`` / ``historyMessages`` 只保存 role、bounded preview、字符数
+    与 digest；``tools`` 只保存工具身份和 schema digest。
     """
     msgs = messages if isinstance(messages, list) else []
     system_prompt = ""
@@ -146,15 +186,30 @@ def _llm_input_payload(
             last_user_idx = i
             break
     history = [m for i, m in enumerate(msgs) if i not in system_idxs and i != last_user_idx]
+    tool_observations = []
+    for tool in tools if isinstance(tools, list) else []:
+        if not isinstance(tool, dict):
+            tool_observations.append({"name": None, "schema_sha256": _digest_value(tool)})
+            continue
+        function = tool.get("function") if isinstance(tool.get("function"), dict) else tool
+        tool_observations.append(
+            {
+                "name": function.get("name"),
+                "description_preview": _preview(function.get("description"), 300),
+                "schema_sha256": _digest_value(function.get("parameters", function)),
+            }
+        )
     return {
         "provider": provider,
         "providerClass": provider_class,
         "model": model,
-        "systemPrompt": system_prompt,
-        "prompt": user_prompt,
-        "historyMessages": history,
-        "messages": messages,
-        "tools": tools,
+        "systemPrompt": _preview(system_prompt, 400),
+        "prompt": _preview(user_prompt, 400),
+        "historyMessages": [_message_observation(message) for message in history[:64]],
+        "messages": [_message_observation(message) for message in msgs[:64]],
+        "message_count": len(msgs),
+        "tools": tool_observations[:64],
+        "tool_count": len(tool_observations),
     }
 
 
@@ -162,6 +217,7 @@ def _llm_output_payload(resp: Any) -> Any:
     if resp is None:
         return None
     content = getattr(resp, "content", None)
+    reasoning = _coerce_text(getattr(resp, "reasoning_content", None))
     return {
         "content": content,
         "output": content,  # 共享 viewer 的模型输出卡片读取该字段
@@ -170,7 +226,13 @@ def _llm_output_payload(resp: Any) -> Any:
             {"id": getattr(t, "id", None), "name": getattr(t, "name", None), "arguments": getattr(t, "arguments", None)}
             for t in (getattr(resp, "tool_calls", None) or [])
         ],
-        "reasoning_content": getattr(resp, "reasoning_content", None),
+        # Deliberately do not persist chain-of-thought. Presence, size and a
+        # digest are sufficient to explain that reasoning was returned.
+        "reasoning": {
+            "present": bool(reasoning),
+            "chars": len(reasoning),
+            "sha256": _digest_value(reasoning) if reasoning else None,
+        },
         "usage": getattr(resp, "usage", None),
     }
 
@@ -266,6 +328,15 @@ def spine_turn_failed(exc: BaseException, *, started: bool) -> dict[str, Any]:
     category = getattr(exc, "category", None)
     if isinstance(category, str):
         attrs["spine.provider_error_category"] = category
+        attrs["spine.failure_category"] = category
+    elif error_class in {"ContextBudgetError", "ContextOverflowError"}:
+        attrs["spine.failure_category"] = "context_budget_failure"
+    elif error_class in {"MemoryError", "MemoryBackendError"}:
+        attrs["spine.failure_category"] = "memory_failure"
+    elif error_class in {"RecoveryArtifactError", "RecoveryError"}:
+        attrs["spine.failure_category"] = "recovery_failure"
+    else:
+        attrs["spine.failure_category"] = "runtime_internal_failure"
     return attrs
 
 
@@ -273,6 +344,7 @@ def spine_turn_cancelled(*, started: bool) -> dict[str, Any]:
     return {
         "spine.outcome": SPINE_CANCELLED,
         "spine.terminal_event": "TurnFailed" if started else "TurnStarted",
+        "spine.failure_category": "cancelled",
     }
 
 
@@ -284,8 +356,10 @@ def spine_turn_ended(outcome: Any, latency_ms: float) -> dict[str, Any]:
     TurnEnded 不等于 Channel Delivery 成功。
     """
     tool_failures = int(getattr(outcome, "tool_failures", 0) or 0)
+    terminal_state = SPINE_COMPLETED_WITH_TOOL_FAILURE if tool_failures else SPINE_COMPLETED
     return {
-        "spine.outcome": SPINE_COMPLETED_WITH_TOOL_FAILURE if tool_failures else SPINE_COMPLETED,
+        "spine.outcome": terminal_state,
+        "spine.terminal_state": terminal_state,
         "spine.terminal_event": "TurnEnded",
         "spine.tool_calls": int(getattr(outcome, "tool_calls", 0) or 0),
         "spine.tool_failures": tool_failures,
@@ -331,6 +405,7 @@ __all__ = [
     "turn_open",
     "turn",
     "memory_recall",
+    "memory_write",
     "memory_store",
     "memory_feedback",
     "memory_extract",
@@ -564,33 +639,105 @@ def personalize(span, bound: dict[str, Any], result: Any, exc: BaseException | N
 
 def memory_recall(span, bound: dict[str, Any], result: Any, exc: BaseException | None) -> None:
     self = bound.get("self")
+    scope = getattr(self, "_memory_scope", None) or bound.get("scope") or "user"
+    backend = getattr(self, "_backend", None) if self is not None else None
+    backend_label = (
+        "local_structured_store"
+        if self is not None and hasattr(self, "memory_items_file")
+        else type(backend).__name__ if backend is not None else None
+    )
     span.set(
         {
             "memory.query": _preview(bound.get("query"), 300),
-            "memory.scope": "user",
-            "memory.user_id": getattr(self, "_user_id", None),
-            "memory.top_k": getattr(self, "_memory_top_k", None),
+            "memory.scope": scope,
+            "memory.user_id": bound.get("user_id") or getattr(self, "_user_id", None),
+            "memory.repo_identity": _preview(bound.get("repo_identity") or getattr(self, "repository_identity", None), 128),
+            "memory.project_id": _preview(bound.get("project_id") or getattr(self, "project_id", None), 128),
+            "memory.backend": backend_label,
+            "memory.top_k": bound.get("top_k") or getattr(self, "_memory_top_k", None),
+            "memory.max_chars": bound.get("max_chars"),
         }
     )
     hits = list(result or [])
     span.set({"memory.hits": len(hits)})
+    diagnostics = getattr(self, "last_memory_diagnostics", {}) if self is not None else {}
+    if not isinstance(diagnostics, dict):
+        diagnostics = {}
+    span.set(
+        {
+            "memory.candidate_count": diagnostics.get("candidates"),
+            "memory.eligible_count": diagnostics.get("eligible_count"),
+            "memory.selected_count": diagnostics.get("selected_count", len(hits)),
+            "memory.stale_excluded": diagnostics.get("stale_excluded"),
+            "memory.budget": diagnostics.get("budget", bound.get("max_chars")),
+        }
+    )
     span.artifact(
         "memory.recall",
         [
             {
-                "text": getattr(m, "text", None),
+                "text_preview": _preview(getattr(m, "text", None), 300),
                 "score": getattr(m, "score", None),
-                "metadata": getattr(m, "metadata", None),
+                "memory_id": getattr(m, "memory_id", None),
+                "kind": getattr(m, "kind", None),
+                "scope": getattr(m, "scope", None),
+                "verification": getattr(m, "verification", None),
+                "status": getattr(m, "status", None),
+                "content_digest": getattr(m, "content_digest", None),
             }
             for m in hits
         ],
     )
 
 
+def memory_write(span, bound: dict[str, Any], result: Any, exc: BaseException | None) -> None:
+    """Record a bounded structured-item write decision, never its raw payload."""
+
+    item = bound.get("item")
+    accepted = getattr(result, "accepted", None) if result is not None else False
+    action = getattr(result, "action", None) if result is not None else None
+    reason = getattr(result, "reason", None) if result is not None else None
+    span.set(
+        {
+            "memory.operation": "write",
+            "memory.accepted": bool(accepted) if accepted is not None else False,
+            "memory.action": action,
+            "memory.reason": reason,
+            "memory.kind": getattr(item, "kind", None),
+            "memory.scope": getattr(item, "scope", None),
+            "memory.verification": getattr(item, "verification", None),
+            "memory.memory_id": getattr(item, "memory_id", None),
+            "memory.content_digest": getattr(item, "content_digest", None),
+            "memory.deduplicated": action == "duplicate",
+            "memory.superseded_count": len(getattr(result, "superseded_ids", ()) or ()) if result is not None else 0,
+        }
+    )
+    if result is not None:
+        span.artifact(
+            "memory.write",
+            {
+                "accepted": bool(accepted) if accepted is not None else False,
+                "action": action,
+                "reason": reason,
+                "memory_id": getattr(item, "memory_id", None),
+                "diagnostics": getattr(result, "diagnostics", {}) or {},
+            },
+        )
+
+
 def memory_store(span, bound: dict[str, Any], result: Any, exc: BaseException | None) -> None:
     msgs = bound.get("messages_slice") or []
     span.set({"memory.session_id": bound.get("session_key"), "memory.message_count": len(msgs)})
-    span.artifact("memory.store", {"session_id": bound.get("session_key"), "messages": msgs})
+    # The compatibility backend still receives the sanitized slice, but the
+    # trace must not become a second raw Transcript/ToolResult store.
+    span.artifact(
+        "memory.store",
+        {
+            "session_id": bound.get("session_key"),
+            "message_count": len(msgs),
+            "roles": [message.get("role") for message in msgs if isinstance(message, dict)][:64],
+        },
+    )
 
 
 def memory_feedback(span, bound: dict[str, Any], result: Any, exc: BaseException | None) -> None:
@@ -733,6 +880,25 @@ def _finish_error(span, result) -> None:
         span.error((getattr(result, "content", "") or "")[:200])
 
 
+def _tool_failure_category(
+    *,
+    result: Any,
+    exc: BaseException | None,
+) -> str | None:
+    if exc is not None:
+        return "tool_timeout" if isinstance(exc, (asyncio.TimeoutError, TimeoutError)) else "tool_execution_failure"
+    if not getattr(result, "failed", False) and not (isinstance(result, str) and result.startswith("Error")):
+        return None
+    text = _coerce_text(result).lower()
+    if "invalid parameters" in text or "not found" in text:
+        return "tool_validation_failure"
+    if "timed out" in text:
+        return "tool_timeout"
+    if "outcome is unknown" in text or "journal unavailable" in text:
+        return "tool_effect_unknown"
+    return "tool_execution_failure"
+
+
 def llm_call(span, bound: dict[str, Any], result: Any, exc: BaseException | None) -> None:
     """Non-streaming Provider Call Extractor，其中 ``self`` 是 Provider。
 
@@ -802,9 +968,16 @@ def tool_call(span, bound: dict[str, Any], result: Any, exc: BaseException | Non
     result_failed = (
         explicit_failed if isinstance(explicit_failed, bool) else isinstance(result, str) and result.startswith("Error")
     )
+    failure_category = _tool_failure_category(result=result, exc=exc) if result_failed or exc else None
     if call_id:
         span.set({"tool.call_id": call_id})
-    span.set({"tool.turn_id": turn_id, "tool.effect_id": effect_id})
+    span.set(
+        {
+            "tool.turn_id": turn_id,
+            "tool.effect_id": effect_id,
+            "tool.failure_category": failure_category,
+        }
+    )
     skill_name = params.get("name") if name == "skill_read" and isinstance(params, dict) else None
     skill_read_path = _skill_read_path(name, params)
     if isinstance(skill_name, str) and skill_name:
@@ -833,7 +1006,7 @@ def tool_call(span, bound: dict[str, Any], result: Any, exc: BaseException | Non
     else:
         err = None
         if exc is not None:
-            err = repr(exc)
+            err = _preview(repr(exc), 200)
         elif result_failed:
             err = _preview(result, 200)
         span.set(

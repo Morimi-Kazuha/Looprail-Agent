@@ -41,6 +41,8 @@ def build_span(
     trace_id: str,
     span_id: str,
     parent_span_id: str | None,
+    run_id: str | None = None,
+    turn_id: str | None = None,
     session_key: str | None = None,
     channel: str | None = None,
     chat_id: str | None = None,
@@ -63,6 +65,8 @@ def build_span(
         "channel.id": channel,
         "chat_id": chat_id,
         "audit.schema_version": SCHEMA_VERSION,
+        "run.id": run_id or trace_id,
+        "turn.id": turn_id,
     }
     if attributes:
         attrs.update(attributes)

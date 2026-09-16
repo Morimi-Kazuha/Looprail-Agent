@@ -33,6 +33,7 @@ from pico.cli._helpers import (
     print_deprecated_memory_window_notice,
     warn_about_pending_cli_reminders,
 )
+from pico.cli._run_surface import CliRunReporter, RunVerbosity, bounded_text, parse_verbosity
 from pico.utils.helpers import sync_workspace_templates
 
 console = Console()
@@ -162,10 +163,19 @@ def register(app: typer.Typer) -> None:
         config: str | None = typer.Option(None, "--config", help="Config file path"),
         markdown: bool = typer.Option(True, "--markdown/--no-markdown", help="Render assistant output as Markdown"),
         logs: bool = typer.Option(False, "--logs/--no-logs", help="Show Pico runtime logs during chat"),
+        verbosity: str = typer.Option(
+            RunVerbosity.NORMAL.value,
+            "--verbosity",
+            help="Runtime display: normal | verbose | quiet",
+        ),
     ):
         """Interact with the agent directly."""
         if sum((session_id is not None, continue_, resume is not None)) > 1:
             raise typer.BadParameter("--session, --continue and --resume are mutually exclusive")
+        try:
+            run_verbosity = parse_verbosity(verbosity)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc), param_hint="--verbosity") from exc
 
         # 启动门：缺少必要配置（提供商密钥和默认模型）时先运行引导向导。仅限交互式 TTY；
         # 脚本单次调用（`-m`）和非 TTY 管道应在后续明确失败，而不是阻塞在提示上。
@@ -184,6 +194,7 @@ def register(app: typer.Typer) -> None:
         from pico.config.pico import load_pico_config
         from pico.proactive_engine.schedulers.cron.service import CronService
         from pico.session.manager import SessionManager, new_chat_id
+        from pico.tracing import config as tracing_config
 
         # load_runtime_config 必须最先运行：它调用 set_config_path()，使之后的 load_pico_config()
         # 从 --config 而非默认 ~/.pico/config.json 读取。否则 --config 中的 skill_forge 会被静默忽略。
@@ -195,17 +206,28 @@ def register(app: typer.Typer) -> None:
 
         provider = make_provider(config)
         session_manager = SessionManager(paths.state)
+        # TraceStore is a separate durable observability root by contract.  A
+        # foreground Workspace may own Session/Recovery state while tracing
+        # remains under PICO_TRACING_DIR or the product trace directory.
+        trace_state_dir = tracing_config.state_dir()
 
-        # 默认新建会话，避免独立的单次调用相互污染。
+        # 默认新建会话，避免独立的单次调用相互污染。 ``recovery_requested``
+        # only tracks an existing-session continuation selector; it does not
+        # change the long-standing ``--session`` binding semantics.
+        recovery_requested = False
+        recovery_state = None
         if resume is not None:
             from pico.cli.session_commands import resolve_session
 
             session_id = resolve_session(session_manager, resume)
+            recovery_requested = True
         elif continue_:
             recent = session_manager.find_most_recent_chat_id("cli")
             if recent is None:
                 console.print("[dim]no previous cli session — starting fresh[/dim]")
                 recent = new_chat_id()
+            else:
+                recovery_requested = True
             session_id = f"cli:{recent}"
         elif session_id is None:
             session_id = f"cli:{new_chat_id()}"
@@ -234,6 +256,13 @@ def register(app: typer.Typer) -> None:
             paths=paths,
         )
         agent_loop = runtime.agent_loop
+        if recovery_requested:
+            # The existing assembly/session/Scheduler path remains the owner of
+            # the next Turn.  This call only reads durable recovery sources;
+            # lightweight test/legacy loop doubles may omit the optional hook.
+            prepare_resume = getattr(agent_loop, "prepare_resume", None)
+            if callable(prepare_resume):
+                recovery_state = prepare_resume(session_id)
         # REPL 没有真实 ChannelManager——提供最小垫片，仅报告 "cli" 已启用，使 CLI 提醒走
         # 直通路径（经 Spine 出口投递到 REPL 标准输出）。
         from types import SimpleNamespace
@@ -243,12 +272,29 @@ def register(app: typer.Typer) -> None:
 
         # 日志关闭时显示转圈动画（不会遮掉输出）；日志开启时跳过。
         def _thinking_ctx():
-            if logs:
+            if logs or run_verbosity is RunVerbosity.QUIET:
                 from contextlib import nullcontext
 
                 return nullcontext()
             # 动画转圈可安全配合 prompt_toolkit 输入处理使用。
             return console.status("[dim]Pico is thinking...[/dim]", spinner="dots")
+
+        def _render_progress(detail: str) -> None:
+            if run_verbosity is RunVerbosity.QUIET:
+                return
+            console.print("Agent")
+            console.print(f"  {bounded_text(detail, 260)}")
+
+        def _render_failure(detail: str) -> None:
+            if run_verbosity is RunVerbosity.QUIET:
+                console.print(f"Failure: {bounded_text(detail, 260)}")
+            else:
+                console.print("Failure")
+                console.print(f"  {bounded_text(detail, 260)}")
+
+        def _render_tool(block: str) -> None:
+            if run_verbosity is not RunVerbosity.QUIET:
+                console.print(block)
 
         if message:
             # 单消息模式——一个 USER 轮次通过 spine（submit -> lane -> run_turn -> hub ->
@@ -257,6 +303,16 @@ def register(app: typer.Typer) -> None:
             # （send_progress / send_tool_hints）控制。
             from pico.cli._repl_spine import build_repl
             from pico.spine import ChatType, Origin, Source, TurnRequest
+
+            reporter = CliRunReporter(
+                console.print,
+                session_id,
+                message,
+                state_dir=paths.state,
+                trace_dir=trace_state_dir,
+                verbosity=run_verbosity,
+                recovery_state=recovery_state,
+            )
 
             async def run_once():
                 teardown = None
@@ -269,30 +325,38 @@ def register(app: typer.Typer) -> None:
                         agent_loop,
                         "cli",
                         lambda t: _print_agent_response(t, render_markdown=markdown),
-                        render_notice=lambda c: console.print(f"  [dim]↳ {c}[/dim]"),
-                        render_error=lambda c: console.print(f"[red]{c}[/red]"),
-                        send_progress=bool(ch.send_progress) if ch else False,
-                        send_tool_hints=bool(ch.send_tool_hints) if ch else False,
+                        render_notice=_render_progress,
+                        render_error=_render_failure,
+                        render_tool=_render_tool,
+                        on_lifecycle=reporter.observe,
+                        verbose_tools=run_verbosity is RunVerbosity.VERBOSE,
+                        send_progress=bool(ch.send_progress) if ch and run_verbosity is not RunVerbosity.QUIET else False,
+                        send_tool_hints=(
+                            bool(ch.send_tool_hints) if ch and run_verbosity is not RunVerbosity.QUIET else False
+                        ),
                     )
                     # 单次 spawn 很少能在下方硬退出前完成（与总线路径相同），但仍连接 submit，
                     # 使行为与 REPL/TUI 一致。
                     agent_loop.subagents.set_submit(scheduler.submit)
+                    reporter.begin()
+                    reporter.render_recovery()
                     with _thinking_ctx():
-                        handle = scheduler.submit(
-                            TurnRequest(
-                                origin=Origin.USER,
-                                source=Source(
-                                    channel="cli",
-                                    chat_id="direct",
-                                    sender_id="user",
-                                    chat_type=ChatType.DM,
-                                ),
-                                text=message,
-                                conversation=session_id,
-                            )
+                        request = TurnRequest(
+                            origin=Origin.USER,
+                            source=Source(
+                                channel="cli",
+                                chat_id="direct",
+                                sender_id="user",
+                                chat_type=ChatType.DM,
+                            ),
+                            text=message,
+                            conversation=session_id,
                         )
+                        handle = scheduler.submit(request)
+                        reporter.turn_submitted(request.turn_id)
                         outcome = await handle.result()
                     await hub.wait_idle("cli")  # 渲染屏障：等待 CliOutlet 追上
+                    reporter.finish(outcome)
                     return outcome is not None
                 finally:
                     try:
@@ -337,6 +401,7 @@ def register(app: typer.Typer) -> None:
             async def run_interactive():
                 runtime_task = None
                 teardown = None
+                active_reporter: list[CliRunReporter | None] = [None]
                 try:
                     await runtime.start_memory_backend()
                     # 启动 cron 前先构建 spine：cron 任务通过该调度器提交 CRON 轮次，且 on_job 必须在
@@ -347,10 +412,17 @@ def register(app: typer.Typer) -> None:
                         agent_loop,
                         cli_channel,
                         lambda t: _print_agent_response(t, render_markdown=markdown),
-                        render_notice=lambda c: console.print(f"  [dim]↳ {c}[/dim]"),
-                        render_error=lambda c: console.print(f"[red]{c}[/red]"),
-                        send_progress=bool(_ch.send_progress) if _ch else False,
-                        send_tool_hints=bool(_ch.send_tool_hints) if _ch else False,
+                        render_notice=_render_progress,
+                        render_error=_render_failure,
+                        render_tool=_render_tool,
+                        on_lifecycle=lambda event: active_reporter[0] and active_reporter[0].observe(event),
+                        verbose_tools=run_verbosity is RunVerbosity.VERBOSE,
+                        send_progress=(
+                            bool(_ch.send_progress) if _ch and run_verbosity is not RunVerbosity.QUIET else False
+                        ),
+                        send_tool_hints=(
+                            bool(_ch.send_tool_hints) if _ch and run_verbosity is not RunVerbosity.QUIET else False
+                        ),
                     )
                     # 子智能体结果回注会提交来源为 SUBAGENT 的轮次。
                     agent_loop.subagents.set_submit(scheduler.submit)
@@ -379,6 +451,29 @@ def register(app: typer.Typer) -> None:
 
                         return handle_repl_slash(command, console=console)
 
+                    def _on_submit(request: TurnRequest) -> None:
+                        reporter = CliRunReporter(
+                            console.print,
+                            request.conversation or f"{request.source.channel}:{request.source.chat_id}",
+                            request.text,
+                            state_dir=paths.state,
+                            trace_dir=trace_state_dir,
+                            verbosity=run_verbosity,
+                            recovery_state=recovery_state if active_reporter[0] is None else None,
+                        )
+                        active_reporter[0] = reporter
+                        reporter.begin()
+                        reporter.turn_submitted(request.turn_id)
+                        if reporter.recovery_state is not None:
+                            reporter.render_recovery()
+
+                    def _after_turn(request: TurnRequest, outcome) -> None:
+                        reporter = active_reporter[0]
+                        if reporter is None:
+                            return
+                        reporter.turn_id = request.turn_id
+                        reporter.finish(outcome)
+
                     await run_repl_loop(
                         read_input=_read_interactive_input_async,
                         submit=scheduler.submit,
@@ -389,6 +484,8 @@ def register(app: typer.Typer) -> None:
                         handle_slash=_slash,
                         thinking=_thinking_ctx,
                         on_exit=_on_exit,
+                        on_submit=_on_submit,
+                        after_turn=_after_turn,
                     )
                 finally:
                     try:

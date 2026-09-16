@@ -14,18 +14,30 @@ from pico.context_engine.base import (
     Segment,
     SegmentBuilder,
 )
+from pico.context_engine.budget import (
+    ContextBudgetError,
+    ContextDecision,
+    ContextLimits,
+    resolve_context_limits,
+)
 from pico.context_engine.curator import TurnContext
 from pico.context_engine.factory import build_context_engine
-from pico.context_engine.history_trimmer import HistoryTrimmer
+from pico.context_engine.history_trimmer import HistoryTrimmer, RuntimeContextTrimmer, RuntimeTrimOutcome
 
 __all__ = [
     "AssembledPrefix",
     "AssemblyContext",
     "ContextAssembler",
+    "ContextBudgetError",
+    "ContextDecision",
     "ContextEngine",
+    "ContextLimits",
     "HistoryTrimmer",
+    "RuntimeContextTrimmer",
+    "RuntimeTrimOutcome",
     "Segment",
     "SegmentBuilder",
     "TurnContext",
     "build_context_engine",
+    "resolve_context_limits",
 ]

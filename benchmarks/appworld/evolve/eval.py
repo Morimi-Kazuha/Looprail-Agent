@@ -10,6 +10,8 @@ zero-contamination replacement for RealPathSync).
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from difflib import unified_diff
 from pathlib import Path
@@ -25,7 +27,39 @@ from pico.evolver.candidate_manifest import (
 from pico.evolver.judge.schema import PatchWhere, PatchWhy
 from pico.evolver.tree import git_ops
 from pico.evolver.tree.git_ops import GitOpError
-from pico.evolver.tree.node import AppliedPatch, PatchComponent
+from pico.evolver.tree.node import AppliedPatch, PatchComponent, SourceEvidence
+
+
+class CandidateFrozenError(ManifestGateError):
+    """A Candidate changed after its evaluation identity was frozen."""
+
+
+def _candidate_fingerprint(candidate: "Candidate") -> str:
+    """Hash the candidate identity and bytes without serialising source code as JSON."""
+
+    digest = hashlib.sha256()
+    metadata = {
+        "candidate_id": candidate.candidate_id,
+        "label": candidate.label.value if isinstance(candidate.label, CandidateLabel) else str(candidate.label or ""),
+        "why": candidate.why,
+        "summary": candidate.summary,
+        "deletions": list(candidate.deletions),
+        "evolution_run_id": candidate.evolution_run_id,
+        "source_run_id": candidate.source_run_id,
+        "source_trace_ref": candidate.source_trace_ref,
+        "source_evidence_digest": candidate.source_evidence_digest,
+        "source_finding": candidate.source_finding,
+        "manifest": candidate.manifest.to_dict() if candidate.manifest is not None else None,
+    }
+    digest.update(json.dumps(metadata, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+    for path, content in sorted(candidate.files.items()):
+        digest.update(path.encode("utf-8"))
+        digest.update(b"\0")
+        if not isinstance(content, bytes):
+            raise CandidateFrozenError(f"candidate file content must be bytes: {path!r}")
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
 
 
 @dataclass
@@ -51,6 +85,40 @@ class Candidate:
     applied_patch: AppliedPatch | None = field(default=None, repr=False)
     manifest: CandidateManifest | None = None
     candidate_id: str = ""
+    # Phase 8 source correlation.  These are populated by the explicit
+    # Trace-backed candidate-generation boundary, not inferred after scoring.
+    evolution_run_id: str = ""
+    source_run_id: str = ""
+    source_trace_ref: str = ""
+    source_evidence_digest: str = ""
+    source_finding: str = ""
+    _frozen_digest: str | None = field(default=None, init=False, repr=False)
+    _frozen_parent_sha: str | None = field(default=None, init=False, repr=False)
+
+    @property
+    def is_frozen(self) -> bool:
+        return self._frozen_digest is not None
+
+    def freeze(self) -> None:
+        """Freeze this candidate's identity before it enters evaluation."""
+
+        current = _candidate_fingerprint(self)
+        if self._frozen_digest is not None and self._frozen_digest != current:
+            raise CandidateFrozenError(
+                f"candidate {self.candidate_id!r} changed after freeze; create a new Candidate identity"
+            )
+        self._frozen_digest = current
+
+    def assert_frozen(self) -> None:
+        """Fail closed if the candidate was mutated between train/sealed/gate."""
+
+        if self._frozen_digest is None:
+            return
+        current = _candidate_fingerprint(self)
+        if current != self._frozen_digest:
+            raise CandidateFrozenError(
+                f"candidate {self.candidate_id!r} changed after freeze; create a new Candidate identity"
+            )
 
 
 def _patch_where(label: CandidateLabel, paths: list[str]) -> PatchWhere:
@@ -99,6 +167,7 @@ def materialize_candidate_patch(
     candidate: Candidate,
     before_files: dict[str, bytes | None],
 ) -> AppliedPatch:
+    candidate.assert_frozen()
     files = set(candidate.files)
     deletions = set(candidate.deletions)
     overlap = sorted(files & deletions)
@@ -116,6 +185,15 @@ def materialize_candidate_patch(
     except ValueError:
         why = PatchWhy.other
         why_extra = candidate.why or "unspecified"
+    source_evidence = []
+    if candidate.source_run_id:
+        source_evidence.append(
+            SourceEvidence(
+                trajectory_id=candidate.source_run_id,
+                turn_range=(0, 0),
+                finding=candidate.source_finding or "bounded TraceStore failure evidence",
+            )
+        )
     patch = AppliedPatch(
         patch_where=where,
         patch_why=why,
@@ -130,6 +208,7 @@ def materialize_candidate_patch(
             for index, path in enumerate(paths, start=1)
         ],
         overall_reasoning=candidate.summary or candidate.why,
+        source_evidence=source_evidence,
     )
     candidate.label = label
     candidate.before_files = {path: before_files.get(path) for path in paths}
@@ -144,6 +223,18 @@ def prepare_candidate_manifest(
     *,
     repo_root: str | Path,
 ) -> CandidateManifest:
+    if candidate.is_frozen:
+        candidate.assert_frozen()
+        if (
+            candidate.candidate_id == candidate_id
+            and candidate.manifest is not None
+            and candidate._frozen_parent_sha == parent_sha
+        ):
+            return candidate.manifest
+        raise CandidateFrozenError(
+            f"G5 manifest gate failed: candidate {candidate.candidate_id!r} is already frozen; "
+            "a changed candidate or parent requires a new identity"
+        )
     files = set(candidate.files)
     deletions = set(getattr(candidate, "deletions", ()))
     overlap = sorted(files & deletions)
@@ -182,17 +273,21 @@ def prepare_candidate_manifest(
         repo_root=repo_root,
         treeish=parent_sha,
     )
+    candidate._frozen_parent_sha = parent_sha
+    candidate.freeze()
     return manifest
 
 
 def files_of(cand: Candidate) -> dict[str, bytes]:
     """Extract the edited file bytes for ``make_git_commit_apply_fn``."""
-    return cand.files
+    cand.assert_frozen()
+    return dict(cand.files)
 
 
 def deletions_of(cand: Candidate) -> list[str]:
     """Extract the deleted paths for ``make_git_commit_apply_fn``."""
-    return cand.deletions
+    cand.assert_frozen()
+    return list(cand.deletions)
 
 
 def make_appworld_eval_fn(aw: "aw_adapter.AppWorldConfig", repo_root: str | Path):
@@ -215,6 +310,7 @@ def make_appworld_eval_fn(aw: "aw_adapter.AppWorldConfig", repo_root: str | Path
 
 __all__ = [
     "Candidate",
+    "CandidateFrozenError",
     "deletions_of",
     "files_of",
     "make_appworld_eval_fn",

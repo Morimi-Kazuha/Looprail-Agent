@@ -113,6 +113,9 @@ def _invoke_agent_capturing_session(
         def configure_personalization(self, *_args) -> None:
             pass
 
+        def prepare_resume(self, session_key: str) -> None:
+            captured["prepared_session_id"] = session_key
+
         async def run_turn(self, req, emit, drain, *, stream, **_kw) -> TurnOutcome:
             captured["session_id"] = req.conversation
             if fail_turn:
@@ -365,6 +368,7 @@ def test_agent_resume_binds_resolved_session(tmp_config: Path, tmp_path: Path, m
     r, captured = _invoke_agent_capturing_session(monkeypatch, ws, ["--resume", seeded[:20]])
     assert r.exit_code == 0, r.stdout
     assert captured["session_id"] == f"cli:{seeded}"
+    assert captured["prepared_session_id"] == f"cli:{seeded}"
 
 
 def test_agent_session_key_passthrough(tmp_config: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

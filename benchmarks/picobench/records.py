@@ -25,6 +25,11 @@ class VerificationState(StrEnum):
     NOT_RUN = "not_run"
 
 
+class MeasurementValidity(StrEnum):
+    VALID = "valid"
+    INVALID = "invalid"
+
+
 class TrialStatus(StrEnum):
     PASSED = "passed"
     TASK_FAILED = "task_failed"
@@ -117,6 +122,9 @@ class VerifierResult:
     state: VerificationState
     findings: tuple[str, ...] = ()
     metrics: dict[str, JsonValue] = field(default_factory=dict)
+    verifier_id: str | None = None
+    verifier_digest: str | None = None
+    artifact_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "metrics", MappingProxyType(dict(self.metrics)))
@@ -135,6 +143,12 @@ class AttemptRecord:
     metrics: dict[str, JsonValue] = field(default_factory=dict)
     findings: tuple[str, ...] = ()
     artifact_refs: tuple[str, ...] = ()
+    measurement_valid: bool = True
+    run_id: str | None = None
+    turn_id: str | None = None
+    trace_artifact_ref: str | None = None
+    verifier_artifact_ref: str | None = None
+    reproducibility_ref: str | None = None
 
 
 @dataclass(frozen=True)
@@ -153,6 +167,12 @@ class TrialRecord:
     metrics: dict[str, JsonValue] = field(default_factory=dict)
     findings: tuple[str, ...] = ()
     artifact_refs: tuple[str, ...] = ()
+    measurement_valid: bool = True
+    run_id: str | None = None
+    turn_id: str | None = None
+    trace_artifact_ref: str | None = None
+    verifier_artifact_ref: str | None = None
+    reproducibility_ref: str | None = None
 
 
 @dataclass(frozen=True)

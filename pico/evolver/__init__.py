@@ -21,6 +21,9 @@ screen/confirm/gates -> archive/promotion -> sealed evaluation。各子 Package 
 * ``scheduler`` 负责 task/anchor selection 与 bandit utility；
 * ``analysis`` 读取 trial ledger 并做 stability bucketing；
 * ``compressor`` 为 diagnosis prompt 压缩 trajectory。
+* ``lineage`` 读取真实 TraceStore failure evidence，冻结一次 Evolution Run 的 authority
+  boundary，并把 source Run、candidate manifest、train/sealed outcome 与 activation state
+  关联为 durable sidecar；它不替代上述任何执行组件。
 
 证据边界必须保持清楚：candidate code 调用成功不等于 beacon 已记录；beacon 已记录不等于
 benchmark task 完成；单次 task 成功不等于 confirm 稳定；gate 通过不等于 sealed

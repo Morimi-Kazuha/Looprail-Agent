@@ -35,24 +35,54 @@ class MemorySegmentBuilder:
         user_id: str = "default",
         memory_top_k: int = 5,
         enabled: bool = True,
+        project_id: str | None = None,
+        structured_top_k: int = 5,
+        structured_max_chars: int = 6_000,
+        allow_local_structured: bool = False,
     ) -> None:
         self._memory_store = memory_store
         self._backend = backend
         self._user_id = user_id
         self._memory_top_k = memory_top_k
         self._enabled = enabled
+        self._project_id = project_id
+        self._structured_top_k = structured_top_k
+        self._structured_max_chars = structured_max_chars
+        self._allow_local_structured = allow_local_structured
 
     async def build(self, ctx: AssemblyContext) -> Segment | None:
-        if not self._enabled:
+        local_file = getattr(self._memory_store, "memory_items_file", None)
+        local_structured_ready = (
+            self._allow_local_structured and local_file is not None and local_file.exists()
+        )
+        if not self._enabled and not local_structured_ready:
             return Segment(text="", meta={"memory_hits": 0})
         # 合并 Host 直接读取和插件召回。召回发生硬失败时继续向上传播，
         # 让后端故障在 AgentLoop 暴露，而不是静默丢弃记忆。
-        host = self._memory_store.get_memory_context(current_message=ctx.current_message)
+        try:
+            host = self._memory_store.get_memory_context(
+                current_message=ctx.current_message,
+                repo_identity=getattr(self._memory_store, "repository_identity", None),
+                project_id=self._project_id,
+                user_id=self._user_id,
+                structured_top_k=self._structured_top_k,
+                structured_max_chars=self._structured_max_chars,
+            )
+        except TypeError:
+            # Keep the pre-Phase-5 MemoryStore seam usable for tiny external
+            # test doubles and old callers that only accepted current_message.
+            host = self._memory_store.get_memory_context(current_message=ctx.current_message)
         recall_hits = await self._recall(ctx.current_message)
         recall_bullets = render.render_recalled_memory(recall_hits)
 
         sections = [s for s in (host, recall_bullets) if s]
-        meta: dict[str, Any] = {"memory_hits": len(recall_hits)}
+        structured_diagnostics = getattr(self._memory_store, "last_memory_diagnostics", {}) or {}
+        structured_hits = int(structured_diagnostics.get("selected", 0) or 0)
+        meta: dict[str, Any] = {
+            "memory_hits": len(recall_hits) + structured_hits,
+            "structured_memory_hits": structured_hits,
+            "structured_memory_diagnostics": structured_diagnostics,
+        }
         if not sections:
             return Segment(text="", meta=meta)
         return Segment(text="# Memory\n\n" + "\n\n".join(sections), meta=meta)

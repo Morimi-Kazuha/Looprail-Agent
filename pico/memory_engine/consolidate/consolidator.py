@@ -13,22 +13,286 @@ Context Selection。LLM 调用成功不等于结果通过边界；文件写入�
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import os
 import re
 import weakref
+from collections.abc import Mapping
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from loguru import logger
 
+from pico.memory_engine.backend import (
+    MEMORY_ITEM_SCHEMA,
+    MEMORY_KINDS,
+    MEMORY_SCOPES,
+    MEMORY_STATUSES,
+    MEMORY_VERIFICATIONS,
+    Memory,
+    MemoryKind,
+    MemoryScope,
+    MemoryStatus,
+    MemoryVerification,
+    MemoryWriteResult,
+    memory_content_digest,
+    normalize_memory_provenance,
+    normalize_memory_text,
+)
 from pico.tracing import semconv, trace
 from pico.utils.helpers import ensure_dir, estimate_message_tokens, estimate_prompt_tokens_chain
 
 if TYPE_CHECKING:
     from pico.providers.base import LLMProvider
     from pico.session.manager import Session, SessionManager
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 structured Memory policy helpers
+# ---------------------------------------------------------------------------
+
+
+_STRUCTURED_MEMORY_FILE_NAME = "items.jsonl"
+_STRUCTURED_MEMORY_MAX_TEXT = 4_096
+_STRUCTURED_MEMORY_DEFAULT_TOP_K = 5
+_STRUCTURED_MEMORY_MAX_TOP_K = 64
+_STRUCTURED_MEMORY_DEFAULT_MAX_CHARS = 6_000
+_STRUCTURED_MEMORY_MAX_CHARS = 32_000
+_STRUCTURED_MEMORY_ELIGIBLE_KINDS = frozenset(
+    {
+        MemoryKind.PROJECT_FACT.value,
+        MemoryKind.USER_PREFERENCE.value,
+        MemoryKind.REPO_CONVENTION.value,
+        MemoryKind.SUCCESSFUL_PROCEDURE.value,
+        MemoryKind.FAILURE_LESSON.value,
+        MemoryKind.ENVIRONMENT_FACT.value,
+    }
+)
+_STRUCTURED_MEMORY_DURABLE_SCOPES = frozenset(
+    {
+        "project",
+        "repo_local",
+        "global",
+        "user",
+    }
+)
+_STRUCTURED_MEMORY_RECOVERY_MARKERS = (
+    "[recovery",
+    "unknown effect",
+    "unknown_effect",
+    "checkpoint:",
+    "recovery evidence",
+    "recovery_evidence",
+)
+_STRUCTURED_MEMORY_METADATA_KEYS = frozenset(
+    {
+        "category",
+        "labels",
+        "tags",
+        "reusable",
+        "explicit_durable",
+        "transient",
+        "one_off",
+        "hypothesis",
+        "recovery_only",
+    }
+)
+
+
+def _stable_repository_identity(path: Path) -> str:
+    """Derive a stable, non-guessable repository identity from a local root."""
+
+    resolved = str(path.expanduser().resolve()).casefold()
+    return "repo-" + hashlib.sha256(resolved.encode("utf-8")).hexdigest()[:16]
+
+
+def repository_identity_for_path(path: Path) -> str:
+    """Public helper used by Context/Agent hosts to share one repo boundary."""
+
+    return _stable_repository_identity(Path(path))
+
+
+def _memory_timestamp(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _memory_timestamp_key(value: str | None) -> float:
+    parsed = _memory_timestamp(value)
+    if parsed is None:
+        return float("-inf")
+    return parsed.timestamp()
+
+
+def _memory_now_iso(now_fn: Callable[[], datetime]) -> str:
+    return now_fn().isoformat()
+
+
+def _bounded_memory_metadata(value: Any) -> dict[str, Any]:
+    """Retain small labels only; raw ToolResult/log payloads are not item metadata."""
+
+    if not isinstance(value, Mapping):
+        return {}
+    out: dict[str, Any] = {}
+    for key in sorted(_STRUCTURED_MEMORY_METADATA_KEYS):
+        if key not in value:
+            continue
+        current = value[key]
+        if isinstance(current, (str, int, float, bool)):
+            out[key] = str(current)[:256] if isinstance(current, str) else current
+        elif isinstance(current, (list, tuple)):
+            out[key] = [str(item)[:64] for item in current[:16]]
+    return out
+
+
+def _looks_like_recovery_evidence(value: Any) -> bool:
+    """Recognize Phase 3 warnings without treating ordinary history as Memory."""
+
+    if isinstance(value, Mapping):
+        if value.get("_recovery_synthetic") or value.get("recovery_only"):
+            return True
+        return any(_looks_like_recovery_evidence(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_looks_like_recovery_evidence(v) for v in value)
+    if not isinstance(value, str):
+        return False
+    lowered = value.casefold().strip()
+    return any(marker in lowered for marker in _STRUCTURED_MEMORY_RECOVERY_MARKERS)
+
+
+def _memory_source_label(provenance: Mapping[str, Any]) -> str:
+    return str(provenance.get("source") or provenance.get("source_type") or "unknown").strip()[:128]
+
+
+def _memory_identity_payload(item: Memory) -> dict[str, Any]:
+    provenance = normalize_memory_provenance(item.provenance)
+    return {
+        "scope": item.scope,
+        "kind": item.kind,
+        "normalized_key": item.normalized_key,
+        "source": _memory_source_label(provenance),
+        "content_digest": item.content_digest,
+        "repo_identity": provenance.get("repo_identity"),
+        "project_id": provenance.get("project_id"),
+        "user_id": provenance.get("user_id"),
+    }
+
+
+def _memory_id(item: Memory) -> str:
+    encoded = json.dumps(_memory_identity_payload(item), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "memory-" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:32]
+
+
+def _memory_dedupe_key(item: Memory) -> tuple[str, ...]:
+    provenance = normalize_memory_provenance(item.provenance)
+    return (
+        item.scope,
+        item.kind,
+        item.normalized_key or "",
+        _memory_source_label(provenance),
+        item.content_digest or "",
+    )
+
+
+def _memory_conflict_key(item: Memory) -> tuple[str, ...]:
+    provenance = normalize_memory_provenance(item.provenance)
+    return (
+        item.scope,
+        item.kind,
+        item.normalized_key or "",
+        provenance.get("repo_identity", ""),
+        provenance.get("project_id", ""),
+        provenance.get("user_id", ""),
+    )
+
+
+def _memory_write_metadata(item: Memory) -> dict[str, Any]:
+    """Summarize a write for tests/traces without returning the claim payload."""
+
+    return {
+        "schema": MEMORY_ITEM_SCHEMA,
+        "memory_id": item.memory_id,
+        "kind": item.kind,
+        "scope": item.scope,
+        "verification": item.verification,
+        "status": item.status,
+        "version": item.version,
+        "content_digest": item.content_digest,
+        "provenance": normalize_memory_provenance(item.provenance),
+    }
+
+
+def _memory_eligibility(item: Memory, *, repository_identity: str) -> tuple[bool, str, dict[str, Any]]:
+    """Apply the deterministic Phase 5 write gate to one canonical candidate."""
+
+    text = (item.text or "").strip()
+    if not text:
+        return False, "empty_claim", {}
+    if len(text) > _STRUCTURED_MEMORY_MAX_TEXT:
+        return False, "claim_oversized", {"max_text": _STRUCTURED_MEMORY_MAX_TEXT}
+    if item.kind not in _STRUCTURED_MEMORY_ELIGIBLE_KINDS:
+        return False, "kind_not_reusable", {"kind": item.kind}
+    if item.scope not in MEMORY_SCOPES:
+        return False, "invalid_scope", {"scope": item.scope}
+    if item.scope not in _STRUCTURED_MEMORY_DURABLE_SCOPES:
+        return False, "scope_not_durable", {"scope": item.scope}
+    if item.verification not in MEMORY_VERIFICATIONS:
+        return False, "invalid_verification", {"verification": item.verification}
+    if item.verification in {
+        MemoryVerification.UNCERTAIN.value,
+        MemoryVerification.DERIVED.value,
+    }:
+        return False, "verification_not_eligible", {"verification": item.verification}
+    if item.verification == MemoryVerification.USER_PROVIDED.value and item.kind != MemoryKind.USER_PREFERENCE.value:
+        return False, "user_provided_only_for_preference", {"kind": item.kind}
+
+    provenance = normalize_memory_provenance(item.provenance)
+    source_type = provenance.get("source_type", "").casefold()
+    if source_type in {
+        "tool_result",
+        "raw_tool_result",
+        "raw_tool_output",
+        "tool_output",
+        "reasoning",
+        "chain_of_thought",
+        "recovery",
+        "recovery_evidence",
+        "checkpoint",
+    }:
+        return False, "source_not_durable", {"source_type": source_type}
+    if _looks_like_recovery_evidence(item.text) or _looks_like_recovery_evidence(provenance):
+        return False, "recovery_evidence_not_memory", {}
+
+    if item.scope in {"project", "repo_local"} and provenance.get("repo_identity") != repository_identity:
+        return False, "wrong_repository_scope", {
+            "expected_repo_identity": repository_identity,
+            "item_repo_identity": provenance.get("repo_identity"),
+        }
+    if item.scope == "user" and not provenance.get("user_id"):
+        return False, "user_scope_requires_identity", {}
+
+    metadata = item.metadata
+    if any(metadata.get(key) is True or str(metadata.get(key, "")).casefold() == "true" for key in ("transient", "one_off", "hypothesis", "recovery_only")):
+        return False, "not_reusable", {}
+    if metadata.get("reusable") is False or str(metadata.get("reusable", "")).casefold() == "false":
+        return False, "not_reusable", {}
+    if metadata.get("explicit_durable") is False:
+        return False, "not_explicitly_durable", {}
+    return True, "eligible", {
+        "eligible": True,
+        "kind": item.kind,
+        "scope": item.scope,
+        "verification": item.verification,
+        "source_type": source_type or "manual",
+    }
 
 
 def _ensure_text(value: Any) -> str:
@@ -591,32 +855,71 @@ def _splice_h2_section(content: str, heading: str, new_body: str) -> str:
 
 
 class MemoryStore:
-    """拥有 Two-layer Memory 的 Store：``user.md`` Profile + ``episodes.md`` Grep-searchable Event Log。
+    """拥有 Markdown Profile/Episode 与 Structured Item sidecar 的唯一 Memory Store。
 
     旧名称 ``MEMORY.md`` / ``HISTORY.md`` 的职责分别迁移到 Workspace ``user_memory/profile/user.md`` 与
     ``user_memory/episodic/episodes.md``。Store 负责 Locked Profile Writes、Episode Append、Foresight、Tag
     Offsets、Section Selection 与 LLM Annotation/Refresh；文件路径和写入锁由实例持有。
 
-    生命周期与 Workspace 一致，没有显式 Start/Stop。多进程修改 `user.md` 必须使用 `locked`；Episode
-    Append 当前是直接追加。Store 写入成功不代表下次 Context 一定选择该 Section。
+    Phase 5 的 ``items.jsonl`` 仍由这个 Store 负责，不是第二个 Store 或 Retrieval Service；它保存
+    带 schema、scope、provenance、verification 与 lifecycle status 的可复用条目。结构化写入通过
+    ``write`` 的确定性资格门，检索通过 ``recall_memory`` 的 bounded lexical path；Markdown Profile
+    与 Episode 接口保持兼容。
+
+    生命周期与 Workspace 一致，没有显式 Start/Stop。多进程修改 `user.md` 或结构化 sidecar 必须使用
+    `locked`；Episode Append 当前是直接追加。Store 写入成功不代表下次 Context 一定选择该 Section。
     """
 
     def __init__(
         self,
         workspace: Path,
         now_fn: Callable[[], datetime] | None = None,
+        *,
+        repository_id: str | None = None,
+        project_id: str | None = None,
+        user_id: str = "default",
+        repository_root: Path | None = None,
     ):
+        self.workspace = Path(workspace)
+        self.repository_root = Path(repository_root or workspace)
         # 用户资料和事件日志位于 ``user_memory`` 支柱下。``memory_dir`` 是
         # ``memory_file.parent`` 的别名，供需推导同级路径的调用点使用，如下方的锁文件。
-        self.memory_file = ensure_dir(workspace / "user_memory" / "profile") / "user.md"
-        self.history_file = ensure_dir(workspace / "user_memory" / "episodic") / "episodes.md"
+        self.memory_file = ensure_dir(self.workspace / "user_memory" / "profile") / "user.md"
+        self.history_file = ensure_dir(self.workspace / "user_memory" / "episodic") / "episodes.md"
         self.memory_dir = self.memory_file.parent
         # 写入 user.md 的各进程共享同级锁文件。
         self.memory_lock_path = self.memory_file.with_suffix(self.memory_file.suffix + ".lock")
 
+        # Phase 5 structured items live under the same existing MemoryStore
+        # authority.  This is a sidecar representation of the Store, not a
+        # second retrieval service; Markdown profile/episodes remain intact.
+        self.structured_dir = ensure_dir(self.workspace / "user_memory" / "structured")
+        self.structured_file = self.structured_dir / _STRUCTURED_MEMORY_FILE_NAME
+        self.repository_identity = str(repository_id or _stable_repository_identity(self.repository_root))[:512]
+        self.project_id = str(project_id).strip()[:256] if project_id else None
+        self.user_id = str(user_id or "default")[:256]
+        self._last_memory_diagnostics: dict[str, Any] = {}
+        self._last_memory_write: MemoryWriteResult | None = None
+
         # ``consolidate`` 用它向归并 LLM 提示词注入 ``Current Time:``。如果没有它，
         # 即使 LLM 看到的会话项已使用伪时钟标记，其摘要段落时间戳仍会回退到墙上时间。
         self._now_fn = now_fn or datetime.now
+
+    @property
+    def memory_items_file(self) -> Path:
+        """Stable diagnostic alias for the structured item file."""
+
+        return self.structured_file
+
+    @property
+    def last_memory_diagnostics(self) -> dict[str, Any]:
+        """Bounded diagnostics from the most recent structured recall."""
+
+        return dict(self._last_memory_diagnostics)
+
+    @property
+    def last_memory_write(self) -> MemoryWriteResult | None:
+        return self._last_memory_write
 
     @contextmanager
     def locked(self) -> Iterator[None]:
@@ -649,7 +952,815 @@ class MemoryStore:
     def write_long_term(self, content: str) -> None:
         self.memory_file.write_text(content, encoding="utf-8")
 
+    # ------------------------------------------------------------------
+    # Phase 5 structured item lifecycle
+    # ------------------------------------------------------------------
+
+    def _canonical_memory_item(
+        self,
+        item: Memory | Mapping[str, Any] | str | None,
+        *,
+        text: str | None = None,
+        kind: str | None = None,
+        scope: str | None = None,
+        verification: str | None = None,
+        confidence: str | None = None,
+        normalized_key: str | None = None,
+        provenance: Mapping[str, Any] | Any | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        session_id: str | None = None,
+        turn_id: str | None = None,
+        source: str | None = None,
+        source_type: str | None = None,
+        tool_name: str | None = None,
+        result_ref: str | None = None,
+        observed_at: str | None = None,
+        source_path: str | None = None,
+        source_digest: str | None = None,
+        evidence_digest: str | None = None,
+        project_id: str | None = None,
+        user_id: str | None = None,
+        repo_identity: str | None = None,
+    ) -> Memory:
+        if isinstance(item, Memory):
+            data: dict[str, Any] = {
+                "text": item.text,
+                "score": item.score,
+                "metadata": dict(item.metadata),
+                "kind": item.kind,
+                "scope": item.scope,
+                "verification": item.verification,
+                "confidence": item.confidence,
+                "status": item.status,
+                "memory_id": item.memory_id,
+                "normalized_key": item.normalized_key,
+                "content_digest": item.content_digest,
+                "provenance": dict(item.provenance),
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+                "version": item.version,
+                "supersedes": item.supersedes,
+                "superseded_by": item.superseded_by,
+                "invalidated_reason": item.invalidated_reason,
+            }
+        elif isinstance(item, Mapping):
+            data = dict(item)
+        elif isinstance(item, str):
+            data = {"text": item}
+        elif item is None:
+            data = {}
+        else:
+            raise TypeError("memory item must be Memory, mapping, string, or None")
+
+        if text is not None:
+            data["text"] = text
+        if kind is not None:
+            data["kind"] = kind
+        if scope is not None:
+            data["scope"] = scope
+        if verification is not None:
+            data["verification"] = verification
+        if confidence is not None:
+            data["confidence"] = confidence
+        if normalized_key is not None:
+            data["normalized_key"] = normalized_key
+        if metadata is not None:
+            data["metadata"] = dict(metadata)
+
+        raw_provenance = data.get("provenance")
+        if isinstance(raw_provenance, Mapping):
+            prov: dict[str, Any] = dict(raw_provenance)
+        elif hasattr(raw_provenance, "to_dict"):
+            prov = dict(raw_provenance.to_dict())
+        else:
+            prov = {}
+        if provenance is not None:
+            if isinstance(provenance, Mapping):
+                prov.update(dict(provenance))
+            elif hasattr(provenance, "to_dict"):
+                prov.update(dict(provenance.to_dict()))
+        for key, value in {
+            "session_id": session_id,
+            "turn_id": turn_id,
+            "source": source,
+            "source_type": source_type,
+            "tool_name": tool_name,
+            "result_ref": result_ref,
+            "observed_at": observed_at,
+            "source_path": source_path,
+            "source_digest": source_digest,
+            "evidence_digest": evidence_digest,
+            "project_id": project_id,
+            "user_id": user_id,
+            "repo_identity": repo_identity,
+        }.items():
+            if value is not None:
+                prov[key] = value
+
+        now = _memory_now_iso(self._now_fn)
+        normalized_kind = str(data.get("kind") or MemoryKind.UNCLASSIFIED.value).strip().casefold()
+        normalized_scope = str(data.get("scope") or MemoryScope.TURN_LOCAL.value).strip().casefold().replace("-", "_")
+        normalized_verification = (
+            str(data.get("verification") or MemoryVerification.UNCERTAIN.value).strip().casefold().replace("-", "_")
+        )
+        normalized_confidence = str(data.get("confidence") or "unknown").strip().casefold()[:64]
+        normalized_status = str(data.get("status") or MemoryStatus.ACTIVE.value).strip().casefold()
+
+        # These defaults make provenance explicit for manually submitted facts,
+        # while preserving a caller-supplied repository/user boundary.
+        prov.setdefault("source", "runtime")
+        prov.setdefault("source_type", "manual")
+        prov.setdefault("observed_at", data.get("updated_at") or now)
+        if normalized_scope in {"project", "repo_local"}:
+            prov.setdefault("repo_identity", self.repository_identity)
+        if normalized_scope == "project":
+            prov.setdefault("project_id", self.project_id or prov.get("repo_identity"))
+        if normalized_scope == "user":
+            prov.setdefault("user_id", self.user_id)
+        prov = normalize_memory_provenance(prov)
+
+        claim = str(data.get("text") or "")
+        key = normalize_memory_text(data.get("normalized_key") or claim)
+        try:
+            score = float(data.get("score", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            score = 0.0
+        try:
+            version = int(data.get("version", 1) or 1)
+        except (TypeError, ValueError):
+            version = 1
+
+        created_at = data.get("created_at")
+        updated_at = data.get("updated_at")
+        for timestamp_name, timestamp_value in (("created_at", created_at), ("updated_at", updated_at)):
+            if timestamp_value is not None and (
+                not isinstance(timestamp_value, str) or _memory_timestamp(timestamp_value) is None
+            ):
+                raise ValueError(f"{timestamp_name} must be an ISO timestamp")
+
+        return Memory(
+            text=claim,
+            score=score,
+            metadata=_bounded_memory_metadata(data.get("metadata")),
+            kind=normalized_kind,
+            scope=normalized_scope,
+            verification=normalized_verification,
+            confidence=normalized_confidence,
+            status=normalized_status,
+            memory_id=data.get("memory_id") if isinstance(data.get("memory_id"), str) else None,
+            normalized_key=key,
+            content_digest=memory_content_digest(claim),
+            provenance=prov,
+            created_at=created_at if isinstance(created_at, str) else now,
+            updated_at=updated_at if isinstance(updated_at, str) else now,
+            version=version,
+            supersedes=data.get("supersedes") if isinstance(data.get("supersedes"), str) else None,
+            superseded_by=data.get("superseded_by") if isinstance(data.get("superseded_by"), str) else None,
+            invalidated_reason=(
+                str(data.get("invalidated_reason"))[:512] if data.get("invalidated_reason") is not None else None
+            ),
+        )
+
+    @staticmethod
+    def _decode_structured_memory_record(record: Any) -> Memory:
+        if not isinstance(record, dict) or record.get("schema") != MEMORY_ITEM_SCHEMA:
+            raise ValueError("invalid memory item schema")
+        required = ("text", "kind", "scope", "verification", "status", "memory_id", "normalized_key")
+        if any(key not in record for key in required):
+            raise ValueError("memory item is missing required fields")
+        text = record.get("text")
+        if not isinstance(text, str) or not text.strip() or len(text) > _STRUCTURED_MEMORY_MAX_TEXT:
+            raise ValueError("memory item text is invalid")
+        fields = {
+            "kind": MEMORY_KINDS,
+            "scope": MEMORY_SCOPES,
+            "verification": MEMORY_VERIFICATIONS,
+            "status": MEMORY_STATUSES,
+        }
+        for key, choices in fields.items():
+            if not isinstance(record.get(key), str) or record[key] not in choices:
+                raise ValueError(f"memory item {key} is invalid")
+        if not isinstance(record.get("memory_id"), str) or not record["memory_id"]:
+            raise ValueError("memory item id is invalid")
+        if not isinstance(record.get("normalized_key"), str) or not record["normalized_key"]:
+            raise ValueError("memory item normalized key is invalid")
+        if record.get("content_digest") != memory_content_digest(text):
+            raise ValueError("memory item content digest is invalid")
+        provenance = record.get("provenance", {})
+        if not isinstance(provenance, dict):
+            raise ValueError("memory item provenance is invalid")
+        version = record.get("version", 1)
+        if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+            raise ValueError("memory item version is invalid")
+        for key in ("created_at", "updated_at"):
+            if record.get(key) is not None and _memory_timestamp(record.get(key)) is None:
+                raise ValueError(f"memory item {key} is invalid")
+        metadata = record.get("metadata", {})
+        if not isinstance(metadata, dict):
+            raise ValueError("memory item metadata is invalid")
+        return Memory(
+            text=text,
+            kind=record["kind"],
+            scope=record["scope"],
+            verification=record["verification"],
+            confidence=record.get("confidence", "unknown"),
+            status=record["status"],
+            metadata=_bounded_memory_metadata(metadata),
+            memory_id=record["memory_id"],
+            normalized_key=record["normalized_key"],
+            content_digest=record["content_digest"],
+            provenance=normalize_memory_provenance(provenance),
+            created_at=record.get("created_at"),
+            updated_at=record.get("updated_at"),
+            version=version,
+            supersedes=record.get("supersedes"),
+            superseded_by=record.get("superseded_by"),
+            invalidated_reason=record.get("invalidated_reason"),
+        )
+
+    def _read_structured_memory_items(self) -> tuple[list[Memory], list[str]]:
+        if not self.structured_file.exists():
+            return [], []
+        try:
+            raw = self.structured_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return [], ["storage_unavailable"]
+        items: list[Memory] = []
+        errors: list[str] = []
+        for line_number, line in enumerate(raw.splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+                items.append(self._decode_structured_memory_record(record))
+            except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                errors.append(f"line_{line_number}:{str(exc)[:120]}")
+        return items, errors
+
+    def _write_structured_memory_items(self, items: list[Memory]) -> None:
+        self.structured_file.parent.mkdir(parents=True, exist_ok=True)
+        payload = "\n".join(
+            json.dumps(item.structured_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            for item in items
+        )
+        if payload:
+            payload += "\n"
+        temporary = self.structured_file.with_name(self.structured_file.name + ".tmp")
+        try:
+            with open(temporary, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, self.structured_file)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    @trace.instrument("memory.write", extract=semconv.memory_write)
+    def write(
+        self,
+        item: Memory | Mapping[str, Any] | str | None = None,
+        *,
+        text: str | None = None,
+        kind: str | None = None,
+        scope: str | None = None,
+        verification: str | None = None,
+        confidence: str | None = None,
+        normalized_key: str | None = None,
+        provenance: Mapping[str, Any] | Any | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        session_id: str | None = None,
+        turn_id: str | None = None,
+        source: str | None = None,
+        source_type: str | None = None,
+        tool_name: str | None = None,
+        result_ref: str | None = None,
+        observed_at: str | None = None,
+        source_path: str | None = None,
+        source_digest: str | None = None,
+        evidence_digest: str | None = None,
+        project_id: str | None = None,
+        user_id: str | None = None,
+        repo_identity: str | None = None,
+    ) -> MemoryWriteResult:
+        """Apply the explicit write policy and persist one structured item.
+
+        The operation is idempotent for the deterministic tuple
+        ``scope/kind/normalized_key/source/content_digest``.  A later
+        eligible claim with the same conflict key supersedes the active older
+        version.  No LLM extraction or semantic similarity is performed.
+        """
+
+        try:
+            canonical = self._canonical_memory_item(
+                item,
+                text=text,
+                kind=kind,
+                scope=scope,
+                verification=verification,
+                confidence=confidence,
+                normalized_key=normalized_key,
+                provenance=provenance,
+                metadata=metadata,
+                session_id=session_id,
+                turn_id=turn_id,
+                source=source,
+                source_type=source_type,
+                tool_name=tool_name,
+                result_ref=result_ref,
+                observed_at=observed_at,
+                source_path=source_path,
+                source_digest=source_digest,
+                evidence_digest=evidence_digest,
+                project_id=project_id,
+                user_id=user_id,
+                repo_identity=repo_identity,
+            )
+        except (TypeError, ValueError, OverflowError) as exc:
+            result = MemoryWriteResult(False, "rejected", "invalid_item", diagnostics={"error": str(exc)[:160]})
+            self._last_memory_write = result
+            return result
+
+        raw_metadata = item.metadata if isinstance(item, Memory) else item.get("metadata", {}) if isinstance(item, Mapping) else metadata
+        raw_provenance = (
+            item.provenance
+            if isinstance(item, Memory)
+            else item.get("provenance", {})
+            if isinstance(item, Mapping)
+            else provenance
+        )
+        if _looks_like_recovery_evidence(raw_metadata) or _looks_like_recovery_evidence(raw_provenance):
+            canonical = replace(canonical, metadata={**canonical.metadata, "recovery_only": True})
+        eligible, reason, policy = _memory_eligibility(
+            canonical,
+            repository_identity=self.repository_identity,
+        )
+        if not eligible:
+            result = MemoryWriteResult(False, "rejected", reason, diagnostics={"eligible": False, **policy})
+            self._last_memory_write = result
+            return result
+
+        canonical = replace(
+            canonical,
+            memory_id=_memory_id(canonical),
+            status=MemoryStatus.ACTIVE.value,
+            version=max(1, canonical.version),
+        )
+
+        try:
+            with self.locked():
+                items, errors = self._read_structured_memory_items()
+                if errors:
+                    result = MemoryWriteResult(
+                        False,
+                        "error",
+                        "store_corrupt" if any(error.startswith("line_") for error in errors) else "storage_unavailable",
+                        diagnostics={"errors": errors[:16]},
+                    )
+                    self._last_memory_write = result
+                    return result
+
+                duplicate = next(
+                    (
+                        existing
+                        for existing in items
+                        if _memory_dedupe_key(existing) == _memory_dedupe_key(canonical)
+                        and existing.status == MemoryStatus.ACTIVE.value
+                    ),
+                    None,
+                )
+                if duplicate is not None:
+                    result = MemoryWriteResult(
+                        True,
+                        "duplicate",
+                        "duplicate_exact",
+                        item=duplicate,
+                        duplicate_of=duplicate.memory_id,
+                        diagnostics={
+                            "eligible": True,
+                            "deduplicated": True,
+                            "dedupe": "scope_kind_key_source_digest",
+                        },
+                    )
+                    self._last_memory_write = result
+                    return result
+
+                conflicts = [
+                    existing
+                    for existing in items
+                    if existing.status == MemoryStatus.ACTIVE.value
+                    and _memory_conflict_key(existing) == _memory_conflict_key(canonical)
+                    and existing.content_digest != canonical.content_digest
+                ]
+                if not conflicts:
+                    inactive_duplicate = next(
+                        (
+                            existing
+                            for existing in items
+                            if _memory_dedupe_key(existing) == _memory_dedupe_key(canonical)
+                        ),
+                        None,
+                    )
+                    if inactive_duplicate is not None:
+                        result = MemoryWriteResult(
+                            True,
+                            "duplicate",
+                            "duplicate_inactive",
+                            item=inactive_duplicate,
+                            duplicate_of=inactive_duplicate.memory_id,
+                            diagnostics={
+                                "eligible": True,
+                                "deduplicated": True,
+                                "dedupe": "scope_kind_key_source_digest",
+                                "existing_status": inactive_duplicate.status,
+                            },
+                        )
+                        self._last_memory_write = result
+                        return result
+                if conflicts:
+                    latest_version = max(existing.version for existing in conflicts)
+                    canonical = replace(
+                        canonical,
+                        version=max(canonical.version, latest_version + 1),
+                        supersedes=max(conflicts, key=lambda entry: (_memory_timestamp_key(entry.updated_at), entry.memory_id or "")).memory_id,
+                    )
+                superseded_ids = tuple(existing.memory_id for existing in conflicts if existing.memory_id)
+                if conflicts:
+                    superseded_by = canonical.memory_id
+                    items = [
+                        replace(
+                            existing,
+                            status=MemoryStatus.SUPERSEDED.value,
+                            superseded_by=superseded_by,
+                            updated_at=canonical.updated_at,
+                        )
+                        if existing in conflicts
+                        else existing
+                        for existing in items
+                    ]
+                items.append(canonical)
+                self._write_structured_memory_items(items)
+        except OSError as exc:
+            result = MemoryWriteResult(False, "error", "storage_unavailable", diagnostics={"error": str(exc)[:160]})
+            self._last_memory_write = result
+            return result
+
+        result = MemoryWriteResult(
+            True,
+            "superseded" if superseded_ids else "inserted",
+            "accepted",
+            item=canonical,
+            superseded_ids=superseded_ids,
+            diagnostics={
+                **policy,
+                "deduplicated": False,
+                "superseded": bool(superseded_ids),
+            },
+        )
+        self._last_memory_write = result
+        return result
+
+    def write_item(self, item: Memory | Mapping[str, Any] | str | None = None, **kwargs: Any) -> MemoryWriteResult:
+        """Named compatibility alias for :meth:`write`."""
+
+        return self.write(item, **kwargs)
+
+    def write_memory(self, item: Memory | Mapping[str, Any] | str | None = None, **kwargs: Any) -> MemoryWriteResult:
+        """Named compatibility alias for callers using the lifecycle vocabulary."""
+
+        return self.write(item, **kwargs)
+
+    def update_memory(
+        self,
+        memory_id: str,
+        item: Memory | Mapping[str, Any] | str | None = None,
+        **kwargs: Any,
+    ) -> MemoryWriteResult:
+        """Update one item through the same policy/supersession path as ``write``.
+
+        Updates are intentionally not in-place mutations: the target's
+        normalized claim key and provenance are inherited, then ``write``
+        creates a new version and marks the old active item superseded when
+        the content changes.  This keeps the lifecycle small and avoids an
+        event-sourcing log or a second update store.
+        """
+
+        if not isinstance(memory_id, str) or not memory_id.strip():
+            result = MemoryWriteResult(False, "rejected", "invalid_memory_id")
+            self._last_memory_write = result
+            return result
+        items, errors = self._read_structured_memory_items()
+        if errors:
+            result = MemoryWriteResult(False, "error", "store_corrupt", diagnostics={"errors": errors[:16]})
+            self._last_memory_write = result
+            return result
+        target = next((entry for entry in items if entry.memory_id == memory_id), None)
+        if target is None:
+            result = MemoryWriteResult(False, "rejected", "memory_not_found")
+            self._last_memory_write = result
+            return result
+
+        payload: dict[str, Any] = {
+            "text": target.text,
+            "kind": target.kind,
+            "scope": target.scope,
+            "verification": target.verification,
+            "confidence": target.confidence,
+            "normalized_key": target.normalized_key,
+            "metadata": dict(target.metadata),
+            "provenance": dict(target.provenance),
+        }
+        if isinstance(item, Memory):
+            payload.update(
+                {
+                    "text": item.text,
+                    "kind": item.kind,
+                    "scope": item.scope,
+                    "verification": item.verification,
+                    "confidence": item.confidence,
+                    "metadata": dict(item.metadata),
+                    "provenance": {**target.provenance, **item.provenance},
+                }
+            )
+            if item.normalized_key:
+                payload["normalized_key"] = item.normalized_key
+        elif isinstance(item, Mapping):
+            payload.update(dict(item))
+            replacement_provenance = item.get("provenance")
+            if isinstance(replacement_provenance, Mapping):
+                replacement_provenance = dict(replacement_provenance)
+            elif hasattr(replacement_provenance, "to_dict"):
+                replacement_provenance = dict(replacement_provenance.to_dict())
+            else:
+                replacement_provenance = {}
+            payload["provenance"] = {**target.provenance, **replacement_provenance}
+        elif isinstance(item, str):
+            payload["text"] = item
+        elif item is not None:
+            result = MemoryWriteResult(False, "rejected", "invalid_item")
+            self._last_memory_write = result
+            return result
+        payload.update(kwargs)
+        payload.pop("memory_id", None)
+        payload.pop("schema", None)
+        return self.write(payload)
+
+    def update(self, memory_id: str, item: Memory | Mapping[str, Any] | str | None = None, **kwargs: Any) -> MemoryWriteResult:
+        """Short compatibility alias for :meth:`update_memory`."""
+
+        return self.update_memory(memory_id, item, **kwargs)
+
+    def supersede_memory(
+        self,
+        memory_id: str,
+        item: Memory | Mapping[str, Any] | str,
+        **kwargs: Any,
+    ) -> MemoryWriteResult:
+        """Explicitly request a replacement; conflict handling remains Runtime-owned."""
+
+        return self.update_memory(memory_id, item, **kwargs)
+
+    def supersede(self, memory_id: str, item: Memory | Mapping[str, Any] | str, **kwargs: Any) -> MemoryWriteResult:
+        return self.supersede_memory(memory_id, item, **kwargs)
+
+    def read_memory_items(self, *, include_inactive: bool = True) -> list[Memory]:
+        """Read valid structured items; malformed records fail closed and are skipped."""
+
+        items, errors = self._read_structured_memory_items()
+        if errors:
+            self._last_memory_diagnostics = {"read_errors": errors[:16]}
+        if include_inactive:
+            return items
+        return [item for item in items if item.status == MemoryStatus.ACTIVE.value]
+
+    def list_memory_items(self, *, include_inactive: bool = True) -> list[Memory]:
+        return self.read_memory_items(include_inactive=include_inactive)
+
+    def _memory_scope_reason(
+        self,
+        item: Memory,
+        *,
+        scope: str | None,
+        repo_identity: str,
+        project_id: str | None,
+        user_id: str | None,
+    ) -> str | None:
+        if scope is not None and item.scope != scope:
+            return "scope_filter"
+        provenance = normalize_memory_provenance(item.provenance)
+        if item.scope in {"project", "repo_local"} and provenance.get("repo_identity") != repo_identity:
+            return "wrong_scope"
+        if item.scope == "project":
+            effective_project = project_id if project_id is not None else self.project_id or repo_identity
+            if provenance.get("project_id") != effective_project:
+                return "wrong_scope"
+        if item.scope == "user" and provenance.get("user_id") != (user_id or self.user_id):
+            return "wrong_scope"
+        return None
+
+    def _memory_stale_reason(self, item: Memory) -> str | None:
+        if item.status != MemoryStatus.ACTIVE.value:
+            return item.status
+        provenance = normalize_memory_provenance(item.provenance)
+        source_path = provenance.get("source_path")
+        if source_path:
+            candidate = Path(source_path)
+            resolved = candidate if candidate.is_absolute() else self.repository_root / candidate
+            if not resolved.exists():
+                return "source_missing"
+        return None
+
+    @trace.instrument("memory.recall", extract=semconv.memory_recall)
+    def recall_memory(
+        self,
+        query: str = "",
+        *,
+        scope: str | None = None,
+        repo_identity: str | None = None,
+        project_id: str | None = None,
+        user_id: str | None = None,
+        top_k: int = _STRUCTURED_MEMORY_DEFAULT_TOP_K,
+        max_chars: int = _STRUCTURED_MEMORY_DEFAULT_MAX_CHARS,
+    ) -> list[Memory]:
+        """Return deterministic, bounded, lexical structured Memory hits."""
+
+        query_text = str(query or "")
+        requested_scope = scope.casefold().replace("-", "_") if isinstance(scope, str) else None
+        try:
+            requested_top_k = int(top_k or 0)
+            requested_max_chars = int(max_chars or 0)
+        except (TypeError, ValueError, OverflowError):
+            diagnostics = {
+                "query": query_text[:300],
+                "scope": requested_scope or "all",
+                "backend": "local_structured_store",
+                "repo_identity": (repo_identity or self.repository_identity)[:512],
+                "top_k": 0,
+                "max_chars": 0,
+                "candidates": 0,
+                "selected": 0,
+                "excluded": {},
+                "warnings": ["invalid_bounds"],
+            }
+            self._last_memory_diagnostics = diagnostics
+            return []
+        diagnostics: dict[str, Any] = {
+            "query": query_text[:300],
+            "scope": requested_scope or "all",
+            "backend": "local_structured_store",
+            "repo_identity": (repo_identity or self.repository_identity)[:512],
+            "top_k": max(0, min(requested_top_k, _STRUCTURED_MEMORY_MAX_TOP_K)),
+            "max_chars": max(0, min(requested_max_chars, _STRUCTURED_MEMORY_MAX_CHARS)),
+            "candidates": 0,
+            "eligible_count": 0,
+            "scope_matches": 0,
+            "selected": 0,
+            "selected_count": 0,
+            "stale_excluded": 0,
+            "budget": max(0, min(requested_max_chars, _STRUCTURED_MEMORY_MAX_CHARS)),
+            "excluded": {},
+            "warnings": [],
+        }
+        if requested_scope is not None and requested_scope not in MEMORY_SCOPES:
+            diagnostics["warnings"] = ["invalid_scope"]
+            self._last_memory_diagnostics = diagnostics
+            return []
+        if diagnostics["top_k"] <= 0 or diagnostics["max_chars"] <= 0:
+            diagnostics["warnings"] = ["bounded_empty_request"]
+            self._last_memory_diagnostics = diagnostics
+            return []
+
+        items, errors = self._read_structured_memory_items()
+        if errors:
+            diagnostics["warnings"] = errors[:16]
+        diagnostics["candidates"] = len(items)
+        q_tokens = set(normalize_memory_text(query_text).split())
+        current_repo = str(repo_identity or self.repository_identity)[:512]
+        current_project = project_id if project_id is not None else self.project_id
+        scored: list[tuple[float, float, str, Memory]] = []
+        excluded: dict[str, int] = {}
+        now = self._now_fn()
+        for item in items:
+            reason = self._memory_scope_reason(
+                item,
+                scope=requested_scope,
+                repo_identity=current_repo,
+                project_id=current_project,
+                user_id=user_id,
+            )
+            if reason:
+                excluded[reason] = excluded.get(reason, 0) + 1
+                continue
+            diagnostics["scope_matches"] += 1
+            stale_reason = self._memory_stale_reason(item)
+            if stale_reason:
+                excluded["stale:" + stale_reason] = excluded.get("stale:" + stale_reason, 0) + 1
+                diagnostics["stale_excluded"] += 1
+                continue
+            if item.verification not in {
+                MemoryVerification.OBSERVED.value,
+                MemoryVerification.VERIFIED.value,
+                MemoryVerification.USER_PROVIDED.value,
+            }:
+                excluded["verification"] = excluded.get("verification", 0) + 1
+                continue
+            diagnostics["eligible_count"] += 1
+            item_tokens = set(normalize_memory_text(item.text).split())
+            overlap = len(q_tokens & item_tokens)
+            if q_tokens and overlap == 0:
+                excluded["not_relevant"] = excluded.get("not_relevant", 0) + 1
+                continue
+            relevance = overlap / max(1, len(q_tokens)) if q_tokens else 1.0
+            scope_weight = {"project": 1.0, "repo_local": 0.95, "user": 0.9, "global": 0.75}.get(item.scope, 0.5)
+            verification_weight = {
+                MemoryVerification.VERIFIED.value: 1.0,
+                MemoryVerification.OBSERVED.value: 0.9,
+                MemoryVerification.USER_PROVIDED.value: 0.95,
+            }.get(item.verification, 0.0)
+            age_days = max(0.0, (now - (_memory_timestamp(item.updated_at) or now)).total_seconds() / 86_400)
+            freshness = 1.0 / (1.0 + age_days / 365.0)
+            score = round(min(1.0, 0.65 * min(1.0, relevance) + 0.20 * scope_weight + 0.10 * verification_weight + 0.05 * freshness), 6)
+            scored.append((score, _memory_timestamp_key(item.updated_at), item.memory_id or "", item))
+
+        scored.sort(key=lambda entry: (-entry[0], -entry[1], entry[2]))
+        selected: list[Memory] = []
+        used_chars = 0
+        for score, _updated, _id, item in scored:
+            if len(selected) >= diagnostics["top_k"]:
+                break
+            item_chars = len(item.text) + 2
+            if used_chars + item_chars > diagnostics["max_chars"]:
+                excluded["retrieval_budget"] = excluded.get("retrieval_budget", 0) + 1
+                continue
+            selected.append(replace(item, score=score))
+            used_chars += item_chars
+        diagnostics["selected"] = len(selected)
+        diagnostics["selected_count"] = len(selected)
+        diagnostics["selected_ids"] = [item.memory_id for item in selected]
+        diagnostics["excluded"] = excluded
+        self._last_memory_diagnostics = diagnostics
+        return selected
+
+    def recall_structured_memory(self, query: str = "", **kwargs: Any) -> list[Memory]:
+        """Named compatibility alias for :meth:`recall_memory`."""
+
+        return self.recall_memory(query, **kwargs)
+
+    def invalidate_memory(self, memory_id: str, reason: str, *, tombstone: bool = False) -> MemoryWriteResult:
+        """Write an explicit invalidation/tombstone without deleting history."""
+
+        if not isinstance(memory_id, str) or not memory_id.strip():
+            result = MemoryWriteResult(False, "rejected", "invalid_memory_id")
+            self._last_memory_write = result
+            return result
+        try:
+            with self.locked():
+                items, errors = self._read_structured_memory_items()
+                if errors:
+                    result = MemoryWriteResult(
+                        False,
+                        "error",
+                        "store_corrupt",
+                        diagnostics={"errors": errors[:16]},
+                    )
+                    self._last_memory_write = result
+                    return result
+                target = next((item for item in items if item.memory_id == memory_id), None)
+                if target is None:
+                    result = MemoryWriteResult(False, "rejected", "memory_not_found")
+                    self._last_memory_write = result
+                    return result
+                if target.status != MemoryStatus.ACTIVE.value:
+                    result = MemoryWriteResult(True, "noop", "already_inactive", item=target)
+                    self._last_memory_write = result
+                    return result
+                next_status = MemoryStatus.TOMBSTONED.value if tombstone else MemoryStatus.INVALIDATED.value
+                updated = replace(
+                    target,
+                    status=next_status,
+                    invalidated_reason=str(reason or "explicit invalidation")[:512],
+                    updated_at=_memory_now_iso(self._now_fn),
+                )
+                self._write_structured_memory_items([updated if item is target else item for item in items])
+                result = MemoryWriteResult(
+                    True,
+                    "tombstoned" if tombstone else "invalidated",
+                    "explicit_invalidation",
+                    item=updated,
+                )
+                self._last_memory_write = result
+                return result
+        except OSError as exc:
+            result = MemoryWriteResult(False, "error", "storage_unavailable", diagnostics={"error": str(exc)[:160]})
+            self._last_memory_write = result
+            return result
+
+    def invalidate(self, memory_id: str, reason: str, **kwargs: Any) -> MemoryWriteResult:
+        return self.invalidate_memory(memory_id, reason, **kwargs)
+
     def append_history(self, entry: str) -> None:
+        if _looks_like_recovery_evidence(entry):
+            logger.info("append_history: recovery evidence is not durable Memory")
+            return
         with open(self.history_file, "a", encoding="utf-8") as f:
             f.write(entry.rstrip() + "\n\n")
 
@@ -828,6 +1939,12 @@ class MemoryStore:
     def get_memory_context(
         self,
         current_message: str | None = None,
+        *,
+        repo_identity: str | None = None,
+        project_id: str | None = None,
+        user_id: str | None = None,
+        structured_top_k: int = _STRUCTURED_MEMORY_DEFAULT_TOP_K,
+        structured_max_chars: int = _STRUCTURED_MEMORY_DEFAULT_MAX_CHARS,
     ) -> str:
         """返回要嵌入 Agent System Prompt 的 Memory Block。
 
@@ -838,23 +1955,66 @@ class MemoryStore:
         Section Parsing/Selection 无结果时 Fall Back 到 Full Dump；文件空则返回空字符串。返回 Block 只
         表示选中候选，仍需 Context Assembler 真正放进 Provider Request。
         """
+        # Both Markdown profile material and structured items are rendered by
+        # this existing Store and returned to the single Memory segment.  The
+        # item recall is bounded and fail-closed; it never reads Session,
+        # EffectJournal, Recovery, or ToolResult payloads.
+        if self.structured_file.exists():
+            structured_hits = self.recall_memory(
+                current_message or "",
+                repo_identity=repo_identity,
+                project_id=project_id,
+                user_id=user_id,
+                top_k=structured_top_k,
+                max_chars=structured_max_chars,
+            )
+        else:
+            # Avoid opening a trace/artifact path for the common empty-store
+            # case while keeping the public recall operation instrumented.
+            self._last_memory_diagnostics = {
+                "query": str(current_message or "")[:300],
+                "backend": "local_structured_store",
+                "candidates": 0,
+                "selected": 0,
+                "excluded": {},
+                "warnings": [],
+            }
+            structured_hits = []
+        structured_block = ""
+        if structured_hits:
+            from pico.context_engine.segments.render import render_recalled_memory
+
+            structured_block = render_recalled_memory(structured_hits)
+
         long_term = self.read_long_term()
-        if not long_term:
-            return ""
-        if not current_message or not current_message.strip():
-            return f"## Long-term Memory\n{long_term}"
-        sections = _parse_user_md_sections(long_term)
-        if not sections:
-            return f"## Long-term Memory\n{long_term}"
-        selected = self._select_relevant_sections(
-            current_message,
-            sections,
-            top_k=self._SECTION_READ_TOP_K,
-        )
-        if not selected:
-            return f"## Long-term Memory\n{long_term}"
-        body = "\n\n".join(f"{heading}\n\n{section_body}".rstrip() for heading, section_body in selected.items())
-        return f"## Long-term Memory\n\n{body}\n"
+        profile = ""
+        if long_term:
+            if not current_message or not current_message.strip():
+                profile = f"## Long-term Memory\n{long_term}"
+            else:
+                sections = _parse_user_md_sections(long_term)
+                if not sections:
+                    profile = f"## Long-term Memory\n{long_term}"
+                else:
+                    selected = self._select_relevant_sections(
+                        current_message,
+                        sections,
+                        top_k=self._SECTION_READ_TOP_K,
+                    )
+                    if not selected:
+                        profile = f"## Long-term Memory\n{long_term}"
+                    else:
+                        body = "\n\n".join(
+                            f"{heading}\n\n{section_body}".rstrip() for heading, section_body in selected.items()
+                        )
+                        profile = f"## Long-term Memory\n\n{body}\n"
+
+        if not structured_block:
+            return profile
+        structured = f"## Structured Memory\n\n{structured_block}\n"
+        if not profile:
+            return structured
+        return profile.rstrip() + "\n\n" + structured
 
     @classmethod
     def _select_relevant_sections(
@@ -1031,6 +2191,9 @@ episode_summary:
             for ep in episodes:
                 line = _ensure_text(ep).strip()
                 if not line:
+                    continue
+                if _looks_like_recovery_evidence(line):
+                    logger.info("annotate: dropped recovery-only episode")
                     continue
                 # 在边界处丢弃只描述过程的事件。提示词声明 #question、#habit 和 #answer 不能单独存在，
                 # 但 LLM 仍有约 5% 的概率输出它们。放行会污染 refresh_section：标签热度触发刷新，
@@ -1547,8 +2710,12 @@ class MemoryConsolidator:
         now_fn: Callable[[], datetime] | None = None,
         *,
         enable_foresight: bool = False,
+        store: MemoryStore | None = None,
     ):
-        self.store = MemoryStore(workspace, now_fn=now_fn)
+        # The AgentLoop passes its ContextBuilder-owned Store here so profile,
+        # episodes, and structured items have one Memory authority. Standalone
+        # callers retain the historical constructor behaviour.
+        self.store = store or MemoryStore(workspace, now_fn=now_fn)
         self.provider = provider
         self.model = model
         self.sessions = sessions

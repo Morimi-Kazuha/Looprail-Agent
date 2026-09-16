@@ -30,11 +30,14 @@ from pico.spine import (
 from pico.spine.delivery import Capabilities, DeliveryHub, make_hub_sink
 from pico.spine.events import Reasoning
 from pico.spine.teardown import teardown_spine
+from pico.cli._run_surface import format_tool_complete, format_tool_start
 
 
 class CliOutlet:
     """Renders a turn's deliverables to the terminal. Runs non-streaming (run_turn
-    stream=False), so the reply arrives as one Text; ToolEvent/MediaOut are eaten.
+    stream=False), so the reply arrives as one Text; ToolEvent is rendered only
+    when the reviewer-facing run surface supplies a renderer, while MediaOut
+    remains intentionally unsupported here.
 
     ``render_notice`` is opt-in progress rendering: when set, Notice and
     Reasoning events render as progress lines, gated by ``send_progress``
@@ -48,6 +51,8 @@ class CliOutlet:
         *,
         render_notice: Callable[[str], None] | None = None,
         render_error: Callable[[str], None] | None = None,
+        render_tool: Callable[[str], None] | None = None,
+        verbose_tools: bool = False,
         send_progress: bool = False,
         send_tool_hints: bool = False,
     ) -> None:
@@ -56,8 +61,11 @@ class CliOutlet:
         self._render = render
         self._render_notice = render_notice
         self._render_error = render_error
+        self._render_tool = render_tool
+        self._verbose_tools = verbose_tools
         self._send_progress = send_progress
         self._send_tool_hints = send_tool_hints
+        self._tool_starts: dict[str, tuple[str, dict[str, Any] | None]] = {}
 
     async def deliver(self, out: Deliverable) -> None:
         if isinstance(out, Text):
@@ -70,23 +78,38 @@ class CliOutlet:
         elif isinstance(out, Reasoning):
             if self._render_notice is not None and self._send_progress and out.content:
                 self._render_notice(out.content)
-        elif (
-            isinstance(out, ToolEvent)
-            and out.phase is ToolPhase.COMPLETE
-            and out.failed
-            and self._render_error is not None
-        ):
-            self._render_error(f"Tool failed: {out.result_preview}")
-        # 其他 Notice 类型、ToolEvent 和 MediaOut 会被吞掉（无法渲染的路径）。
+        elif isinstance(out, ToolEvent):
+            if self._render_tool is None:
+                if out.phase is ToolPhase.COMPLETE and out.failed and self._render_error is not None:
+                    self._render_error(f"Tool failed: {out.result_preview}")
+                return
+            if out.phase is ToolPhase.START:
+                self._tool_starts[out.tool_call_id] = (out.name, out.arguments)
+                self._render_tool(format_tool_start(out))
+            elif out.phase is ToolPhase.COMPLETE:
+                start_name, start_arguments = self._tool_starts.pop(out.tool_call_id, (None, None))
+                self._render_tool(
+                    format_tool_complete(
+                        out,
+                        start_name=start_name,
+                        start_arguments=start_arguments,
+                        verbose=self._verbose_tools,
+                    )
+                )
+        # 其他 Notice 类型与 MediaOut 会被吞掉（无法渲染的路径）。
 
 
 def _make_cli_sink(
     hub: DeliveryHub,
     render_error: Callable[[str], None] | None,
+    *,
+    on_lifecycle: Callable[[TurnEvent], None] | None = None,
 ) -> Callable[[TurnEvent], Awaitable[None]]:
     deliver = make_hub_sink(hub)
 
     async def sink(event: TurnEvent) -> None:
+        if on_lifecycle is not None:
+            on_lifecycle(event)
         if isinstance(event, TurnFailed) and render_error is not None:
             detail = "Turn cancelled" if event.cancelled else f"Turn failed: {event.error}"
             render_error(detail)
@@ -102,6 +125,9 @@ def build_repl(
     *,
     render_notice: Callable[[str], None] | None = None,
     render_error: Callable[[str], None] | None = None,
+    render_tool: Callable[[str], None] | None = None,
+    on_lifecycle: Callable[[TurnEvent], None] | None = None,
+    verbose_tools: bool = False,
     send_progress: bool = False,
     send_tool_hints: bool = False,
     user_pool: int = 1,
@@ -122,6 +148,8 @@ def build_repl(
             render,
             render_notice=render_notice,
             render_error=render_error,
+            render_tool=render_tool,
+            verbose_tools=verbose_tools,
             send_progress=send_progress,
             send_tool_hints=send_tool_hints,
         )
@@ -129,7 +157,7 @@ def build_repl(
     scheduler = Scheduler(
         AgentTurnRunner(agent_loop, stream=False),
         OriginPools(user=user_pool, system=system_pool),
-        _make_cli_sink(hub, render_error),
+        _make_cli_sink(hub, render_error, on_lifecycle=on_lifecycle),
     )
 
     async def teardown() -> None:
@@ -149,6 +177,8 @@ async def run_repl_loop(
     handle_slash: Callable[[str], bool],
     thinking: Callable[[], Any],
     on_exit: Callable[[], None],
+    on_submit: Callable[[TurnRequest], None] | None = None,
+    after_turn: Callable[[TurnRequest, Any | None], None] | None = None,
 ) -> None:
     """Read a line, submit it as a turn, wait for the turn to finish AND its
     output to render, then prompt again — so a reply always lands before the next
@@ -168,17 +198,20 @@ async def run_repl_loop(
                 return
             if command.startswith("/") and handle_slash(command):
                 continue
-            handle = submit(
-                TurnRequest(
-                    origin=Origin.USER,
-                    source=Source(channel=channel, chat_id=chat_id, sender_id="user", chat_type=ChatType.DM),
-                    text=user_input,
-                    conversation=f"{channel}:{chat_id}",
-                )
+            request = TurnRequest(
+                origin=Origin.USER,
+                source=Source(channel=channel, chat_id=chat_id, sender_id="user", chat_type=ChatType.DM),
+                text=user_input,
+                conversation=f"{channel}:{chat_id}",
             )
+            handle = submit(request)
+            if on_submit is not None:
+                on_submit(request)
             with thinking():
-                await handle.result()
+                outcome = await handle.result()
             await wait_idle(channel)
+            if after_turn is not None:
+                after_turn(request, outcome)
         except (EOFError, KeyboardInterrupt):
             on_exit()
             return

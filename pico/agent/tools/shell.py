@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from pico.agent.tools.base import Tool, ToolResult
+from pico.agent.tools.execution import ToolCapability, ToolEffect
 from pico.sandbox import DirectExecutor, SandboxExecutor
 
 
@@ -31,6 +32,7 @@ class ExecTool(Tool):
 
     # 高于 exec 内部 600 秒上限（``_MAX_TIMEOUT``）的兜底值；执行器自身超时会先触发，
     # 此值只用于捕获完全卡死的执行器。
+    capability = ToolCapability(effect=ToolEffect.EXECUTE)
     timeout_seconds = 660.0
 
     def __init__(

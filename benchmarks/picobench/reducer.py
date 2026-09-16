@@ -133,7 +133,20 @@ def reduce_experiment(ref: ExperimentRef) -> Reduction:
     retrieval_all_attempt_statuses = Counter(str(record["status"]) for record in retrieval_attempt_records)
     task_passes: dict[tuple[str, str], list[float]] = defaultdict(list)
     for (pack_id, task_id, _repetition, _variant_id), record in trial_records.items():
-        task_passes[(pack_id, task_id)].append(float(record["status"] == TrialStatus.PASSED.value))
+        if record.get("measurement_valid", True) is True:
+            task_passes[(pack_id, task_id)].append(float(record["status"] == TrialStatus.PASSED.value))
+
+    valid_trial_records = [
+        record for record in trial_records.values() if record.get("measurement_valid", True) is True
+    ]
+    invalid_trial_measurements = sum(
+        record.get("measurement_valid", True) is not True for record in trial_records.values()
+    )
+    unaccounted_trials = max(0, planned_trials - len(trial_records))
+    valid_measurable_statuses = sum(
+        str(record.get("status")) in {status.value for status in MEASURABLE_TRIAL_STATUSES}
+        for record in valid_trial_records
+    )
 
     pair_summaries, pair_metrics = _reduce_pairs(
         manifest=manifest,
@@ -155,9 +168,20 @@ def reduce_experiment(ref: ExperimentRef) -> Reduction:
     base_metrics: dict[str, Any] = {
         "trial.planned": planned_trials,
         "trial.terminal": len(trial_records),
+        "trial.accounted": len(trial_records),
+        "trial.valid": len(valid_trial_records),
+        "trial.invalid": invalid_trial_measurements,
+        "trial.unaccounted": unaccounted_trials,
+        "trial.task_passes": sum(
+            record.get("status") == TrialStatus.PASSED.value for record in valid_trial_records
+        ),
+        "trial.task_failures": sum(
+            record.get("status") in {TrialStatus.TASK_FAILED.value, TrialStatus.TASK_TIMEOUT.value}
+            for record in valid_trial_records
+        ),
         "trial.product_pass_rate": _rate(
             selected_statuses[TrialStatus.PASSED.value],
-            sum(selected_statuses[status.value] for status in MEASURABLE_TRIAL_STATUSES),
+            valid_measurable_statuses,
         ),
         "trial.run_level_pass_rate": _rate(
             selected_statuses[TrialStatus.PASSED.value],
@@ -233,6 +257,8 @@ def reduce_experiment(ref: ExperimentRef) -> Reduction:
     )
     measurement_valid = (
         ship_complete
+        and invalid_trial_measurements == 0
+        and unaccounted_trials == 0
         and not invalid_retrieval
         and all_pair_coverage
         and pack_measurement_valid
@@ -263,6 +289,10 @@ def reduce_experiment(ref: ExperimentRef) -> Reduction:
         findings.append("pair_coverage_below_gate")
     if invalid_retrieval:
         findings.append("retrieval_not_fully_measurable")
+    if invalid_trial_measurements:
+        findings.append(f"invalid_trial_measurements:{invalid_trial_measurements}")
+    if unaccounted_trials:
+        findings.append(f"unaccounted_trials:{unaccounted_trials}")
     return Reduction(
         experiment_id=ref.experiment_id,
         ship_complete=ship_complete,
@@ -918,9 +948,7 @@ def _comparison_block_matches_attempts(
                 selected_attempts.append(attempt)
     if block.get("variant_attempt_refs") != expected_refs:
         return False
-    measurable = all(
-        attempt.get("status") in {status.value for status in MEASURABLE_TRIAL_STATUSES} for attempt in selected_attempts
-    )
+    measurable = all(_measurement_valid_trial(attempt) for attempt in selected_attempts)
     expected_findings = [] if resolved else ["comparison_block_attempts_exhausted"]
     return resolved == measurable and block.get("findings", []) == expected_findings
 
@@ -972,8 +1000,8 @@ def _pair_summary_matches_selected_attempts(
     expected_valid = (
         resolved
         and set(actual_diff) == {str(key.get("treatment_axis"))}
-        and control.get("status") in {status.value for status in MEASURABLE_TRIAL_STATUSES}
-        and treatment.get("status") in {status.value for status in MEASURABLE_TRIAL_STATUSES}
+        and _measurement_valid_trial(control)
+        and _measurement_valid_trial(treatment)
     )
     expected_findings = [] if expected_valid else ["pair_invalid_or_variant_drift"]
     expected_selected = block.get("selected_block_attempt") if resolved else None
@@ -1278,6 +1306,14 @@ def _number(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     return float(value)
+
+
+def _measurement_valid_trial(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and value.get("measurement_valid", True) is True
+        and value.get("status") in {status.value for status in MEASURABLE_TRIAL_STATUSES}
+    )
 
 
 def _item_id(item: Any) -> str | None:

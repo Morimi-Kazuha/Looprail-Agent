@@ -201,6 +201,19 @@ def describe_candidate(cand: Any) -> Optional[dict]:
     to_dict = getattr(manifest, "to_dict", None)
     if callable(to_dict):
         d["manifest"] = to_dict()
+    # Phase 8: preserve the source/Evolution Run correlation in the node
+    # ledger as well as in the dedicated lineage sidecar.  These are pointers
+    # and digests only; the candidate does not receive sealed payloads here.
+    for attr, key in (
+        ("evolution_run_id", "evolution_run_id"),
+        ("source_run_id", "source_run_id"),
+        ("source_trace_ref", "source_trace_ref"),
+        ("source_evidence_digest", "source_evidence_digest"),
+        ("_frozen_digest", "candidate_freeze_digest"),
+    ):
+        value = getattr(cand, attr, None)
+        if value:
+            d[key] = str(value)
     elite_id = getattr(cand, "elite_node_id", None)
     if elite_id:
         d["recombination_of"] = elite_id

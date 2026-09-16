@@ -60,6 +60,7 @@ class TurnContext:
     channel: str | None = None
     chat_id: str | None = None
     selected_skills: list[Any] | None = None
+    recovery_evidence: str | None = None
 
 
 @dataclass
@@ -424,6 +425,8 @@ class CuratorAssembler:
             priority_scores={item.id: item.relevance for item in state.manifest},
             reserved_output=state.budget.reserved_output,
             build_messages=lambda h: self._full_messages(state.prefix, h, working_state),
+            context_window_tokens=state.budget.context_length,
+            runtime_margin_tokens=state.budget.runtime_margin,
         )
 
         validation = {
@@ -434,6 +437,14 @@ class CuratorAssembler:
             "source": outcome.source,
             "included_message_ids": outcome.included_ids,
             "assembler_warnings": outcome.warnings,
+            "decisions": outcome.decisions,
+            "protected_message_ids": sorted(protected_ids),
+            "context_limit": state.budget.context_length,
+            "provider_context_limit": state.budget.provider_context_limit,
+            "input_context_budget": state.budget.input_context_budget,
+            "reserved_output": state.budget.reserved_output,
+            "runtime_margin": state.budget.runtime_margin,
+            "budget_source": state.budget.budget_source,
         }
         return AssembledContext(
             messages=messages,

@@ -6,7 +6,7 @@ from typing import Any
 
 from .artifacts import ArtifactStore, artifact_dict
 from .canonical import canonical_digest
-from .claims import ClaimRuleResult, evaluate_claim_rules
+from .claims import ClaimRuleResult, ClaimState, evaluate_claim_rules, evaluate_layered_claim
 from .reducer import PairSummary, reduce_experiment
 from .schema import ClaimRule, ExperimentRef
 
@@ -38,6 +38,9 @@ class FullReport:
         default=_DEFAULT_REPORT_TITLE,
         repr=False,
     )
+    claim_state: ClaimState = field(default=ClaimState.INCONCLUSIVE)
+    claim_reason: str = field(default="")
+    claim_gates: dict[str, bool] = field(default_factory=dict)
 
     @property
     def status_counts(self) -> dict[str, int]:
@@ -64,11 +67,27 @@ def rebuild_full_report(ref: ExperimentRef) -> FullReport:
         ship_complete=reduction.ship_complete,
         measurement_valid=reduction.measurement_valid,
     )
+    unknown_rule_evidence = any(
+        rule.reason in {"metric_missing", "prerequisite_not_met"} for rule in claims.rules
+    )
+    layered = evaluate_layered_claim(
+        measurement_valid=reduction.measurement_valid,
+        correctness_ok=bool(claims.rules) and not unknown_rule_evidence and all(rule.passed for rule in claims.rules),
+        integrity_ok=reduction.ship_complete,
+        regression_ok=reduction.metrics.get("claim.regression_ok") is not False,
+        evidence_sufficient=reduction.ship_complete and bool(claims.rules) and not unknown_rule_evidence,
+    )
     payload = {
         "experiment_id": ref.experiment_id,
         "ship_complete": reduction.ship_complete,
         "measurement_valid": reduction.measurement_valid,
-        "positive_claim_eligible": claims.positive_claim_eligible,
+        # Claim eligibility is the final layered decision.  The legacy rule
+        # evaluator remains useful for per-rule observations, but it must not
+        # bypass measurement, integrity, regression, or evidence gates.
+        "positive_claim_eligible": layered.positive_claim_eligible,
+        "claim_state": layered.state,
+        "claim_reason": layered.reason,
+        "claim_gates": layered.gates,
         "planned_trials": reduction.planned_trials,
         "terminal_trials": reduction.terminal_trials,
         "planned_retrieval_cases": reduction.planned_retrieval_cases,
@@ -153,6 +172,7 @@ def _write_markdown(path: Path, report: FullReport) -> None:
         f"- Ship complete: `{str(report.ship_complete).lower()}`",
         f"- Measurement valid: `{str(report.measurement_valid).lower()}`",
         (f"- Positive claim eligible: `{str(report.positive_claim_eligible).lower()}`"),
+        f"- Claim state: `{report.claim_state.value}` ({report.claim_reason})",
     ]
     lines.extend(
         [

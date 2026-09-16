@@ -44,15 +44,23 @@ class TokenBudget:
     Threshold；这些值是 Context Planning 预算，不是 Provider 最终 Usage Receipt。
     """
 
-    context_length: int  # 模型上下文窗口
+    context_length: int  # 解析后的有效模型上下文窗口
     reserved_output: int  # 为补全预留
     reserved_tools: int  # 提示词中的工具模式和结果
-    reserved_system: int  # 系统提示词开销
+    reserved_system: int  # 系统提示词开销（代表性估算）
     available_history: int  # 为会话历史和归档注入留下的余额
+    runtime_margin: int = 0  # provider accounting / serialization 的运行时余量
+    provider_context_limit: int | None = None  # 已知的 provider/model 上限
+    budget_source: str = "configured_fallback"  # provider / provider_and_configured / fallback
 
     @property
     def total_reserved(self) -> int:
-        return self.reserved_output + self.reserved_tools + self.reserved_system
+        return self.reserved_output + self.reserved_tools + self.reserved_system + self.runtime_margin
+
+    @property
+    def input_context_budget(self) -> int:
+        """输入可用上限，不包含 completion reservation 与 runtime margin。"""
+        return max(0, self.context_length - self.reserved_output - self.runtime_margin)
 
     @property
     def threshold(self) -> int:

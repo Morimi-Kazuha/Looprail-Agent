@@ -56,6 +56,16 @@ class TrialExecution:
     metrics: dict[str, JsonValue] = field(default_factory=dict)
     findings: tuple[str, ...] = ()
     artifact_refs: tuple[str, ...] = ()
+    # These fields are evidence links, not alternate task-status authorities.
+    # The Scheduler/Trace path supplies run/turn identity; the verifier owns
+    # correctness, while this explicit flag records whether the observation is
+    # usable as a measurement at all.
+    measurement_valid: bool = True
+    run_id: str | None = None
+    turn_id: str | None = None
+    trace_artifact_ref: str | None = None
+    verifier_artifact_ref: str | None = None
+    reproducibility_ref: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(

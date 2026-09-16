@@ -24,8 +24,12 @@ from pico.context_engine.base import (
     ContextEngine,
     SegmentBuilder,
 )
+from pico.context_engine.budget import ContextBudgetError, ContextDecision
+from pico.context_engine.history_trimmer import HistoryTrimmer
 from pico.context_engine.segments import render
 from pico.memory_engine.base import AssembledContext, TokenBudget
+from pico.tracing import trace
+from pico.utils.helpers import estimate_prompt_tokens, estimate_prompt_tokens_chain
 
 if TYPE_CHECKING:
     from pico.context_engine.curator import TurnContext
@@ -48,12 +52,24 @@ class ContextAssembler(ContextEngine):
         builders: list[SegmentBuilder],
         get_tool_definitions: Callable[[], list[dict[str, Any]]],
         now_fn: Callable[[], datetime] | None = None,
+        provider: Any | None = None,
+        model: str | None = None,
     ) -> None:
         self._builders = sorted(builders, key=lambda b: b.order)
         self._phase_a = [b for b in self._builders if not b.needs_prefix]
         self._phase_b = [b for b in self._builders if b.needs_prefix]
         self.get_tool_definitions = get_tool_definitions
         self._now_fn = now_fn or datetime.now
+        self.provider = provider
+        self.model = model
+        # The first local tokenizer lookup can take a few hundred milliseconds
+        # while cl100k_base is loaded.  Warm it during engine construction so
+        # the Phase-A concurrency contract measures the two independent lanes,
+        # not one-time tokenizer initialization after they finish.
+        try:
+            estimate_prompt_tokens([{"role": "system", "content": "warm"}])
+        except Exception:  # noqa: BLE001
+            pass
 
     @property
     def name(self) -> str:
@@ -66,6 +82,7 @@ class ContextAssembler(ContextEngine):
         return True
 
     def replace_model(self, model: str) -> None:
+        self.model = model
         for builder in self._builders:
             replace_model = getattr(builder, "replace_model", None)
             if callable(replace_model):
@@ -87,6 +104,7 @@ class ContextAssembler(ContextEngine):
             chat_id=turn.chat_id,
             session_messages=session_messages,
             budget=budget,
+            recovery_evidence=turn.recovery_evidence,
         )
 
         # ── 阶段 A——相互独立的片段构建器，并发执行 ──────
@@ -129,10 +147,179 @@ class ContextAssembler(ContextEngine):
             system = system + "\n\n---\n\n" + text
 
         messages = [{"role": "system", "content": system}, *history, user_msg]
+        tool_defs = self.get_tool_definitions()
+        estimated_before, source_before = self._estimate(
+            [
+                {"role": "system", "content": system},
+                *HistoryTrimmer.history_from_ids(
+                    session_messages,
+                    HistoryTrimmer.canonical_ids(session_messages, list(range(len(session_messages)))),
+                ),
+                user_msg,
+            ],
+            tool_defs,
+        )
+        estimated_after, source_after = self._estimate(messages, tool_defs)
+        structural_errors = HistoryTrimmer.structural_errors(messages)
+        history_decisions = self._history_decisions(meta)
+        fixed_decisions = self._fixed_decisions(system, user_msg, tool_defs, turn.recovery_evidence)
+        decisions = fixed_decisions + history_decisions
+        validation = meta.get("validation")
+        if isinstance(validation, dict):
+            validation.setdefault("estimated_tokens_before", estimated_before)
+            validation.setdefault("estimated_tokens_after", estimated_after)
+            validation.setdefault("estimate_source_before", source_before)
+            validation.setdefault("estimate_source_after", source_after)
+            validation.setdefault("input_context_budget", budget.input_context_budget)
+            validation.setdefault("runtime_margin", budget.runtime_margin)
+            validation.setdefault("decisions", history_decisions)
+
+        final_metadata = meta | {
+            "engine": self.name,
+            "context_budget": {
+                "context_limit": budget.context_length,
+                "provider_context_limit": budget.provider_context_limit,
+                "input_context_budget": budget.input_context_budget,
+                "reserved_output": budget.reserved_output,
+                "runtime_margin": budget.runtime_margin,
+                "source": budget.budget_source,
+            },
+            "context_estimate": {
+                "before": estimated_before,
+                "after": estimated_after,
+                "source_before": source_before,
+                "source_after": source_after,
+            },
+            "context_decisions": decisions[:256],
+            "context_structural_errors": structural_errors,
+        }
+
+        trace_attrs = {
+            "context.limit": budget.context_length,
+            "context.provider_limit": budget.provider_context_limit,
+            "context.input_budget": budget.input_context_budget,
+            "context.estimated_tokens_before": estimated_before,
+            "context.estimated_tokens_after": estimated_after,
+            "context.reserved_output": budget.reserved_output,
+            "context.runtime_margin": budget.runtime_margin,
+            "context.items_kept": sum(1 for item in decisions if item.get("decision") == "KEEP"),
+            "context.items_compacted": sum(
+                1 for item in decisions if item.get("decision") in {"COMPACT", "SUMMARIZE"}
+            ),
+            "context.items_dropped": sum(1 for item in decisions if item.get("decision") == "DROP"),
+            "context.summary_used": any(item.get("decision") == "SUMMARIZE" for item in decisions),
+            "context.reason": "assembled",
+            "context.estimate_source": source_after,
+        }
+        with trace.span("context.assemble", trace_attrs, kind="memory", session_key=session_key) as span:
+            span.artifact("context.decisions", decisions[:256])
+            if structural_errors:
+                span.error("tool_pair_integrity")
+                raise ContextBudgetError(
+                    estimated_tokens=estimated_after,
+                    input_context_budget=budget.input_context_budget,
+                    context_limit=budget.context_length,
+                    reserved_output=budget.reserved_output,
+                    runtime_margin=budget.runtime_margin,
+                    reason="tool_pair_integrity",
+                )
+            if estimated_after > budget.input_context_budget:
+                fixed_tokens, _ = self._estimate(
+                    [{"role": "system", "content": system}, user_msg],
+                    tool_defs,
+                )
+                reason = (
+                    "protected_fixed_context_exceeds_budget"
+                    if fixed_tokens > budget.input_context_budget
+                    else "context_assembly_overflow"
+                )
+                span.set({"context.reason": reason})
+                span.error(reason)
+                raise ContextBudgetError(
+                    estimated_tokens=estimated_after,
+                    input_context_budget=budget.input_context_budget,
+                    context_limit=budget.context_length,
+                    reserved_output=budget.reserved_output,
+                    runtime_margin=budget.runtime_margin,
+                    reason=reason,
+                    protected_tokens=fixed_tokens,
+                )
+
+        include_indices = meta.get("included_message_ids")
+        if not isinstance(include_indices, list):
+            include_indices = None
         return AssembledContext(
             messages=messages,
-            metadata=meta | {"engine": self.name},
+            include_indices=include_indices,
+            metadata=final_metadata,
         )
+
+    def _estimate(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> tuple[int, str]:
+        if self.provider is not None:
+            return estimate_prompt_tokens_chain(self.provider, self.model, messages, tools)
+        return estimate_prompt_tokens(messages, tools), "tiktoken"
+
+    @staticmethod
+    def _history_decisions(meta: dict[str, Any]) -> list[dict[str, Any]]:
+        validation = meta.get("validation")
+        if not isinstance(validation, dict):
+            return []
+        decisions = validation.get("decisions")
+        if not isinstance(decisions, list):
+            return []
+        return [item for item in decisions if isinstance(item, dict)]
+
+    @staticmethod
+    def _fixed_decisions(
+        system: str,
+        user_msg: dict[str, Any],
+        tool_defs: list[dict[str, Any]],
+        recovery_evidence: str | None,
+    ) -> list[dict[str, Any]]:
+        out = [
+            ContextDecision(
+                source="system_prefix",
+                layer="L0/L1/L3",
+                estimated_tokens=estimate_prompt_tokens([{"role": "system", "content": system}]),
+                priority=1.0,
+                decision="KEEP",
+                reason="runtime and project contract are fixed inputs",
+                protected=True,
+            ).to_dict(),
+            ContextDecision(
+                source="tool_definitions",
+                layer="L0",
+                estimated_tokens=estimate_prompt_tokens([], tool_defs),
+                priority=1.0,
+                decision="KEEP",
+                reason="provider tool schema is required for valid calls",
+                protected=True,
+            ).to_dict(),
+            ContextDecision(
+                source="current_user_request",
+                layer="L2",
+                estimated_tokens=estimate_prompt_tokens([user_msg]),
+                priority=1.0,
+                decision="KEEP",
+                reason="current task is never trimmed as ordinary history",
+                protected=True,
+            ).to_dict(),
+        ]
+        if recovery_evidence:
+            out.append(
+                ContextDecision(
+                    source="recovery_evidence",
+                    layer="L2",
+                    estimated_tokens=estimate_prompt_tokens(
+                        [{"role": "user", "content": recovery_evidence}]
+                    ),
+                    priority=1.0,
+                    decision="KEEP",
+                    reason="active recovery warning is protected in the current Turn",
+                    protected=True,
+                ).to_dict()
+            )
+        return out
 
     async def after_turn(
         self,
@@ -158,10 +345,13 @@ class ContextAssembler(ContextEngine):
         """
         runtime_ctx = render.build_runtime_context(self._now_fn, ctx.channel, ctx.chat_id)
         user_content = render.build_user_content(ctx.current_message, ctx.media)
+        recovery = (ctx.recovery_evidence or "").strip()
         if isinstance(user_content, str):
-            merged: Any = f"{runtime_ctx}\n\n{user_content}"
+            prefix = f"{recovery}\n\n" if recovery else ""
+            merged: Any = f"{prefix}{runtime_ctx}\n\n{user_content}"
         else:
-            merged = [{"type": "text", "text": runtime_ctx}] + user_content
+            prefix_blocks = [{"type": "text", "text": recovery}] if recovery else []
+            merged = prefix_blocks + [{"type": "text", "text": runtime_ctx}] + user_content
         return {"role": "user", "content": merged}
 
 

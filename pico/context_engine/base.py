@@ -81,6 +81,7 @@ class AssemblyContext:
     session_messages: list[dict[str, Any]]
     budget: TokenBudget
     prefix: AssembledPrefix | None = None
+    recovery_evidence: str | None = None
 
 
 @dataclass

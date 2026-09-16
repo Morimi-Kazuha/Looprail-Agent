@@ -200,6 +200,7 @@ addopts = [
     "not (real_llm or llm_judge or real_vm or real_channel or external_runtime or e2e)",
 ]
 markers = [
+    "medium_baseline: deterministic Windows-supported Medium+ runtime baseline; no real LLM or deferred surfaces",
     "real_llm: calls a live model or embedding endpoint and may incur cost; opt-in",
     "llm_judge: uses an LLM as a grader for extraction quality (extra cost / non-determinism); opt-in",
     "real_vm: boots or connects to a real virtual machine; opt-in",

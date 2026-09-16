@@ -20,8 +20,181 @@ Class，但 Runtime Check 也不证明语义实现正确。
 
 from __future__ import annotations
 
+import hashlib
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
+
+# ---------------------------------------------------------------------------
+# Structured item vocabulary
+# ---------------------------------------------------------------------------
+
+
+class MemoryScope(StrEnum):
+    """The explicit visibility/durability boundary of a Memory item."""
+
+    TURN_LOCAL = "turn_local"
+    SESSION_LOCAL = "session_local"
+    PROJECT = "project"
+    REPO_LOCAL = "repo_local"
+    GLOBAL = "global"
+    USER = "user"
+
+
+class MemoryKind(StrEnum):
+    """The small, explainable set of reusable fact classes supported in Phase 5."""
+
+    PROJECT_FACT = "project_fact"
+    USER_PREFERENCE = "user_preference"
+    REPO_CONVENTION = "repo_convention"
+    SUCCESSFUL_PROCEDURE = "successful_procedure"
+    FAILURE_LESSON = "failure_lesson"
+    ENVIRONMENT_FACT = "environment_fact"
+    UNCLASSIFIED = "unclassified"
+
+
+class MemoryVerification(StrEnum):
+    """How an item got its evidence; model output is never implicitly verified."""
+
+    OBSERVED = "observed"
+    VERIFIED = "verified"
+    DERIVED = "derived"
+    USER_PROVIDED = "user_provided"
+    UNCERTAIN = "uncertain"
+
+
+class MemoryStatus(StrEnum):
+    """Lifecycle state of a stored item."""
+
+    ACTIVE = "active"
+    SUPERSEDED = "superseded"
+    INVALIDATED = "invalidated"
+    TOMBSTONED = "tombstoned"
+    STALE = "stale"
+
+
+MEMORY_ITEM_SCHEMA = "pico.memory.item.v1"
+MEMORY_SCOPES = frozenset(item.value for item in MemoryScope)
+MEMORY_KINDS = frozenset(item.value for item in MemoryKind)
+MEMORY_VERIFICATIONS = frozenset(item.value for item in MemoryVerification)
+MEMORY_STATUSES = frozenset(item.value for item in MemoryStatus)
+
+_MEMORY_NORMALIZE_RE = re.compile(r"[^\w\s:/._-]+", re.UNICODE)
+_PROVENANCE_KEYS = frozenset(
+    {
+        "source",
+        "source_type",
+        "session_id",
+        "turn_id",
+        "tool_name",
+        "result_ref",
+        "repo_identity",
+        "project_id",
+        "user_id",
+        "observed_at",
+        "source_path",
+        "source_digest",
+        "evidence_digest",
+    }
+)
+_PROVENANCE_MAX_LENGTHS = {
+    "source": 128,
+    "source_type": 64,
+    "session_id": 256,
+    "turn_id": 256,
+    "tool_name": 128,
+    "result_ref": 512,
+    "repo_identity": 512,
+    "project_id": 256,
+    "user_id": 256,
+    "observed_at": 64,
+    "source_path": 1024,
+    "source_digest": 128,
+    "evidence_digest": 128,
+}
+
+
+def normalize_memory_text(value: Any) -> str:
+    """Return the deterministic lexical form used for item identity and ranking."""
+
+    text = "" if value is None else str(value)
+    text = _MEMORY_NORMALIZE_RE.sub(" ", text.casefold())
+    return " ".join(text.split())
+
+
+def memory_content_digest(text: str) -> str:
+    """Hash only the normalized claim text; raw tool payloads are never needed."""
+
+    return hashlib.sha256(normalize_memory_text(text).encode("utf-8")).hexdigest()
+
+
+def _bounded_value(key: str, value: Any) -> str | None:
+    if value is None or isinstance(value, (dict, list, tuple, set)):
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text[: _PROVENANCE_MAX_LENGTHS.get(key, 256)]
+
+
+def normalize_memory_provenance(value: Any) -> dict[str, str]:
+    """Keep only bounded provenance references, excluding arbitrary payloads/logs."""
+
+    if isinstance(value, MemoryProvenance):
+        value = value.to_dict()
+    if not isinstance(value, Mapping):
+        return {}
+    out: dict[str, str] = {}
+    for key in sorted(_PROVENANCE_KEYS):
+        bounded = _bounded_value(key, value.get(key))
+        if bounded is not None:
+            out[key] = bounded
+    return out
+
+
+@dataclass(frozen=True)
+class MemoryProvenance:
+    """Bounded source evidence carried with a durable Memory item.
+
+    References and digests are intentionally scalar and bounded.  The actual
+    ToolResult, Session transcript, reasoning trace, or recovery payload does
+    not belong here.
+    """
+
+    source: str = "runtime"
+    source_type: str = "manual"
+    session_id: str | None = None
+    turn_id: str | None = None
+    tool_name: str | None = None
+    result_ref: str | None = None
+    repo_identity: str | None = None
+    project_id: str | None = None
+    user_id: str | None = None
+    observed_at: str | None = None
+    source_path: str | None = None
+    source_digest: str | None = None
+    evidence_digest: str | None = None
+
+    def to_dict(self) -> dict[str, str]:
+        return normalize_memory_provenance(
+            {
+                "source": self.source,
+                "source_type": self.source_type,
+                "session_id": self.session_id,
+                "turn_id": self.turn_id,
+                "tool_name": self.tool_name,
+                "result_ref": self.result_ref,
+                "repo_identity": self.repo_identity,
+                "project_id": self.project_id,
+                "user_id": self.user_id,
+                "observed_at": self.observed_at,
+                "source_path": self.source_path,
+                "source_digest": self.source_digest,
+                "evidence_digest": self.evidence_digest,
+            }
+        )
 
 # ---------------------------------------------------------------------------
 # 数据载体
@@ -30,11 +203,17 @@ from typing import Any, Protocol, runtime_checkable
 
 @dataclass(frozen=True)
 class Memory:
-    """一次 :meth:`MemoryBackend.recall` 返回的单条 Hit。
+    """一次 :meth:`MemoryBackend.recall` 返回的 Hit，也可作为结构化 item。
 
     ``frozen=True`` 让 Host 可以在组件间传递 Memory List，而无需担心 Adapter Code 重新绑定字段、修改
     他人视图。`text` 是可注入内容，`score` 是标准化相关度，`metadata` 保留 Backend Details；Frozen
     不会深度冻结 Metadata Dict，Consumer 仍应把它当作只读。
+
+    The fields after ``metadata`` are deliberately defaulted so existing
+    plugin adapters remain source-compatible.  A bare plugin hit is
+    ``unclassified``/``turn_local``/``uncertain`` and therefore cannot be
+    accepted by the durable structured writer until an explicit policy
+    decision supplies the missing evidence.
     """
 
     text: str
@@ -64,6 +243,84 @@ class Memory:
     Correlation，不能代替 `text` 中面向模型的内容。
     """
 
+    # Structured Memory lifecycle fields.  They are not required for the
+    # legacy opaque backend contract above.
+    kind: str = MemoryKind.UNCLASSIFIED.value
+    scope: str = MemoryScope.TURN_LOCAL.value
+    verification: str = MemoryVerification.UNCERTAIN.value
+    confidence: str = "unknown"
+    status: str = MemoryStatus.ACTIVE.value
+    memory_id: str | None = None
+    normalized_key: str | None = None
+    content_digest: str | None = None
+    provenance: dict[str, Any] = field(default_factory=dict)
+    created_at: str | None = None
+    updated_at: str | None = None
+    version: int = 1
+    supersedes: str | None = None
+    superseded_by: str | None = None
+    invalidated_reason: str | None = None
+
+    @property
+    def id(self) -> str | None:
+        """Compatibility identity view used by adapters and diagnostics."""
+
+        return self.memory_id or (str(self.metadata.get("id")) if self.metadata.get("id") else None)
+
+    def structured_dict(self) -> dict[str, Any]:
+        """Return the JSON-compatible item shape used by :class:`MemoryStore`."""
+
+        return {
+            "schema": MEMORY_ITEM_SCHEMA,
+            "text": self.text,
+            "kind": self.kind,
+            "scope": self.scope,
+            "verification": self.verification,
+            "confidence": self.confidence,
+            "status": self.status,
+            "metadata": self.metadata,
+            "memory_id": self.memory_id,
+            "normalized_key": self.normalized_key,
+            "content_digest": self.content_digest,
+            "provenance": normalize_memory_provenance(self.provenance),
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "version": self.version,
+            "supersedes": self.supersedes,
+            "superseded_by": self.superseded_by,
+            "invalidated_reason": self.invalidated_reason,
+        }
+
+
+# ``MemoryItem`` is a named view of the existing public ``Memory`` carrier,
+# not a second memory model or store.  This lets Phase 5 callers express the
+# durable intent without breaking adapters that already return ``Memory``.
+MemoryItem = Memory
+
+
+@dataclass(frozen=True)
+class MemoryWriteResult:
+    """Explainable outcome of one structured write attempt."""
+
+    accepted: bool
+    action: str
+    reason: str
+    item: Memory | None = None
+    duplicate_of: str | None = None
+    superseded_ids: tuple[str, ...] = ()
+    diagnostics: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "accepted": self.accepted,
+            "action": self.action,
+            "reason": self.reason,
+            "memory_id": self.item.memory_id if self.item else None,
+            "duplicate_of": self.duplicate_of,
+            "superseded_ids": list(self.superseded_ids),
+            "diagnostics": dict(self.diagnostics),
+        }
+
 
 # ---------------------------------------------------------------------------
 # 协议
@@ -83,6 +340,11 @@ class MemoryBackend(Protocol):
 
     Backend 拥有 Transport/Storage State，Host 拥有调用时机与 Context Assembly。协议方法返回不自动证明
     Store 已 Durable 或 Recalled Text 适合正向结论，具体 Adapter 必须提供这些保证。
+
+    ``store(session_id, messages)`` is retained as the compatibility seam for
+    existing plugins that ingest a conversation slice. It is not the Phase 5
+    structured-item writer: the host's ``MemoryStore.write`` applies the
+    explicit eligibility policy before a durable fact is accepted.
     """
 
     async def recall(
@@ -147,4 +409,47 @@ class MemoryBackend(Protocol):
         ...
 
 
-__all__ = ["Memory", "MemoryBackend"]
+@runtime_checkable
+class StructuredMemoryBackend(Protocol):
+    """Optional capability for plugins that natively understand Memory items.
+
+    This is intentionally separate from :class:`MemoryBackend`: adding a
+    required method to the legacy protocol would break existing adapters. A
+    plugin may expose these methods, but the core runtime never requires them
+    and remains usable with the local ``MemoryStore`` or a null backend.
+    """
+
+    async def write_memory(self, item: Memory) -> MemoryWriteResult | None: ...
+
+    async def recall_memory(
+        self,
+        query: str,
+        *,
+        scope: str | None = None,
+        repo_identity: str | None = None,
+        project_id: str | None = None,
+        user_id: str | None = None,
+        top_k: int = 5,
+    ) -> list[Memory]: ...
+
+
+__all__ = [
+    "MEMORY_ITEM_SCHEMA",
+    "MEMORY_KINDS",
+    "MEMORY_SCOPES",
+    "MEMORY_STATUSES",
+    "MEMORY_VERIFICATIONS",
+    "Memory",
+    "MemoryBackend",
+    "MemoryItem",
+    "MemoryKind",
+    "MemoryProvenance",
+    "MemoryScope",
+    "MemoryStatus",
+    "MemoryVerification",
+    "MemoryWriteResult",
+    "StructuredMemoryBackend",
+    "memory_content_digest",
+    "normalize_memory_provenance",
+    "normalize_memory_text",
+]

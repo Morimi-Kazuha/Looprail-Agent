@@ -27,6 +27,7 @@ from pico.agent.tools.registry import ToolRegistry
 from pico.config.pico import ContextConfig
 from pico.context_engine.base import AssemblyContext, Segment
 from pico.context_engine.curator import (
+    ContextPlan,
     CuratorArchiveMessagesTool,
     CuratorArchiveStore,
     CuratorAssembler,
@@ -75,6 +76,7 @@ class CuratorSegmentBuilder:
         now_fn: Callable[[], datetime] | None = None,
         max_steps: int = 12,
         memory_enabled: bool = True,
+        memory_store: MemoryStore | None = None,
     ) -> None:
         self.workspace = workspace
         self.config = config
@@ -85,6 +87,7 @@ class CuratorSegmentBuilder:
         self.get_tool_definitions = get_tool_definitions
         self.max_steps = max_steps
         self.memory_enabled = memory_enabled
+        self.memory_store = memory_store
         self.archive = CuratorArchiveStore(workspace, config, now_fn=now_fn)
         self.assembler = CuratorAssembler(
             provider,
@@ -136,17 +139,31 @@ class CuratorSegmentBuilder:
         history_tokens = sum(item.tokens for item in manifest)
         threshold = int(ctx.budget.available_history * self.config.fast_path_threshold)
         if history_tokens < threshold:
-            history = self._history_from_messages(ctx.session_messages)
-            meta = {
-                "path": "fast",
-                "history_tokens": history_tokens,
-                "threshold_tokens": threshold,
-                "trace_path": str(self.archive.trace_path(session_key, turn_id)),
+            # The fast path is still subject to the same exact fixed-overhead
+            # and Tool-pair gate as the slow/fallback paths.  The threshold is
+            # only a performance hint; a very large current request or dynamic
+            # Skill/Memory prefix must not bypass the budget contract.
+            fast_plan = ContextPlan(include_message_ids=list(range(len(ctx.session_messages))))
+            fast_assembled, fast_validation = self.assembler.build(state, fast_plan)
+            if fast_validation.get("ok") and not self.assembler.trimmer.structural_errors(fast_assembled.messages):
+                meta = {
+                    "path": "fast",
+                    "history_tokens": history_tokens,
+                    "threshold_tokens": threshold,
+                    "trace_path": str(self.archive.trace_path(session_key, turn_id)),
+                    "validation": fast_validation,
+                    "included_message_ids": fast_validation.get("included_message_ids", []),
+                }
+                self.archive.append_trace(session_key, turn_id, "fast_path", meta)
+                return Segment(text="", history=fast_assembled.messages[1:-1], meta=meta)
+            fallback_meta = {
+                "fast_path_rejected": True,
+                "fast_path_validation": fast_validation,
+                "fallback_reason": "fast_path_over_budget",
             }
-            self.archive.append_trace(session_key, turn_id, "fast_path", meta)
-            return Segment(text="", history=history, meta=meta)
+        else:
+            fallback_meta = {}
 
-        fallback_meta: dict[str, Any] = {}
         try:
             async with asyncio.timeout(self.config.curator_timeout_seconds):
                 seg, fallback_meta = await self._slow_path(state, turn_id)
@@ -169,6 +186,8 @@ class CuratorSegmentBuilder:
         meta = {
             "path": "fallback",
             "trace_path": str(self.archive.trace_path(session_key, turn_id)),
+            "validation": validation,
+            "included_message_ids": validation.get("included_message_ids", []),
             **fallback_meta,
         }
         self.archive.append_trace(
@@ -323,6 +342,8 @@ class CuratorSegmentBuilder:
                                     "path": "slow",
                                     "trace_path": str(self.archive.trace_path(state.session_key, turn_id)),
                                     "curator_steps": step,
+                                    "validation": validation,
+                                    "included_message_ids": validation.get("included_message_ids", []),
                                 },
                             ),
                             {},
@@ -341,7 +362,8 @@ class CuratorSegmentBuilder:
             CuratorBuildContextTool(state, self.assembler),
         ]
         if self.memory_enabled:
-            tools.insert(4, CuratorReadMemoryTool(state, self.archive, MemoryStore(self.workspace)))
+            memory = self.memory_store or MemoryStore(self.workspace)
+            tools.insert(4, CuratorReadMemoryTool(state, self.archive, memory))
         for tool in tools:
             registry.register(tool)
         return registry
