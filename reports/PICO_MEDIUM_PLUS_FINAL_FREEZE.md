@@ -8,10 +8,8 @@ scope.
 
 ## 1. Freeze Verdict
 
-**PENDING POST-COMMIT VERIFICATION** in this pre-commit copy. The pre-freeze
-verification is green and the accepted tree is ready for the final freeze
-commit; the final PASS verdict is recorded after the committed-tree baseline
-and final status checks.
+**PASS — PICO MEDIUM+ FROZEN**. The accepted tree was committed, the
+committed-tree status was clean, and the authoritative baseline passed again.
 
 ## 2. Repository Path
 
@@ -27,9 +25,11 @@ and final status checks.
 
 ## 5. Final Freeze Commit SHA
 
-To be recorded immediately after the final freeze commit. A documentation-only
-follow-up commit is permitted solely to replace this placeholder with the
-resulting SHA and preserve the completed report in the final repository state.
+`74e687ce53d82fc93cea974166a12651734e06f6`
+
+This is the primary freeze commit containing the accepted Phase 0–8
+source/tests/docs/reports and the freeze report. The report was completed in a
+documentation-only follow-up commit so this exact SHA could be recorded.
 
 ## 6. Python / Pico Version
 
@@ -109,10 +109,10 @@ It uses the repository `.venv` first, matching the reconciled documentation.
 
 ## 11. Post-Commit Baseline Result
 
-To be recorded after the final freeze snapshot is committed. Required result:
+The primary freeze commit was verified from its committed tree:
 
 ```text
-exit 0 — 671 passed
+exit 0 — 671 passed in 143.11s (0:02:23)
 ```
 
 ## 12. git diff --check Result
@@ -206,7 +206,7 @@ This freeze does not prove:
 
 ## 18. Final git status
 
-To be recorded after the report-completion commit. Required final state:
+Verified clean after the documentation-only report-completion commit:
 
 ```text
 git status --short → empty
