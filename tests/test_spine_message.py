@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from pico.spine import ChatType, Media, Source
+from looprail.spine import ChatType, Media, Source
 
 
 def test_chat_type_is_closed_two_value_str_enum():

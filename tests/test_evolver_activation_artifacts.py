@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.evolver.activation.artifacts import (
+from looprail.evolver.activation.artifacts import (
     ActivationState,
     EvidenceDecision,
     EvidenceOutcome,
@@ -18,13 +18,13 @@ from pico.evolver.activation.artifacts import (
     set_activation_state,
     verify_activation_artifacts,
 )
-from pico.evolver.activation.summary import (
+from looprail.evolver.activation.summary import (
     build_evolution_summary,
     write_evolution_summary,
 )
-from pico.evolver.candidate_evidence import AcceptedRuntimeEvidence
-from pico.evolver.candidate_manifest import LABEL_POLICIES, CandidateLabel
-from pico.evolver.orchestrator.scoring import TaskEval
+from looprail.evolver.candidate_evidence import AcceptedRuntimeEvidence
+from looprail.evolver.candidate_manifest import LABEL_POLICIES, CandidateLabel
+from looprail.evolver.orchestrator.scoring import TaskEval
 
 PARENT_SHA = "1" * 40
 CANDIDATE_SHA = "2" * 40
@@ -38,8 +38,8 @@ _WHERE_BY_LABEL = {
     CandidateLabel.route: "config",
 }
 _TARGET_BY_LABEL = {
-    CandidateLabel.skill: "pico/memory_engine/skills/example/SKILL.md",
-    CandidateLabel.prompt: "pico/templates/AGENTS.md",
+    CandidateLabel.skill: "looprail/memory_engine/skills/example/SKILL.md",
+    CandidateLabel.prompt: "looprail/templates/AGENTS.md",
     CandidateLabel.policy: "config/policy.yaml",
     CandidateLabel.runtime: "benchmarks/appworld/agent_cli.py",
     CandidateLabel.model_profile: "config/model_profile.json",
@@ -774,11 +774,11 @@ def test_artifact_json_is_canonical_across_input_order(tmp_path):
     "path",
     [
         "../agent.py",
-        "pico/../agent.py",
+        "looprail/../agent.py",
         "/tmp/agent.py",
         r"C:\tmp\agent.py",
         r"\\server\share\agent.py",
-        "pico//agent.py",
+        "looprail//agent.py",
     ],
 )
 def test_snapshot_paths_must_be_unambiguous_and_repo_relative(tmp_path, path):

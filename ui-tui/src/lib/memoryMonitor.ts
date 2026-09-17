@@ -25,7 +25,7 @@ const GB = 1024 ** 3
 
 // 延迟导入 @hermes/ink：若在模块顶层加载 `@hermes/ink`，完整约 414KB 的 Ink
 // 包（React、渲染器、组件和钩子）会在 Python 网关生成前进入关键路径，导致每次
-// 冷启动 `pico --tui` 时，gw.start() 前串行增加约 150 毫秒的 Node 工作。
+// 冷启动 `looprail --tui` 时，gw.start() 前串行增加约 150 毫秒的 Node 工作。
 //
 // evictInkCaches 只在 `tick()` 内运行；后者每 10 秒触发一次，且仅在堆压力越过
 // 高水位时执行，此时应用入口早已加载 Ink。因此动态导入在热路径上不会产生额外

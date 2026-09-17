@@ -22,8 +22,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from pico.agent.hook.base import AgentHookContext
-from pico.eval_engine import (
+from looprail.agent.hook.base import AgentHookContext
+from looprail.eval_engine import (
     AfterIterationHook,
     BeforeIterationHook,
     EvalEngine,
@@ -31,8 +31,8 @@ from pico.eval_engine import (
     JudgeVerdict,
     ToolAuditHook,
 )
-from pico.eval_engine.adapter.adapter import EvalAdapter
-from pico.eval_engine.judge.judge import EvalJudge
+from looprail.eval_engine.adapter.adapter import EvalAdapter
+from looprail.eval_engine.judge.judge import EvalJudge
 
 # ---------------------------------------------------------------------------
 
@@ -356,7 +356,7 @@ class TestEvalEngineOrchestrator:
         assert isinstance(hooks[0], BeforeIterationHook)
         assert isinstance(hooks[1], ToolAuditHook)
 
-        from pico.agent.hook.base import AgentHook
+        from looprail.agent.hook.base import AgentHook
 
         assert isinstance(hooks[2], AgentHook)
 
@@ -375,7 +375,7 @@ class TestEvalEngineOrchestrator:
     async def test_default_engine_hooks_are_all_noops(self, ctx_with_messages):
         """The smoke contract — mount EvalEngine.hooks() into a chain
         with default config and AgentLoop behavior must be unchanged."""
-        from pico.agent.hook import CompositeHook
+        from looprail.agent.hook import CompositeHook
 
         engine = EvalEngine()
         composite = CompositeHook(engine.hooks())

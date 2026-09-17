@@ -1,4 +1,4 @@
-"""Unit tests for ``pico.config.update`` — the misc-ops write path.
+"""Unit tests for ``looprail.config.update`` — the misc-ops write path.
 
 Companion to ``test_config_update_providers.py`` /
 ``test_config_update_channels.py``. Covers the small focused helpers that
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.config.update import (
+from looprail.config.update import (
     init_extension_block_defaults,
     reset_cron_config,
     set_default_model,
@@ -161,7 +161,7 @@ def test_set_sandbox_backend_preserves_siblings(cfg_path: Path) -> None:
 
 def test_set_sandbox_backend_survives_reload(cfg_path: Path) -> None:
 
-    from pico.config.loader import load_config
+    from looprail.config.loader import load_config
 
     set_sandbox_backend("boxlite", config_path=cfg_path)
     cfg = load_config(cfg_path)
@@ -240,10 +240,10 @@ def test_init_extension_defaults_is_idempotent_and_non_clobbering(cfg_path: Path
 
 
 def test_init_extension_defaults_round_trips_through_loader(cfg_path: Path) -> None:
-    from pico.config.pico import load_pico_config
+    from looprail.config.looprail import load_looprail_config
 
     init_extension_block_defaults(config_path=cfg_path)
-    rc = load_pico_config(cfg_path)
+    rc = load_looprail_config(cfg_path)
     assert rc.memory.memory_top_k == 5
     assert rc.skill_forge.router.top_k == 5
 
@@ -254,8 +254,8 @@ def test_init_extension_defaults_round_trips_through_loader(cfg_path: Path) -> N
 
 def test_malformed_config_refuses_write_and_preserves_file(cfg_path: Path) -> None:
 
-    from pico.config.loader import ConfigReadError
-    from pico.config.update import set_default_model, set_language
+    from looprail.config.loader import ConfigReadError
+    from looprail.config.update import set_default_model, set_language
 
     original = '{\n  "providers": {"openai": {"apiKey": "sk-o"}},\n  // comment => invalid JSON\n}\n'
     cfg_path.write_text(original, encoding="utf-8")

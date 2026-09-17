@@ -12,8 +12,7 @@ ALLOWED_ROOT_DIRECTORIES = {
     "LICENSES",
     "benchmarks",
     "docs",
-    "pico",
-    "reports",
+    "looprail",
     "scripts",
     "tests",
     "ui-tui",
@@ -39,10 +38,6 @@ ALLOWED_ROOT_FILES = {
     "pyproject.toml",
     "uv.lock",
 }
-ALLOWED_GITEE_FILES = {
-    ".gitee/ISSUE_TEMPLATE.zh-CN.md",
-    ".gitee/PULL_REQUEST_TEMPLATE.zh-CN.md",
-}
 FORBIDDEN_PATHS = {
     "AGENTS.md",
     "CHANGELOG.md",
@@ -60,22 +55,8 @@ ALLOWED_EVALUATION_DOCS = {
     "docs/evaluation/tracing-overhead.md",
 }
 ALLOWED_PUBLIC_DOCS = {
-    "docs/medium-plus-baseline.md",
+    "docs/runtime-baseline.md",
     "docs/tool-runtime-contract.md",
-}
-ALLOWED_REPORT_FILES = {
-    "reports/PHASE_00_LUNA_EXECUTION_REPORT.md",
-    "reports/PHASE_01_LUNA_EXECUTION_REPORT.md",
-    "reports/PHASE_02_LUNA_EXECUTION_REPORT.md",
-    "reports/PHASE_03_LUNA_EXECUTION_REPORT.md",
-    "reports/PHASE_04_LUNA_EXECUTION_REPORT.md",
-    "reports/PHASE_05_LUNA_EXECUTION_REPORT.md",
-    "reports/PHASE_06_LUNA_EXECUTION_REPORT.md",
-    "reports/PHASE_07_LUNA_EXECUTION_REPORT.md",
-    "reports/PHASE_08_LUNA_EXECUTION_REPORT.md",
-    "reports/PICO_GITHUB_PACKAGING_REPORT.md",
-    "reports/PICO_MEDIUM_PLUS_FINAL_SYSTEM_AUDIT.md",
-    "reports/PICO_MEDIUM_PLUS_FINAL_FREEZE.md",
 }
 FORBIDDEN_ASSET_SUFFIXES = {
     ".gif",
@@ -102,7 +83,7 @@ FORBIDDEN_TEST_MARKERS = {
 }
 FORBIDDEN_TEXT = {
     "github.com/" + "Hackerismydream/" + "myna": "private repository reference",
-    "github.com/" + "Hackerismydream/" + "pico": "development repository reference",
+    "github.com/" + "Hackerismydream/" + "looprail": "development repository reference",
     "raw.githubusercontent.com/" + "Hackerismydream": "development installer reference",
     "MYNA_" + "WHEEL_URL": "unpublished Memory wheel reference",
 }
@@ -138,7 +119,9 @@ def _tracked_paths(root: Path) -> list[str]:
         check=True,
         capture_output=True,
     ).stdout
-    return [item.decode("utf-8") for item in output.split(b"\0") if item]
+    paths = [item.decode("utf-8") for item in output.split(b"\0") if item]
+    # An unstaged deletion is already absent from the candidate working-tree release.
+    return [relative for relative in paths if (root / relative).is_file()]
 
 
 def _documentation_allowed(path: str) -> bool:
@@ -157,17 +140,19 @@ def check_public_tree(root: Path, tracked_paths: Iterable[str] | None = None) ->
     for relative in sorted(paths):
         path = Path(relative)
         if path.parts[0] == ".gitee":
-            if relative not in ALLOWED_GITEE_FILES:
-                findings.append(f"forbidden Gitee metadata path: {relative}")
-                continue
+            findings.append(f"forbidden Gitee metadata path: {relative}")
+            continue
+        if path.parts[0] == "reports":
+            findings.append(f"forbidden report path: {relative}")
+            continue
+        if relative == "docs/onboarding/media-manifest.md":
+            findings.append(f"forbidden internal media manifest path: {relative}")
+            continue
         if relative in FORBIDDEN_PATHS or relative.startswith((".github/", "feishu/")):
             findings.append(f"forbidden path: {relative}")
             continue
         if path.parts[0] == "docs" and not _documentation_allowed(relative):
             findings.append(f"forbidden documentation path: {relative}")
-            continue
-        if path.parts[0] == "reports" and relative not in ALLOWED_REPORT_FILES:
-            findings.append(f"forbidden report path: {relative}")
             continue
         if path.parts[0] == "benchmarks" and any(
             part.lower() in FORBIDDEN_BENCHMARK_DIRECTORIES for part in path.parts[1:-1]
@@ -181,7 +166,7 @@ def check_public_tree(root: Path, tracked_paths: Iterable[str] | None = None) ->
             if relative not in ALLOWED_ROOT_FILES:
                 findings.append(f"unexpected root file: {relative}")
                 continue
-        elif path.parts[0] != ".gitee" and path.parts[0] not in ALLOWED_ROOT_DIRECTORIES:
+        elif path.parts[0] not in ALLOWED_ROOT_DIRECTORIES:
             findings.append(f"unexpected root directory: {path.parts[0]}")
             continue
         if path.suffix.lower() in FORBIDDEN_ASSET_SUFFIXES:

@@ -73,7 +73,7 @@ const usage: Usage = {
 }
 
 const sessionInfo: SessionInfo = {
-  cwd: '~/pico',
+  cwd: '~/looprail',
   mcp_servers: [
     { connected: true, name: 'chrome-devtools', tools: 12, transport: 'stdio' },
     { connected: false, name: 'figma', tools: 0, transport: 'sse' }
@@ -85,7 +85,7 @@ const sessionInfo: SessionInfo = {
     cli: ['init', 'review', 'security-review'],
     figma: ['figma-use', 'figma-generate-design']
   },
-  system_prompt: 'You are Pico, a general-purpose agent…',
+  system_prompt: 'You are Looprail, a general-purpose agent…',
   tools: {
     core_tools: ['read', 'write', 'edit', 'bash'],
     search_tools: ['grep', 'glob']
@@ -149,7 +149,7 @@ function AppChromePage() {
           bgCount={1}
           busy={false}
           cols={cols}
-          cwdLabel="~/pico"
+          cwdLabel="~/looprail"
           model="anthropic/claude-opus-4-8"
           modelReasoningEffort="high"
           sessionStartedAt={now - 125_000}
@@ -166,7 +166,7 @@ function AppChromePage() {
           bgCount={0}
           busy
           cols={cols}
-          cwdLabel="~/pico"
+          cwdLabel="~/looprail"
           model="anthropic/claude-opus-4-8"
           sessionStartedAt={now - 125_000}
           showCost={false}

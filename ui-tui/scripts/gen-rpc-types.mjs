@@ -41,7 +41,7 @@ const HEADER = `// AUTO-GENERATED — DO NOT EDIT — run \`npm run gen:rpc\`
 // Regenerate via: cd ui-tui && npm run gen:rpc
 // Lint (drift check) via: cd ui-tui && npm run lint:rpc
 //
-// Pico method-scoped types + components/schemas + JSON-RPC 2.0 envelopes.
+// Looprail method-scoped types + components/schemas + JSON-RPC 2.0 envelopes.
 
 /* eslint-disable */
 /* tslint:disable */
@@ -103,7 +103,7 @@ function buildRootSchema(openrpcDoc) {
 
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
-    title: 'PicoRpcRoot',
+    title: 'LooprailRpcRoot',
     type: 'object',
     properties: rootProperties,
     definitions: defs,
@@ -248,7 +248,7 @@ async function generate() {
   //   - unreachableDefinitions: true（即使方法范围类型仅由根对象引用也输出）；
   //   - bannerComment: empty（自行前置 HEADER）；
   //   - additionalProperties: false（保留模式的严格闭合）。
-  const compiled = await compile(root, 'PicoRpcRoot', {
+  const compiled = await compile(root, 'LooprailRpcRoot', {
     bannerComment: '',
     unreachableDefinitions: true,
     additionalProperties: false,
@@ -257,7 +257,7 @@ async function generate() {
 
   // 丢弃合成根接口；它只是覆盖所有定义的 `Record`，对消费者无用。仅保留命名类型。
   const withoutRoot = compiled
-    .replace(/export interface PicoRpcRoot\s*\{[\s\S]*?\n\}\n?/, '')
+    .replace(/export interface LooprailRpcRoot\s*\{[\s\S]*?\n\}\n?/, '')
     .trim();
 
   // json-schema-to-typescript 会把结构相同的定义合并为单个导出类型，例如六个仅限
@@ -268,7 +268,7 @@ async function generate() {
   // 通过解析 json-schema-to-typescript 写在各合并声明上方的延迟注释轨迹，
   // 检测规范名称：
   //   /**
-  //    * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+  //    * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
   //    * via the `definition` "CliResult".
   //    *
   //    * This interface was referenced by ... `definition` "CliDispatchResult".

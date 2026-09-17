@@ -1,4 +1,4 @@
-"""Unit tests for ``pico.config.update_providers`` — the provider write path."""
+"""Unit tests for ``looprail.config.update_providers`` — the provider write path."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from pico.config.update_providers import (
+from looprail.config.update_providers import (
     add_provider_model,
     get_provider_config,
     list_providers,
@@ -19,12 +19,12 @@ from pico.config.update_providers import (
     reset_provider,
     set_provider_fields,
 )
-from pico.config.update_providers import test_provider as probe_provider
+from looprail.config.update_providers import test_provider as probe_provider
 
 
 @pytest.fixture
 def cfg_path(tmp_path: Path) -> Path:
-    """Sandboxed config path; the real ``~/.pico/config.json`` is never touched."""
+    """Sandboxed config path; the real ``~/.looprail/config.json`` is never touched."""
     return tmp_path / "config.json"
 
 
@@ -488,7 +488,7 @@ def test_add_provider_model_unknown_provider_raises(cfg_path: Path) -> None:
 
 def test_malformed_config_refuses_write_and_preserves_file(cfg_path: Path) -> None:
 
-    from pico.config.loader import ConfigReadError
+    from looprail.config.loader import ConfigReadError
 
     original = '{\n  "providers": {"openai": {"apiKey": "sk-o"}},\n  // comment => invalid JSON\n}\n'
     cfg_path.write_text(original, encoding="utf-8")

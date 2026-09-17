@@ -1,4 +1,4 @@
-"""CFG-1 — PicoConfig: plugins / memory / skill_router sections + migration."""
+"""CFG-1 — LooprailConfig: plugins / memory / skill_router sections + migration."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from pathlib import Path
 
 import pytest
 
-from pico.config.loader import EXTENSION_KEYS
-from pico.config.pico import (
+from looprail.config.loader import EXTENSION_KEYS
+from looprail.config.looprail import (
+    LooprailConfig,
     MemoryConfig,
-    PicoConfig,
     PluginsConfig,
     SkillForgeConfig,
     SkillForgeRouterConfig,
-    load_pico_config,
+    load_looprail_config,
 )
 
 # ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ class TestDefaults:
         )
 
     def test_root_default_factories_wired(self) -> None:
-        c = PicoConfig()
+        c = LooprailConfig()
         assert isinstance(c.plugins, PluginsConfig)
         assert isinstance(c.memory, MemoryConfig)
         assert isinstance(c.skill_forge.router, SkillForgeRouterConfig)
@@ -146,7 +146,7 @@ class TestLoaderIntegration:
                 },
             },
         )
-        cfg = load_pico_config(path)
+        cfg = load_looprail_config(path)
         assert cfg.plugins.disabled == ["test-memory"]
         assert cfg.plugins.config == {}
         assert cfg.memory.backend == "example"
@@ -156,7 +156,7 @@ class TestLoaderIntegration:
 
     def test_missing_sections_use_defaults(self, tmp_path: Path) -> None:
         path = _write_config(tmp_path, {})
-        cfg = load_pico_config(path)
+        cfg = load_looprail_config(path)
 
         assert cfg.plugins.disabled == []
         assert cfg.memory.backend == "myna"
@@ -174,7 +174,7 @@ class TestLoaderIntegration:
                 "skillForge": None,
             },
         )
-        cfg = load_pico_config(path)
+        cfg = load_looprail_config(path)
 
         assert isinstance(cfg.plugins, PluginsConfig)
         assert isinstance(cfg.memory, MemoryConfig)
@@ -199,7 +199,7 @@ class TestMassLibraryDbDeprecation:
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            load_pico_config(path)
+            load_looprail_config(path)
         deps = [w for w in caught if issubclass(w.category, DeprecationWarning)]
         assert deps, "expected at least one DeprecationWarning"
         assert "mass_library_db" in str(deps[0].message)
@@ -214,7 +214,7 @@ class TestMassLibraryDbDeprecation:
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            load_pico_config(path)
+            load_looprail_config(path)
         deps = [w for w in caught if issubclass(w.category, DeprecationWarning)]
         assert deps == []
 

@@ -6,32 +6,32 @@ from types import SimpleNamespace
 import pytest
 
 
-def test_python_distribution_exposes_only_the_pico_namespace() -> None:
-    import pico
+def test_python_distribution_exposes_only_the_looprail_namespace() -> None:
+    import looprail
 
-    assert pico.__version__ != "0.0.0+unknown"
+    assert looprail.__version__ != "0.0.0+unknown"
 
 
 def test_public_distribution_cli_and_plugin_identity() -> None:
     from typer.testing import CliRunner
 
-    from pico.cli.commands import app
+    from looprail.cli.commands import app
 
     repo_root = Path(__file__).resolve().parents[1]
     metadata = tomllib.loads((repo_root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert metadata["name"] == "pico-harness"
-    assert metadata["scripts"] == {"pico": "pico.cli.commands:run"}
+    assert metadata["name"] == "looprail"
+    assert metadata["scripts"] == {"looprail": "looprail.cli.commands:run"}
 
     runner = CliRunner()
     help_result = runner.invoke(app, ["--help"])
     version_result = runner.invoke(app, ["--version"])
     assert help_result.exit_code == 0
-    assert "Pico" in help_result.stdout
+    assert "Looprail" in help_result.stdout
     assert version_result.exit_code == 0
-    assert "Pico v" in version_result.stdout
+    assert "Looprail v" in version_result.stdout
 
-    assert not (repo_root / "pico" / "plugin" / "memory" / "everos").exists()
-    assert not (repo_root / "pico" / "config" / "update_everos.py").exists()
+    assert not (repo_root / "looprail" / "plugin" / "memory" / "everos").exists()
+    assert not (repo_root / "looprail" / "config" / "update_everos.py").exists()
 
 
 def test_distribution_has_no_unpublished_or_retired_memory_dependency() -> None:
@@ -62,15 +62,15 @@ def test_retired_memory_implementation_is_absent_from_executable_surfaces() -> N
     assert retired_test_consumers == []
 
     makefile = (repo_root / "Makefile").read_text(encoding="utf-8")
-    assert "PICO_SCORECARD_MEMORY_" not in makefile
+    assert "LOOPRAIL_SCORECARD_MEMORY_" not in makefile
     assert "--memory-summary" not in makefile
     assert "--memory-handoff" not in makefile
 
 
-def test_pico_only_imports_myna_through_its_public_plugin_surface() -> None:
+def test_looprail_only_imports_myna_through_its_public_plugin_surface() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     violations: list[str] = []
-    for root in (repo_root / "pico", repo_root / "scripts"):
+    for root in (repo_root / "looprail", repo_root / "scripts"):
         for path in root.rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
@@ -91,35 +91,35 @@ def test_pico_only_imports_myna_through_its_public_plugin_surface() -> None:
     assert violations == []
 
 
-def test_clean_defaults_use_pico_state(tmp_path: Path, monkeypatch) -> None:
-    from pico.config import loader
-    from pico.config.paths import get_workspace_path
+def test_clean_defaults_use_looprail_state(tmp_path: Path, monkeypatch) -> None:
+    from looprail.config import loader
+    from looprail.config.paths import get_workspace_path
 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(loader, "_current_config_path", None)
 
-    assert loader.get_config_path() == tmp_path / ".pico" / "config.json"
-    assert loader.load_config().agents.defaults.workspace == "~/.pico/workspace"
-    assert get_workspace_path() == tmp_path / ".pico" / "workspace"
+    assert loader.get_config_path() == tmp_path / ".looprail" / "config.json"
+    assert loader.load_config().agents.defaults.workspace == "~/.looprail/workspace"
+    assert get_workspace_path() == tmp_path / ".looprail" / "workspace"
 
 
 def test_foreground_runtime_uses_current_directory_without_polluting_it(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.config.paths import resolve_foreground_paths
-    from pico.config.schema import Config
+    from looprail.config.paths import resolve_foreground_paths
+    from looprail.config.schema import Config
 
     project = tmp_path / "project"
     project.mkdir()
-    monkeypatch.setenv("PICO_HOME", str(tmp_path / "pico-home"))
+    monkeypatch.setenv("LOOPRAIL_HOME", str(tmp_path / "looprail-home"))
     monkeypatch.chdir(project)
 
     paths = resolve_foreground_paths(Config())
 
     assert paths.workspace == project.resolve()
-    assert paths.state.parent == tmp_path / "pico-home" / "projects"
+    assert paths.state.parent == tmp_path / "looprail-home" / "projects"
     assert paths.state.name.startswith("project-")
     assert list(project.iterdir()) == []
 
@@ -127,8 +127,8 @@ def test_foreground_runtime_uses_current_directory_without_polluting_it(
 def test_foreground_runtime_preserves_explicit_workspace(
     tmp_path: Path,
 ) -> None:
-    from pico.config.paths import resolve_foreground_paths
-    from pico.config.schema import Config
+    from looprail.config.paths import resolve_foreground_paths
+    from looprail.config.schema import Config
 
     workspace = tmp_path / "explicit-workspace"
     paths = resolve_foreground_paths(Config(), workspace=str(workspace))
@@ -141,22 +141,22 @@ def test_project_state_identity_is_stable_and_workspace_specific(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.product import get_project_state_dir
+    from looprail.product import get_project_state_dir
 
-    monkeypatch.setenv("PICO_HOME", str(tmp_path / "pico-home"))
+    monkeypatch.setenv("LOOPRAIL_HOME", str(tmp_path / "looprail-home"))
     first = tmp_path / "first" / "project"
     second = tmp_path / "second" / "project"
 
     assert get_project_state_dir(first) == get_project_state_dir(first)
     assert get_project_state_dir(first) != get_project_state_dir(second)
-    assert get_project_state_dir(first).parent == tmp_path / "pico-home" / "projects"
+    assert get_project_state_dir(first).parent == tmp_path / "looprail-home" / "projects"
 
 
 def test_foreground_runtime_preserves_configured_workspace(
     tmp_path: Path,
 ) -> None:
-    from pico.config.paths import resolve_foreground_paths
-    from pico.config.schema import Config
+    from looprail.config.paths import resolve_foreground_paths
+    from looprail.config.schema import Config
 
     workspace = tmp_path / "configured-workspace"
     config = Config()
@@ -172,11 +172,11 @@ def test_service_runtime_keeps_configured_workspace(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.config.paths import resolve_service_paths
-    from pico.config.schema import Config
+    from looprail.config.paths import resolve_service_paths
+    from looprail.config.schema import Config
 
-    product_home = tmp_path / "pico-home"
-    monkeypatch.setenv("PICO_HOME", str(product_home))
+    product_home = tmp_path / "looprail-home"
+    monkeypatch.setenv("LOOPRAIL_HOME", str(product_home))
 
     paths = resolve_service_paths(Config())
 
@@ -184,21 +184,21 @@ def test_service_runtime_keeps_configured_workspace(
     assert paths.state == product_home / "workspace"
 
 
-def test_pico_home_scopes_global_runtime_state(tmp_path: Path, monkeypatch) -> None:
+def test_looprail_home_scopes_global_runtime_state(tmp_path: Path, monkeypatch) -> None:
     product_home = tmp_path / "state"
     project = tmp_path / "project"
     project.mkdir()
-    monkeypatch.setenv("PICO_HOME", str(product_home))
+    monkeypatch.setenv("LOOPRAIL_HOME", str(product_home))
     monkeypatch.chdir(project)
 
-    from pico.cli._plugin_stack import plugin_discovery_sources
-    from pico.config import loader
-    from pico.config.paths import get_cli_history_path, get_cron_dir, get_workspace_path
-    from pico.plugin import PluginDiscovery
-    from pico.routing.cache import BenchmarkCache
-    from pico.routing.knn_router import KNNModelRouter
-    from pico.token_wise.usage_tracker import UsageTracker
-    from pico.tracing.config import state_dir
+    from looprail.cli._plugin_stack import plugin_discovery_sources
+    from looprail.config import loader
+    from looprail.config.paths import get_cli_history_path, get_cron_dir, get_workspace_path
+    from looprail.plugin import PluginDiscovery
+    from looprail.routing.cache import BenchmarkCache
+    from looprail.routing.knn_router import KNNModelRouter
+    from looprail.token_wise.usage_tracker import UsageTracker
+    from looprail.tracing.config import state_dir
 
     monkeypatch.setattr(loader, "_current_config_path", None)
     routing_config = SimpleNamespace(
@@ -216,7 +216,7 @@ def test_pico_home_scopes_global_runtime_state(tmp_path: Path, monkeypatch) -> N
     assert loader.get_config_path() == product_home / "config.json"
     assert loader.load_config().workspace_path == product_home / "workspace"
     assert get_workspace_path() == product_home / "workspace"
-    assert get_cli_history_path() == product_home / ".pico_history"
+    assert get_cli_history_path() == product_home / ".looprail_history"
     assert get_cron_dir() == product_home / "cron"
     assert state_dir() == product_home / "traces"
     assert UsageTracker(persist=False).telemetry_dir == product_home / "telemetry"
@@ -225,7 +225,7 @@ def test_pico_home_scopes_global_runtime_state(tmp_path: Path, monkeypatch) -> N
     sources = plugin_discovery_sources()
     assert sources["user_dir"] == product_home / "plugins"
     assert sources["project_dir"] is None
-    assert sources["entry_points_group"] == "pico.plugins"
+    assert sources["entry_points_group"] == "looprail.plugins"
     discovered = PluginDiscovery(
         user_dir=sources["user_dir"],
         project_dir=sources["project_dir"],
@@ -234,18 +234,18 @@ def test_pico_home_scopes_global_runtime_state(tmp_path: Path, monkeypatch) -> N
     assert discovered == []
 
 
-def test_blank_pico_home_uses_default_state_root(tmp_path: Path, monkeypatch) -> None:
-    from pico.product import get_product_home
+def test_blank_looprail_home_uses_default_state_root(tmp_path: Path, monkeypatch) -> None:
+    from looprail.product import get_product_home
 
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setenv("PICO_HOME", "  ")
+    monkeypatch.setenv("LOOPRAIL_HOME", "  ")
 
-    assert get_product_home() == tmp_path / ".pico"
+    assert get_product_home() == tmp_path / ".looprail"
 
 
 @pytest.mark.asyncio
-async def test_checkpoint_uses_pico_state(tmp_path: Path) -> None:
-    from pico.agent.loop.checkpoint import CheckpointService
+async def test_checkpoint_uses_looprail_state(tmp_path: Path) -> None:
+    from looprail.agent.loop.checkpoint import CheckpointService
 
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True)
@@ -255,4 +255,4 @@ async def test_checkpoint_uses_pico_state(tmp_path: Path) -> None:
 
     assert checkpoint_id is not None
     assert changed == ["task.txt"]
-    assert (workspace / ".pico" / "shadow.git" / "HEAD").is_file()
+    assert (workspace / ".looprail" / "shadow.git" / "HEAD").is_file()

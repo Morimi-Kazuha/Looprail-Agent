@@ -25,11 +25,11 @@ from pathlib import Path
 
 from benchmarks.appworld.evolve import adapter
 from benchmarks.appworld.evolve import tasks as task_defs
-from pico.evolver.launch.contract import BenchBundle, LaunchContext, validate_whitelist
-from pico.evolver.orchestrator.gates.policy import make_frozen_baseline
-from pico.evolver.orchestrator.gates.strategies import FocusedFisherGate, confirm_job_name
-from pico.evolver.orchestrator.scoring import eval_with_infra_rerun, with_infra_rerun
-from pico.evolver.tree.node import HarnessNode
+from looprail.evolver.launch.contract import BenchBundle, LaunchContext, validate_whitelist
+from looprail.evolver.orchestrator.gates.policy import make_frozen_baseline
+from looprail.evolver.orchestrator.gates.strategies import FocusedFisherGate, confirm_job_name
+from looprail.evolver.orchestrator.scoring import eval_with_infra_rerun, with_infra_rerun
+from looprail.evolver.tree.node import HarnessNode
 
 _KNOWN_KEYS = {"train_task_ids", "test_task_ids", "timeout", "vanilla_experiment", "precheck"}
 
@@ -50,7 +50,7 @@ def _task_subset(bc: dict, key: str, default: list[str]) -> list[str]:
 def _make_precheck(repo_root: Path, base_sha: str, timeout: float):
     def precheck() -> None:
         try:
-            from pico.evolver.tree import git_ops
+            from looprail.evolver.tree import git_ops
 
             source = git_ops.read_file_at(repo_root, base_sha, adapter.MODULE_PATH)
         except Exception as exc:  # noqa: BLE001 - 任意读取失败都表示目标不可用
@@ -138,7 +138,7 @@ def build(ctx: LaunchContext) -> BenchBundle:
         eval_with_infra_rerun(raw_eval, root_node, train_ids, k_confirm, van_exp)
 
     def read_stability():
-        from pico.evolver.analysis.stability_bucket import TaskStability, _bucket_for
+        from looprail.evolver.analysis.stability_bucket import TaskStability, _bucket_for
 
         kept = adapter.read_kept_out_dir(vanilla_out_dir, expected_attempts=k_confirm)
         return {
@@ -158,11 +158,11 @@ def build(ctx: LaunchContext) -> BenchBundle:
         return read_stability()
 
     def anchor(affinity=None):
-        from pico.evolver.scheduler.anchor_selection import simple_anchor
+        from looprail.evolver.scheduler.anchor_selection import simple_anchor
 
         return simple_anchor(cold_start(), cull_sigma_mult=spec.funnel.anchor.cull_sigma_mult)
 
-    from pico.evolver.orchestrator.scoring import EvalBackend
+    from looprail.evolver.orchestrator.scoring import EvalBackend
 
     backend = EvalBackend(
         train_task_ids=list(train_ids),
@@ -191,7 +191,7 @@ def build(ctx: LaunchContext) -> BenchBundle:
     def build_orchestrator():
         from benchmarks.appworld.evolve.candidate import files_of, prepare_candidate_manifest
         from benchmarks.appworld.evolve.designer import make_design_fn
-        from pico.evolver.orchestrator.production import build_evolution_orchestrator
+        from looprail.evolver.orchestrator.production import build_evolution_orchestrator
 
         design_call_fn = ctx.models.get("design") or ctx.models.get("driver")
 
@@ -266,7 +266,7 @@ def build(ctx: LaunchContext) -> BenchBundle:
         def unseal(records: list[dict], orch) -> dict:
             import dataclasses
 
-            from pico.evolver.orchestrator.sealed.runner import SealedTestRunner, unseal_retention
+            from looprail.evolver.orchestrator.sealed.runner import SealedTestRunner, unseal_retention
 
             def sealed_eval(node, task_ids, k, job_name, *, split="test"):
                 return eval_with_infra_rerun(raw_eval, node, task_ids, k, job_name, split=split)

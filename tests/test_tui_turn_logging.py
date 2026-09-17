@@ -15,9 +15,9 @@ from typing import Any
 import pytest
 from loguru import logger
 
-from pico.agent.loop import AgentLoop
-from pico.agent.tools.base import Tool
-from pico.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from looprail.agent.loop import AgentLoop
+from looprail.agent.tools.base import Tool
+from looprail.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 
 @pytest.fixture
@@ -180,7 +180,7 @@ async def test_iteration_boundary_logged(workspace) -> None:
 def test_suppress_noisy_watchers_raises_watchfiles_level() -> None:
     import logging
 
-    from pico.cli.tui_commands import _suppress_noisy_watchers
+    from looprail.cli.tui_commands import _suppress_noisy_watchers
 
     logging.getLogger("watchfiles.main").setLevel(logging.DEBUG)
     _suppress_noisy_watchers()

@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.config import ContextConfig
-from pico.context_engine import ContextAssembler, TurnContext
-from pico.context_engine.curator import CuratorArchiveStore
-from pico.context_engine.segments.curator import CuratorSegmentBuilder
-from pico.memory_engine.base import TokenBudget
-from pico.providers.base import ErrorClassification, LLMProvider, LLMResponse, ToolCallRequest
-from pico.spine.message import ChatType, Media, Source
-from pico.spine.turn import Origin, TurnRequest
+from looprail.agent.loop import AgentLoop
+from looprail.config import ContextConfig
+from looprail.context_engine import ContextAssembler, TurnContext
+from looprail.context_engine.curator import CuratorArchiveStore
+from looprail.context_engine.segments.curator import CuratorSegmentBuilder
+from looprail.memory_engine.base import TokenBudget
+from looprail.providers.base import ErrorClassification, LLMProvider, LLMResponse, ToolCallRequest
+from looprail.spine.message import ChatType, Media, Source
+from looprail.spine.turn import Origin, TurnRequest
 
 
 class CuratorScriptProvider(LLMProvider):

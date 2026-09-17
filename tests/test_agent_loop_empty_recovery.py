@@ -4,7 +4,7 @@ A turn that ends with no visible text is usually a weak-model dud, not a real
 "done". The loop recovers the turn (bounded per turn) before falling back to the
 canned reply, and the synthetic scaffolding never reaches persisted history.
 
-Decision logic lives in ``pico.agent.loop.recovery`` as a pure function and
+Decision logic lives in ``looprail.agent.loop.recovery`` as a pure function and
 is unit-tested in isolation; the loop tests cover the side effects (re-feeding
 reasoning, injecting nudges, stripping synthetic messages).
 """
@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.agent.loop.recovery import (
+from looprail.agent.loop import AgentLoop
+from looprail.agent.loop.recovery import (
     RecoveryAction,
     RecoveryLimits,
     classify_empty_response,
@@ -25,9 +25,9 @@ from pico.agent.loop.recovery import (
     has_thinking,
     limits_from_defaults,
 )
-from pico.providers.base import LLMProvider, LLMResponse
-from pico.spine.message import ChatType, Source
-from pico.spine.turn import Origin, TurnRequest
+from looprail.providers.base import LLMProvider, LLMResponse
+from looprail.spine.message import ChatType, Source
+from looprail.spine.turn import Origin, TurnRequest
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from pico.spine import (
+from looprail.spine import (
     ChatType,
     Notice,
     NoticeKind,
@@ -16,7 +16,7 @@ from pico.spine import (
     TurnStarted,
     Usage,
 )
-from pico.spine.scheduler import Lane, OriginPools
+from looprail.spine.scheduler import Lane, OriginPools
 
 
 def _req(text: str = "hi") -> TurnRequest:
@@ -402,7 +402,7 @@ async def test_worker_self_cancellation_drains_the_payload_leaving_no_zombie():
 
 async def test_scheduler_cancel_conversation_stops_running_and_returns_count():
 
-    from pico.spine.scheduler import Scheduler
+    from looprail.spine.scheduler import Scheduler
 
     runner = HangingRunner()
     _events, sink = _collector()
@@ -422,7 +422,7 @@ async def test_scheduler_cancel_conversation_stops_running_and_returns_count():
 
 async def test_scheduler_has_inflight_tracks_running_turn():
 
-    from pico.spine.scheduler import Scheduler
+    from looprail.spine.scheduler import Scheduler
 
     runner = HangingRunner()
     _events, sink = _collector()
@@ -442,7 +442,7 @@ async def test_scheduler_has_inflight_tracks_running_turn():
 
 
 async def test_scheduler_has_pending_or_running_tracks_lane_work():
-    from pico.spine.scheduler import Scheduler
+    from looprail.spine.scheduler import Scheduler
 
     runner = HangingRunner()
     _events, sink = _collector()
@@ -463,7 +463,7 @@ async def test_scheduler_has_pending_or_running_tracks_lane_work():
 
 
 async def test_cancelled_result_waiter_does_not_cancel_shared_turn_future():
-    from pico.spine.scheduler import Scheduler
+    from looprail.spine.scheduler import Scheduler
 
     runner = HangingRunner()
     events, sink = _collector()

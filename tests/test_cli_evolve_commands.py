@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
+from looprail.cli.commands import app
 
 runner = CliRunner()
 
@@ -29,7 +29,7 @@ def test_evolve_forwards_arguments_to_existing_launcher(monkeypatch) -> None:
         calls.append(argv)
         return 7
 
-    monkeypatch.setattr("pico.evolver.cli.main", _main)
+    monkeypatch.setattr("looprail.evolver.cli.main", _main)
 
     result = runner.invoke(app, ["evolve", "check", "--config", "run.yaml", "--smoke"])
 

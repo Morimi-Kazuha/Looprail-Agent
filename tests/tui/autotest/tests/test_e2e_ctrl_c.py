@@ -17,8 +17,8 @@ import pytest
 
 @pytest.mark.e2e
 def test_ctrl_c_at_idle_prompt(harness):
-    harness.spawn("uv run pico")
-    assert harness.wait(r"Pico", timeout=25.0)
+    harness.spawn("uv run looprail")
+    assert harness.wait(r"Looprail", timeout=25.0)
 
     harness.press("ctrl+c")
     assert harness.expect_exit(0, timeout=10.0), f"TUI did not exit 0 on idle Ctrl+C; final screen=\n{harness.screen()}"
@@ -27,10 +27,10 @@ def test_ctrl_c_at_idle_prompt(harness):
 @pytest.mark.e2e
 def test_ctrl_c_during_typing(harness):
     """Standard TUI ergonomics: 1st Ctrl+C cancels the in-progress input
-    line; 2nd Ctrl+C exits. Pico TUI follows this pattern (verified
+    line; 2nd Ctrl+C exits. Looprail TUI follows this pattern (verified
     interactively 2026-05-20)."""
-    harness.spawn("uv run pico")
-    assert harness.wait(r"Pico", timeout=25.0)
+    harness.spawn("uv run looprail")
+    assert harness.wait(r"Looprail", timeout=25.0)
     harness.type("partial input that will never send")
 
     harness.press("ctrl+c")

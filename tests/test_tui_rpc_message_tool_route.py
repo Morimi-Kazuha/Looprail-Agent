@@ -2,7 +2,7 @@
 
 The swap (message tool reply -> token stream) and its finally-restore live in
 ``AgentLoop.run_turn``; the synthetic tool.complete (Fix B) lives in
-``TuiTurnRunner`` (pico/tui_rpc/spine.py). AC-1/AC-4 drive the real spine via
+``TuiTurnRunner`` (looprail/tui_rpc/spine.py). AC-1/AC-4 drive the real spine via
 ``build_tui`` against a real AgentLoop whose provider fires the message tool;
 AC-2 drives run_turn directly for the restore variants; AC-3 stays at the
 AgentLoop layer (unchanged).
@@ -17,12 +17,12 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop, TurnOutcome
-from pico.agent.tools.message import MessageTool
-from pico.providers.base import StreamDelta
-from pico.spine import ChatType, Origin, Source, TurnRequest
-from pico.spine.message import ChatType, Source
-from pico.spine.turn import Origin, TurnRequest
+from looprail.agent.loop import AgentLoop, TurnOutcome
+from looprail.agent.tools.message import MessageTool
+from looprail.providers.base import StreamDelta
+from looprail.spine import ChatType, Origin, Source, TurnRequest
+from looprail.spine.message import ChatType, Source
+from looprail.spine.turn import Origin, TurnRequest
 
 
 @pytest.fixture
@@ -99,7 +99,7 @@ def _req(session_key: str = "tui:default") -> TurnRequest:
 
 
 async def test_ac1_message_tool_content_routes_to_token_delta_event(workspace) -> None:
-    from pico.tui_rpc.spine import build_tui
+    from looprail.tui_rpc.spine import build_tui
 
     loop = _make_agent(workspace, _MessageToolProvider(content="hi from tool"))
     emitter = FakeEmitter()
@@ -153,7 +153,7 @@ async def test_ac2_callback_isolated_even_on_error(workspace) -> None:
 
 
 async def test_ac4_synthetic_tool_complete_before_message_complete(workspace) -> None:
-    from pico.tui_rpc.spine import build_tui
+    from looprail.tui_rpc.spine import build_tui
 
     loop = _make_agent(workspace)
     emitter = FakeEmitter()
@@ -185,7 +185,7 @@ async def test_ac4_no_synthetic_tool_complete_when_message_tool_unused(workspace
         def get_default_model(self) -> str:
             return "fake/model"
 
-    from pico.tui_rpc.spine import build_tui
+    from looprail.tui_rpc.spine import build_tui
 
     loop = _make_agent(workspace, _PlainProvider())
     emitter = FakeEmitter()

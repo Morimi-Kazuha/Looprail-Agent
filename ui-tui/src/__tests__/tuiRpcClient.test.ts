@@ -35,7 +35,7 @@ interface MockServer {
 
 function startMock(): Promise<MockServer> {
   return new Promise((resolve, reject) => {
-    const dir = mkdtempSync(join(tmpdir(), 'pico-tui-rpc-test-'))
+    const dir = mkdtempSync(join(tmpdir(), 'looprail-tui-rpc-test-'))
     const socketPath = join(dir, 'sock')
 
     // 默认处理器回答 `system.hello`，各测试可覆盖它。

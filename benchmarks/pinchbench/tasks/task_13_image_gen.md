@@ -7,8 +7,8 @@ timeout_seconds: 120
 workspace_files: []
 ---
 
-> Historical capability probe: Pico removed media generation in Issue #5.
-> Current Pico is expected to lack `generate_image`; this task remains only as
+> Historical capability probe: Looprail removed media generation in Issue #5.
+> Current Looprail is expected to lack `generate_image`; this task remains only as
 > a benchmark fixture and must not be cited as supported product behavior.
 
 ## Prompt

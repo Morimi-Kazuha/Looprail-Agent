@@ -1,9 +1,9 @@
-"""Tests for pico.channels.base.ChannelBase — the thin plumbing base:
+"""Tests for looprail.channels.base.ChannelBase — the thin plumbing base:
 init wiring, is_running, and the default deny-by-default allowlist."""
 
 from types import SimpleNamespace
 
-from pico.channels.base import ChannelBase
+from looprail.channels.base import ChannelBase
 
 
 class _StubChannel(ChannelBase):
@@ -67,8 +67,8 @@ def test_channelbase_intake_picks_up_overridden_is_allowed():
 
 
 def test_channelbase_satisfies_channel_contract():
-    from pico.channels import Channel
-    from pico.channels.contract import capability_violations
+    from looprail.channels import Channel
+    from looprail.channels.contract import capability_violations
 
     ch = _stub()
     assert isinstance(ch, Channel)

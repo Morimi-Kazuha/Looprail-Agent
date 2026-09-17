@@ -1,118 +1,96 @@
-# ForgeAgent
+# Looprail
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12%2B-3776AB.svg)](https://www.python.org/)
 [![许可证：Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
-**ForgeAgent —— 面向真实代码仓库长链路任务的 Local-first Coding Agent。**
+**Looprail 是一个面向真实代码仓库长链路任务的 local-first Coding Agent Runtime。**
 
 [English README](README.md)
 
-ForgeAgent 是一个面向真实代码仓库的个人开源 Coding Agent。它可以检查代码、使用本地工具、修改文件、运行测试，并根据观察结果持续推进多步骤任务。
-
-模型负责推理和决策；本地 Runtime 负责受控执行、状态管理、检查点、记忆以及过程证据。
-
-
-## 项目简介
-
-ForgeAgent 面向无法靠一次问答完成的工程任务。一个任务可以沿着下面的仓库工作流持续推进：
-
-```text
-理解任务
-  → 检查仓库
-  → 搜索并阅读代码
-  → 修改文件
-  → 执行命令和测试
-  → 检查结果
-  → 继续推理
-  → 验证完成
-```
-
-目标是在本地提供有用的执行循环、持久状态和可检查结果，同时让高影响操作处于明确的 Runtime 控制之下。
+Looprail 将模型推理与确定性的 Runtime 执行分开：模型决定下一步做什么，Runtime
+负责工具执行、上下文组装、状态持久化与恢复、Trace 以及 Evaluation。这样，Agent
+可以在真实仓库中持续检查、修改、运行和验证，而不是只完成一次问答。
 
 ## 核心功能
 
-- **Agent Loop** —— 执行多步骤仓库任务，而不是把每个请求当成一次模型调用。
-- **Repository Tools** —— 在真实工作区中搜索、读取、编辑，并运行 Shell 命令和测试。
-- **Tool Runtime** —— 校验模型请求的工具调用，并应用受控执行策略。
-- **Context Management** —— 构建有边界且相关的仓库上下文，而不是把所有内容不断追加到提示词中。
-- **Checkpoint & Resume** —— 持久化会话状态，支持继续被中断的工作。
-- **Structured Memory** —— 保存有范围的可复用知识，为后续任务提供支持。
-- **Trace & Evaluation** —— 记录执行轨迹，并用确定性验证检查结果。
-- **Controlled Self-Evolution** —— 基于执行证据评估候选 Runtime 改进，并由人明确控制是否采用。
+- **Agent Loop** —— 让仓库任务经过检查、修改、命令、观察和后续决策的完整循环。
+- **Governed Tool Runtime** —— 校验工具调用，并应用执行、文件系统、超时和 Effect 边界。
+- **Repository-aware Context Engine** —— 从工作区、历史、工具和相关 Memory 中构建有边界的上下文。
+- **Durable Session + Checkpoint / Resume** —— 持久化任务状态，并在中断后进行保守恢复。
+- **Structured Memory** —— 保存带范围和来源信息的知识，供后续任务使用。
+- **Trace + Deterministic Evaluation** —— 让执行过程可检查，并在不依赖实时模型的情况下验证重要契约。
+- **Controlled Self-Evolution** —— 在明确的证据和人工激活控制下评估 Runtime 候选改进。
+- **Local-first execution** —— 从本地检出开始工作，并直接看到仓库及其开发工具。
 
-## 架构
+## 简单架构
 
 ```mermaid
 flowchart TD
-    U[用户任务] --> L[Agent Loop]
+    U[User / CLI] --> L[Agent Loop]
     L --> C[Context Engine]
-    C <--> M[Structured Memory]
-    C --> A[模型]
-    A --> T[Tool Runtime]
-    T --> R[仓库 / Shell / 测试]
-    R --> O[观察结果]
-    O --> L
-    L --> S[会话 / 检查点]
-    L --> E[轨迹 / 评估]
+    C <--> S[Session / Structured Memory]
+    C --> M[Model]
+    M --> L
+    L --> T[Tool Runtime]
+    T --> R[Repository / Shell / Tests]
+    R --> L
+    L --> E[Trace / Evaluation]
+    S -. Checkpoint / Resume .-> L
 ```
+
+模型负责不确定性的推理，Runtime 负责包围推理过程的确定性执行契约。
 
 ## 快速开始
 
-从 GitHub 克隆仓库后，在仓库根目录执行：
-
-```bash
-cd forge-agent
-uv sync --frozen --extra dev --dev
-uv run pico --version
-```
-
-需要时初始化本地设置：
-
-```bash
-uv run pico onboard --skip-memory
-```
-
-针对一个代码仓库运行任务：
-
-```bash
-uv run pico run --workspace /path/to/project \
-  -m "找出失败测试的原因，修复问题，运行相关测试，并总结修改内容。"
-```
-
-在 Windows 上，将 `/path/to/project` 替换为目标仓库路径。使用 `uv run pico run --help` 查看会话、恢复、配置和输出选项。
-
-## 使用示例
-
-```bash
-uv run pico run --workspace /path/to/project \
-  -m "补上缺失的校验，更新测试，并验证这次修改。"
-```
-
-ForgeAgent 可以检查工作区、调用仓库工具、编辑代码、执行测试，并根据测试和命令的观察结果决定下一步。
-
-## 测试
+目前以源码检出方式使用 Looprail；下方流程不假设 Looprail 已经发布到 PyPI。
 
 在仓库根目录执行：
 
-```powershell
-.\scripts\run_medium_baseline.ps1
+```bash
+uv sync --frozen --extra dev --dev
+uv run --frozen looprail --version
 ```
 
-当前冻结的核心 Runtime acceptance suite 在 Windows / Python 3.12 基线下报告 **671 passed**。这是核心验收结果，不表示仓库中的每个测试在所有环境下都始终通过。
+使用交互式向导配置 Provider 和本地 Runtime：
+
+```bash
+uv run --frozen looprail onboard --skip-memory
+```
+
+当环境中没有外部 Memory 实现时，`--skip-memory` 是当前受支持的源码检出配置。
+向导仍会配置 Provider 和本地执行路径。
+
+## 使用示例
+
+针对一个真实代码仓库运行任务：
+
+```bash
+uv run --frozen looprail run --workspace "<repo-root>" -m "检查失败的测试，做出最小且安全的修复，运行相关测试，并总结结果。"
+```
+
+将 `<repo-root>` 替换为目标仓库路径。使用 `uv run --frozen looprail run --help`
+查看 Session、Resume、配置和输出选项。
+
+## 测试
+
+受支持的确定性 Runtime 回归基线如下：
+
+```powershell
+.\scripts\run_runtime_baseline.ps1 -Python .\.venv\Scripts\python.exe
+```
+
+当前 Windows / Python 3.12 基线报告 **671 passed**。LooprailBench 提供额外的确定性
+Evaluation 基础设施，源码和复现工具位于
+[`benchmarks/looprailbench/`](benchmarks/looprailbench/)。
 
 ## 后续计划
 
-- 改进 CLI 的可视化和交互。
-- 增加更丰富的执行进度展示。
-- 强化沙箱和高风险工具策略。
-- 扩展真实代码仓库 Coding Agent 基准。
-- 改进 Context 压缩和检索策略。
-- 改进长期 Memory 的质量和生命周期管理。
-- 扩展 Controlled Self-Evolution 实验。
-- 改进跨平台可移植性。
+- 扩大跨平台验证范围。
+- 扩展确定性 Evaluation。
+- 建立更清晰的公开发布和分发流程。
 
 ## 许可证
 
-ForgeAgent 使用 [Apache License 2.0](LICENSE) 发布。
+Looprail 使用 [Apache License 2.0](LICENSE) 发布。
 
-第三方归属和通知保留在 [NOTICES.md] 与 [LICENSES/] 中。
+第三方归属和通知保留在 [NOTICES.md](NOTICES.md) 与 [LICENSES/](LICENSES/) 中。

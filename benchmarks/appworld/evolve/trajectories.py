@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from benchmarks.appworld.evolve.adapter import read_out_dir
-from pico.evolver.orchestrator.scoring import TaskEval
-from pico.evolver.tree.node import HarnessNode
+from looprail.evolver.orchestrator.scoring import TaskEval
+from looprail.evolver.tree.node import HarnessNode
 
 
 def _tool_code(assistant_msg: dict) -> str:
@@ -119,10 +119,10 @@ def default_sess_path(runs_root: Path, ws_root: Path, tid: str, exp: str, k: int
     legacy = ws_root / "sessions" / f"{tid}_{exp}_k{k}.jsonl"
     if legacy.exists():
         return legacy
-    # Pico SessionManager 将对话键 "appworld:<tid>_<exp>_k<k>" 持久化为
+    # Looprail SessionManager 将对话键 "appworld:<tid>_<exp>_k<k>" 持久化为
     # sessions/<channel>/<chat_id>.jsonl。
-    pico = ws_root / "sessions" / "appworld" / f"{tid}_{exp}_k{k}.jsonl"
-    return pico if pico.exists() else None
+    looprail = ws_root / "sessions" / "appworld" / f"{tid}_{exp}_k{k}.jsonl"
+    return looprail if looprail.exists() else None
 
 
 def _ladder_exps(exp: str) -> list[str]:

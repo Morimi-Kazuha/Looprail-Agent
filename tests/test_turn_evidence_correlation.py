@@ -15,22 +15,22 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.agent.loop.main import ProviderTurnError
-from pico.agent.spine_runner import AgentTurnRunner
-from pico.providers.base import LLMProvider, LLMResponse
-from pico.spine import ChatType, Origin, Source, Text, TurnOutcome, TurnRequest, Usage
-from pico.spine.scheduler import Lane, OriginPools
-from pico.token_wise.usage_tracker import UsageTracker
-from pico.tracing import context as trace_context
-from pico.tracing import spans as _spans
-from pico.tracing import trace
+from looprail.agent.loop import AgentLoop
+from looprail.agent.loop.main import ProviderTurnError
+from looprail.agent.spine_runner import AgentTurnRunner
+from looprail.providers.base import LLMProvider, LLMResponse
+from looprail.spine import ChatType, Origin, Source, Text, TurnOutcome, TurnRequest, Usage
+from looprail.spine.scheduler import Lane, OriginPools
+from looprail.token_wise.usage_tracker import UsageTracker
+from looprail.tracing import context as trace_context
+from looprail.tracing import spans as _spans
+from looprail.tracing import trace
 
 
 @pytest.fixture
 def trace_dir(tmp_path, monkeypatch):
-    monkeypatch.setenv("PICO_TRACING", "1")
-    monkeypatch.setenv("PICO_TRACING_DIR", str(tmp_path / "traces"))
+    monkeypatch.setenv("LOOPRAIL_TRACING", "1")
+    monkeypatch.setenv("LOOPRAIL_TRACING_DIR", str(tmp_path / "traces"))
     _spans._store = None
     yield tmp_path
     _spans._store = None
@@ -241,7 +241,7 @@ async def test_a_turn_submitted_inside_a_span_still_owns_its_own_trace(trace_dir
 
 
 async def test_tracing_disabled_leaves_the_turn_untouched(trace_dir, monkeypatch):
-    monkeypatch.setenv("PICO_TRACING", "0")
+    monkeypatch.setenv("LOOPRAIL_TRACING", "0")
     events: list = []
     await _run_one(ScriptedRunner(), events)
     assert _rows(trace_dir) == []
@@ -322,7 +322,7 @@ async def test_a_usage_snapshot_carries_the_turn_trace_ids(trace_dir, workspace)
 
 
 async def test_usage_ids_default_to_none_without_tracing(workspace, monkeypatch, tmp_path):
-    monkeypatch.setenv("PICO_TRACING", "0")
+    monkeypatch.setenv("LOOPRAIL_TRACING", "0")
     tracker = UsageTracker(telemetry_dir=tmp_path / "telemetry", persist=True)
     loop = AgentLoop(
         provider=_StubProvider(),

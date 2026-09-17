@@ -11,8 +11,8 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from pico.proactive_engine.schedulers.cron.service import _CLAIM_TTL_MS, CronService
-from pico.proactive_engine.schedulers.cron.types import CronSchedule
+from looprail.proactive_engine.schedulers.cron.service import _CLAIM_TTL_MS, CronService
+from looprail.proactive_engine.schedulers.cron.types import CronSchedule
 
 _START = datetime(2026, 1, 1, tzinfo=UTC)
 _DUE = _START + timedelta(minutes=1)

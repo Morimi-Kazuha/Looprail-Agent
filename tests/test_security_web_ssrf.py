@@ -14,7 +14,7 @@ import json
 import httpx
 import pytest
 
-from pico.agent.tools.web import WebFetchTool
+from looprail.agent.tools.web import WebFetchTool
 
 
 def _resolve_to(monkeypatch: pytest.MonkeyPatch, ip: str) -> None:
@@ -36,7 +36,7 @@ def _mock_http(monkeypatch: pytest.MonkeyPatch, handler) -> None:
         kwargs["transport"] = transport
         return async_client(*args, **kwargs)
 
-    monkeypatch.setattr("pico.agent.tools.web.httpx.AsyncClient", client_factory)
+    monkeypatch.setattr("looprail.agent.tools.web.httpx.AsyncClient", client_factory)
 
 
 async def test_rejects_url_resolving_to_private_ip(monkeypatch):

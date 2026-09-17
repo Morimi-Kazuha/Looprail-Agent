@@ -16,7 +16,7 @@ const CLIENT_VERSION = '0.0.2'
 const CLIENT_CAPABILITIES: string[] = ['chat', 'config', 'confirm', 'attachments', 'sessions']
 
 export interface TuiRpcClientOptions {
-  /** Unix 套接字路径，默认读取环境变量 `PICO_RPC_SOCKET`。 */
+  /** Unix 套接字路径，默认读取环境变量 `LOOPRAIL_RPC_SOCKET`。 */
   socketPath?: string
   /** 注入的 RpcClient（测试接缝）；传入后由其自行管理生命周期。 */
   rpcClient?: RpcClient

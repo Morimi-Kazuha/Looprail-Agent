@@ -1,4 +1,4 @@
-"""Tests for pico.token_wise.pricing."""
+"""Tests for looprail.token_wise.pricing."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import time
 import httpx
 import pytest
 
-from pico.token_wise import model_catalog_cache, pricing
-from pico.token_wise.pricing import (
+from looprail.token_wise import model_catalog_cache, pricing
+from looprail.token_wise.pricing import (
     _FALLBACK_PRICING,
     estimate_cost_usd,
     reset_warning_cache,
@@ -323,7 +323,7 @@ def _disk_payload(fetched_at, *, prompt="0.0000005", completion="0.0000015", ver
 
 @pytest.fixture
 def disk_cache(tmp_path, monkeypatch):
-    """Point the OpenRouter disk cache at a temp file; never touch real ~/.pico."""
+    """Point the OpenRouter disk cache at a temp file; never touch real ~/.looprail."""
     path = tmp_path / "model-catalog.json"
     monkeypatch.setattr(model_catalog_cache, "_CACHE_PATH", path, raising=False)
     pricing._OPENROUTER_CACHE.clear()

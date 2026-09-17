@@ -1,4 +1,4 @@
-// Pico TUI RPC client.ts 针对模拟 Unix 套接字服务端的集成测试。覆盖正常路径、
+// Looprail TUI RPC client.ts 针对模拟 Unix 套接字服务端的集成测试。覆盖正常路径、
 // 并行请求、带类型错误映射、突然断开连接、帧大小限制以及代码生成类型基线。
 
 import type { Server, Socket } from 'node:net'

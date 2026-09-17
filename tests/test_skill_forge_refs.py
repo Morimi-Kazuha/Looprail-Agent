@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pico.memory_engine.skill_forge.refs import resolve_refs
+from looprail.memory_engine.skill_forge.refs import resolve_refs
 
 
 def _make_skill_dir(tmp_path: Path) -> Path:

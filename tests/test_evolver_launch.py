@@ -1,4 +1,4 @@
-"""Unit tests for the unified evolution launcher (pico.evolver.launch)."""
+"""Unit tests for the unified evolution launcher (looprail.evolver.launch)."""
 
 from __future__ import annotations
 
@@ -11,15 +11,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from pico.evolver.launch.config import (
+from looprail.evolver.launch.config import (
     SMOKE_BUILTIN,
     RunSpecError,
     deep_merge,
     load_run_spec,
 )
-from pico.evolver.launch.contract import validate_whitelist
-from pico.evolver.launch.registry import load_bench
-from pico.evolver.launch.state import RunMeta, atomic_write_json, config_fingerprint
+from looprail.evolver.launch.contract import validate_whitelist
+from looprail.evolver.launch.registry import load_bench
+from looprail.evolver.launch.state import RunMeta, atomic_write_json, config_fingerprint
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -30,8 +30,8 @@ if str(REPO_ROOT) not in sys.path:
 def subject_repo(tmp_path: Path) -> tuple[Path, str]:
     """A tiny git repo standing in for the evolved subject."""
     repo = tmp_path / "subject"
-    (repo / "pico/agent").mkdir(parents=True)
-    (repo / "pico/agent/loop.py").write_text("x = 1\n")
+    (repo / "looprail/agent").mkdir(parents=True)
+    (repo / "looprail/agent/loop.py").write_text("x = 1\n")
     env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
     for cmd in (["git", "init", "-q"], ["git", "add", "-A"], ["git", "commit", "-qm", "init"]):
         subprocess.run(cmd, cwd=repo, check=True, env={**env, "PATH": "/usr/bin:/bin"}, capture_output=True)
@@ -144,7 +144,7 @@ class TestRunSpec:
 
     def test_work_dir_must_be_outside_subject_repo(self, tmp_path, subject_repo):
         repo, sha = subject_repo
-        path = _write_spec(tmp_path, repo, sha, work_dir=str(repo / ".pico/evolution"))
+        path = _write_spec(tmp_path, repo, sha, work_dir=str(repo / ".looprail/evolution"))
 
         with pytest.raises(RunSpecError, match="must be outside repo_root"):
             load_run_spec(path)
@@ -218,18 +218,18 @@ class TestRunSpec:
 
 
 class TestModelIdentity:
-    def test_default_model_provider_uses_pico_identity(self, monkeypatch):
-        from pico.evolver.launch import models
+    def test_default_model_provider_uses_looprail_identity(self, monkeypatch):
+        from looprail.evolver.launch import models
 
-        monkeypatch.setattr(models, "_pico_default_model", lambda: "provider/model")
+        monkeypatch.setattr(models, "_looprail_default_model", lambda: "provider/model")
 
         assert models.describe_models({})["driver"] == {
-            "provider": "pico",
+            "provider": "looprail",
             "model": "provider/model",
         }
 
     def test_unknown_provider_name_is_rejected(self):
-        from pico.evolver.launch.models import build_call_fn
+        from looprail.evolver.launch.models import build_call_fn
 
         with pytest.raises(ValueError, match="unknown model provider 'invalid'"):
             build_call_fn({"provider": "invalid"}, role="driver")
@@ -268,13 +268,13 @@ class TestRunMeta:
 class TestWhitelistValidation:
     def test_live_prefix_passes(self, subject_repo):
         repo, sha = subject_repo
-        validate_whitelist(repo, sha, ("pico/agent/",))
+        validate_whitelist(repo, sha, ("looprail/agent/",))
 
     def test_exact_file_entry_passes_without_widening_to_prefix(self, subject_repo):
         repo, sha = subject_repo
-        validate_whitelist(repo, sha, ("pico/agent/loop.py",))
+        validate_whitelist(repo, sha, ("looprail/agent/loop.py",))
         with pytest.raises(ValueError, match="match no files"):
-            validate_whitelist(repo, sha, ("pico/agent/loop",))
+            validate_whitelist(repo, sha, ("looprail/agent/loop",))
 
     def test_dead_prefix_refuses(self, subject_repo):
         repo, sha = subject_repo
@@ -289,7 +289,7 @@ class TestWhitelistValidation:
 
 class TestAppWorldEntry:
     def _ctx(self, tmp_path, subject_repo, bench_config, smoke=False):
-        from pico.evolver.launch.contract import LaunchContext
+        from looprail.evolver.launch.contract import LaunchContext
 
         repo, sha = subject_repo
         path = _write_spec(tmp_path, repo, sha, bench_config=bench_config)
@@ -312,7 +312,7 @@ class TestAppWorldEntry:
             "config_path": str(cfg),
             "appworld_data_root": str(tmp_path / "appworld"),
             "train_task_ids": ["t1", "t2"],
-            "whitelist": ["pico/agent/"],
+            "whitelist": ["looprail/agent/"],
         }
 
     def test_build_bundle_shape(self, tmp_path, subject_repo):
@@ -408,7 +408,7 @@ class TestAppWorldEntry:
 
     def test_smoke_caps_train_and_sealed_test_sets(self, tmp_path, subject_repo, monkeypatch):
         import benchmarks.appworld.evolve.run as run_mod
-        import pico.evolver.orchestrator.sealed.runner as sealed_mod
+        import looprail.evolver.orchestrator.sealed.runner as sealed_mod
 
         build = load_bench("appworld", repo_root=REPO_ROOT)
         bc = self._bench_config(tmp_path)
@@ -462,20 +462,20 @@ class TestAppWorldProcessConfig:
 
 class TestScorerImmutability:
     def test_scorer_surface_is_immutable(self):
-        from pico.evolver.applier.path_guard import check_patch_paths
+        from looprail.evolver.applier.path_guard import check_patch_paths
 
         offenders = check_patch_paths(
             [
                 "benchmarks/appworld/evolve/grade.py",
                 "benchmarks/appworld/evolve/adapter.py",
                 "benchmarks/appworld/batch.py",
-                "pico/evolver/orchestrator/gates/pipeline.py",
+                "looprail/evolver/orchestrator/gates/pipeline.py",
             ]
         )
         assert len(offenders) == 4
 
     def test_agent_surface_is_editable(self):
-        from pico.evolver.applier.path_guard import check_patch_paths
+        from looprail.evolver.applier.path_guard import check_patch_paths
 
         assert (
             check_patch_paths(
@@ -613,17 +613,17 @@ class TestBatchTrialResume:
 
 class TestCli:
     def test_parser_subcommands(self):
-        from pico.evolver.cli import build_parser
+        from looprail.evolver.cli import build_parser
 
         p = build_parser()
-        assert p.prog == "pico evolve"
+        assert p.prog == "looprail evolve"
         args = p.parse_args(["run", "--config", "x.yaml", "--smoke", "--force"])
         assert args.command == "run" and args.smoke and args.force
         args = p.parse_args(["finalize", "--config", "x.yaml", "--yes"])
         assert args.command == "finalize" and args.yes
 
     def test_status_on_fresh_dir_reports_not_started(self, tmp_path, subject_repo, capsys):
-        from pico.evolver.launch.runner import cmd_status
+        from looprail.evolver.launch.runner import cmd_status
 
         repo, sha = subject_repo
         path = _write_spec(tmp_path, repo, sha)
@@ -651,12 +651,12 @@ class TestCli:
                 "appworld_data_root": str(tmp_path / "appworld"),
                 "train_task_ids": ["t1"],
                 "test_task_ids": ["t2"],
-                "whitelist": ["pico/agent/"],
+                "whitelist": ["looprail/agent/"],
             },
         )
 
     def test_run_refuses_after_unseal(self, tmp_path, subject_repo, capsys):
-        from pico.evolver.launch.runner import cmd_run
+        from looprail.evolver.launch.runner import cmd_run
 
         repo, sha = subject_repo
         path = self._buildable_spec(tmp_path, repo, sha)
@@ -670,7 +670,7 @@ class TestCli:
         assert "unsealed" in capsys.readouterr().err
 
     def test_run_refuses_on_config_drift(self, tmp_path, subject_repo, capsys):
-        from pico.evolver.launch.runner import cmd_run
+        from looprail.evolver.launch.runner import cmd_run
 
         repo, sha = subject_repo
         path = self._buildable_spec(tmp_path, repo, sha)
@@ -683,7 +683,7 @@ class TestCli:
         assert "config drift" in capsys.readouterr().err
 
     def test_first_launch_config_mistake_leaves_no_meta(self, tmp_path, subject_repo):
-        from pico.evolver.launch.runner import cmd_run
+        from looprail.evolver.launch.runner import cmd_run
 
         repo, sha = subject_repo
         path = _write_spec(tmp_path, repo, sha)

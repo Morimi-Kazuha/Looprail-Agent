@@ -8,12 +8,12 @@ from io import BytesIO
 import pytest
 from PIL import Image
 
-from pico.context_engine.segments import render
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.methods import image as image_module
-from pico.tui_rpc.methods import register_aligned_methods
-from pico.tui_rpc.methods.image import clear_pending_images, consume_pending_images, image_attach, pending_images
-from pico.tui_rpc.methods.turn import clear_active, turn_send
+from looprail.context_engine.segments import render
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.methods import image as image_module
+from looprail.tui_rpc.methods import register_aligned_methods
+from looprail.tui_rpc.methods.image import clear_pending_images, consume_pending_images, image_attach, pending_images
+from looprail.tui_rpc.methods.turn import clear_active, turn_send
 
 PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="

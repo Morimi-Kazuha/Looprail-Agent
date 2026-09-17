@@ -1,4 +1,4 @@
-"""Tests for pico.channels.adapters.wecom — frame/body parsing, per-type
+"""Tests for looprail.channels.adapters.wecom — frame/body parsing, per-type
 content extraction, and inbound dedup. Pure surface; no live SDK."""
 
 import asyncio
@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock
 import pytest
 from loguru import logger
 
-from pico.channels.adapters.wecom.channel import WecomChannel
+from looprail.channels.adapters.wecom.channel import WecomChannel
 
 
 def _channel(welcome_message="", allow_from=("*",), bot_id="b", secret="s"):
@@ -88,7 +88,7 @@ def test_extract_mixed():
 
 
 def test_extract_image_downloads_and_labels(monkeypatch):
-    import pico.channels.adapters.wecom.channel as wecom_mod
+    import looprail.channels.adapters.wecom.channel as wecom_mod
 
     monkeypatch.setattr(wecom_mod, "save_media_bytes", lambda channel, data, name: Path("/m/abcd_pic.jpg"))
     ch = _channel()
@@ -100,7 +100,7 @@ def test_extract_image_downloads_and_labels(monkeypatch):
 
 
 def test_extract_file_uses_provided_name_over_server_name(monkeypatch):
-    import pico.channels.adapters.wecom.channel as wecom_mod
+    import looprail.channels.adapters.wecom.channel as wecom_mod
 
     monkeypatch.setattr(wecom_mod, "save_media_bytes", lambda channel, data, name: Path("/m/h_doc.pdf"))
     ch = _channel()
@@ -139,7 +139,7 @@ def test_process_dedup_skips_repeated_msgid():
 
 
 def test_frames_are_lru_capped(monkeypatch):
-    import pico.channels.adapters.wecom.channel as wecom_mod
+    import looprail.channels.adapters.wecom.channel as wecom_mod
 
     monkeypatch.setattr(wecom_mod, "_FRAMES_CAP", 2)
     ch = _channel()
@@ -362,8 +362,8 @@ def test_start_bails_out_without_credentials(bot_id, secret):
 
 
 def test_wecom_satisfies_channel_contract():
-    from pico.channels import Channel
-    from pico.channels.contract import capability_violations
+    from looprail.channels import Channel
+    from looprail.channels.contract import capability_violations
 
     ch = _channel()
     assert isinstance(ch, Channel)
@@ -371,7 +371,7 @@ def test_wecom_satisfies_channel_contract():
 
 
 def test_wecom_spec_declares_beta_maturity():
-    from pico.channels.adapters.wecom.spec import SPEC
+    from looprail.channels.adapters.wecom.spec import SPEC
 
     assert SPEC.maturity == "beta"
 
@@ -381,9 +381,9 @@ def test_wecom_spec_factory_raises_import_error_without_sdk(monkeypatch):
     just this channel."""
     import sys
 
-    monkeypatch.delitem(sys.modules, "pico.channels.adapters.wecom.channel", raising=False)
+    monkeypatch.delitem(sys.modules, "looprail.channels.adapters.wecom.channel", raising=False)
     monkeypatch.setitem(sys.modules, "wecom_aibot_sdk", None)
-    from pico.channels.adapters.wecom.spec import SPEC
+    from looprail.channels.adapters.wecom.spec import SPEC
 
     with pytest.raises(ImportError):
         SPEC.factory(SimpleNamespace(bot_id="b", secret="s", allow_from=["*"]))
@@ -396,7 +396,7 @@ def test_wecom_spec_import_is_cheap():
     import sys
 
     code = (
-        "import sys, pico.channels.adapters.wecom.spec as s;"
+        "import sys, looprail.channels.adapters.wecom.spec as s;"
         "assert 'wecom_aibot_sdk' not in sys.modules, 'spec import pulled in wecom_aibot_sdk';"
         "assert callable(s.SPEC.factory) and s.SPEC.display_name == 'WeCom'"
     )

@@ -1,7 +1,7 @@
-"""Tests for pico.channels.registry — adapter auto-discovery (spec-based)."""
+"""Tests for looprail.channels.registry — adapter auto-discovery (spec-based)."""
 
-from pico.channels.contract import Capabilities, ChannelSpec
-from pico.channels.registry import discover_channel_names, discover_specs
+from looprail.channels.contract import Capabilities, ChannelSpec
+from looprail.channels.registry import discover_channel_names, discover_specs
 
 
 def test_discover_channel_names_lists_adapter_packages():
@@ -34,7 +34,7 @@ def test_discover_specs_is_cheap():
     import sys
 
     code = (
-        "import sys; from pico.channels.registry import discover_specs; discover_specs();"
+        "import sys; from looprail.channels.registry import discover_specs; discover_specs();"
         "pulled = {m for m in ('botpy', 'lark_oapi', 'wecom_aibot_sdk') if m in sys.modules};"
         "assert not pulled, f'discovery pulled in channel SDKs: {pulled}'"
     )

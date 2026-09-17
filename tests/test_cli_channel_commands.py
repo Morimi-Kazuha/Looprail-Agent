@@ -1,4 +1,4 @@
-"""CLI contract tests for Pico's retained Channels."""
+"""CLI contract tests for Looprail's retained Channels."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
-from pico.config.loader import set_config_path
+from looprail.cli.commands import app
+from looprail.config.loader import set_config_path
 
 runner = CliRunner()
 
@@ -171,7 +171,7 @@ def test_reset_confirmation_abort_and_accept(tmp_config: Path) -> None:
 
 
 def test_all_retained_channels_default_allow_from_to_wildcard() -> None:
-    from pico.config.schema import ChannelsConfig
+    from looprail.config.schema import ChannelsConfig
 
     config = ChannelsConfig()
     assert config.feishu.allow_from == ["*"]

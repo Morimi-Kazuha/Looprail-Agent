@@ -1,4 +1,4 @@
-"""Tests for pico.channels.manager.ChannelManager — spec-based init
+"""Tests for looprail.channels.manager.ChannelManager — spec-based init
 (incl. the missing-dependency / ImportError path), per-channel failure
 isolation, allow_from validation, and status accessors. Outbound delivery moved
 to the spine outlets (no longer the manager's job)."""
@@ -11,8 +11,8 @@ from types import SimpleNamespace
 import pytest
 from loguru import logger
 
-from pico.channels.contract import Capabilities, ChannelSpec
-from pico.channels.manager import ChannelManager, _missing_dep_hint
+from looprail.channels.contract import Capabilities, ChannelSpec
+from looprail.channels.manager import ChannelManager, _missing_dep_hint
 
 
 @contextmanager
@@ -64,7 +64,7 @@ def _config(channels=None):
 
 
 def _manager(monkeypatch, specs, config) -> ChannelManager:
-    monkeypatch.setattr("pico.channels.registry.discover_specs", lambda: specs)
+    monkeypatch.setattr("looprail.channels.registry.discover_specs", lambda: specs)
     return ChannelManager(config)
 
 
@@ -216,7 +216,7 @@ async def test_stop_all_attempts_every_channel_and_raises_first_failure(
 
 
 async def test_stop_all_times_out_one_transport_and_attempts_the_rest(monkeypatch) -> None:
-    monkeypatch.setattr("pico.channels.manager._CHANNEL_STOP_TIMEOUT_S", 0.01, raising=False)
+    monkeypatch.setattr("looprail.channels.manager._CHANNEL_STOP_TIMEOUT_S", 0.01, raising=False)
     events: list[str] = []
 
     class _Channel:
@@ -347,7 +347,7 @@ async def test_quiesce_intake_preserves_caller_cancellation_over_barrier_failure
 
 
 _EDITABLE_JSON = '{"url": "file:///src", "dir_info": {"editable": true}}'
-_WHEEL_JSON = '{"url": "https://x/pico_harness-0.1.2.whl", "archive_info": {}}'
+_WHEEL_JSON = '{"url": "https://x/looprail-0.1.2.whl", "archive_info": {}}'
 
 
 def _patch_direct_url(monkeypatch, read_text_result, calls=None):
@@ -360,7 +360,7 @@ def _patch_direct_url(monkeypatch, read_text_result, calls=None):
             calls.append(package)
         return _Dist()
 
-    monkeypatch.setattr("pico.channels.manager.distribution", fake_distribution)
+    monkeypatch.setattr("looprail.channels.manager.distribution", fake_distribution)
 
 
 @pytest.mark.parametrize("modname", ["feishu", "qq", "wecom"])
@@ -369,7 +369,7 @@ def test_hint_editable_names_the_channel_extra(monkeypatch, modname):
     calls = []
     _patch_direct_url(monkeypatch, _EDITABLE_JSON, calls)
     assert _missing_dep_hint(modname) == f"Run: uv sync --extra channel-{modname}"
-    assert calls == ["pico-harness"]
+    assert calls == ["looprail"]
 
 
 @pytest.mark.parametrize(
@@ -386,21 +386,22 @@ def test_hint_editable_names_the_channel_extra(monkeypatch, modname):
 def test_hint_non_editable_points_to_installer(monkeypatch, raw):
     """Any non-editable / malformed direct_url.json -> installer hint, never raises."""
     _patch_direct_url(monkeypatch, raw)
-    monkeypatch.setattr("pico.channels.manager.sys.platform", "linux")
+    monkeypatch.setattr("looprail.channels.manager.sys.platform", "linux")
     hint = _missing_dep_hint("wecom")
     assert "uv sync" not in hint
     assert "install.sh" in hint
-    assert "PICO_GITEE_TOKEN" in hint
+    assert "LOOPRAIL_WHEEL_URL" in hint
+    assert "gitee.com" not in hint
 
 
 def test_hint_package_not_found_points_to_installer(monkeypatch):
-    """Pico distribution not found -> installer hint, no exception."""
+    """Looprail distribution not found -> installer hint, no exception."""
 
     def _raise(pkg):
         raise PackageNotFoundError(pkg)
 
-    monkeypatch.setattr("pico.channels.manager.distribution", _raise)
-    monkeypatch.setattr("pico.channels.manager.sys.platform", "darwin")
+    monkeypatch.setattr("looprail.channels.manager.distribution", _raise)
+    monkeypatch.setattr("looprail.channels.manager.sys.platform", "darwin")
     assert "install.sh" in _missing_dep_hint("qq")
 
 
@@ -411,7 +412,7 @@ def test_hint_package_not_found_points_to_installer(monkeypatch):
 def test_hint_installer_matches_os(monkeypatch, platform, marker):
     """Wheel install picks the installer for the running OS (irm vs curl)."""
     _patch_direct_url(monkeypatch, _WHEEL_JSON)
-    monkeypatch.setattr("pico.channels.manager.sys.platform", platform)
+    monkeypatch.setattr("looprail.channels.manager.sys.platform", platform)
     assert marker in _missing_dep_hint("feishu")
 
 
@@ -429,7 +430,7 @@ def test_init_warning_carries_install_hint(monkeypatch, direct_url, platform, ex
     from loguru import logger
 
     _patch_direct_url(monkeypatch, direct_url)
-    monkeypatch.setattr("pico.channels.manager.sys.platform", platform)
+    monkeypatch.setattr("looprail.channels.manager.sys.platform", platform)
 
     def boom(config):
         raise ImportError("No module named 'lark_oapi'")

@@ -1,8 +1,8 @@
-"""CLI tests for ``pico doctor``.
+"""CLI tests for ``looprail doctor``.
 
 Static checks are validated against on-disk config produced by the
 ``tmp_config`` / ``healthy_config`` fixtures. The probe boundary
-(:func:`pico.cli.doctor_commands.send_probe`) is monkeypatched
+(:func:`looprail.cli.doctor_commands.send_probe`) is monkeypatched
 so tests never touch the network.
 """
 
@@ -14,10 +14,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli import doctor_commands
-from pico.cli.commands import app
-from pico.config.loader import save_config, set_config_path
-from pico.config.schema import Config
+from looprail.cli import doctor_commands
+from looprail.cli.commands import app
+from looprail.config.loader import save_config, set_config_path
+from looprail.config.schema import Config
 
 runner = CliRunner()
 
@@ -38,11 +38,11 @@ def healthy_config(tmp_config: Path, tmp_path: Path, monkeypatch: pytest.MonkeyP
     workspace.mkdir()
     tui_bundle = tmp_path / "entry.js"
     tui_bundle.write_text("", encoding="utf-8")
-    monkeypatch.setattr("pico.cli.tui_commands.resolve_dist_entry", lambda: tui_bundle)
-    from pico.cli._plugin_stack import MemoryBackendStatus
+    monkeypatch.setattr("looprail.cli.tui_commands.resolve_dist_entry", lambda: tui_bundle)
+    from looprail.cli._plugin_stack import MemoryBackendStatus
 
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.inspect_memory_backend",
+        "looprail.cli._plugin_stack.inspect_memory_backend",
         lambda _config: MemoryBackendStatus(
             backend="myna",
             state="available",
@@ -73,7 +73,7 @@ def test_doctor_default_on_missing_config_exit1(tmp_config: Path) -> None:
     r = runner.invoke(app, ["doctor"])
     assert r.exit_code == 1, r.stdout
     assert "not configured" in r.stdout
-    assert "pico onboard" in r.stdout
+    assert "looprail onboard" in r.stdout
 
 
 def test_doctor_default_healthy_exit0(healthy_config: Path) -> None:
@@ -90,10 +90,10 @@ def test_doctor_memory_plugin_error_fails_closed(
     healthy_config: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.cli._plugin_stack import MemoryBackendStatus
+    from looprail.cli._plugin_stack import MemoryBackendStatus
 
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.inspect_memory_backend",
+        "looprail.cli._plugin_stack.inspect_memory_backend",
         lambda _config: MemoryBackendStatus(
             backend="myna",
             state="error",
@@ -116,17 +116,17 @@ def test_doctor_checks_current_project_workspace_and_state(
 ) -> None:
     project = tmp_path / "project"
     project.mkdir()
-    product_home = tmp_path / "pico-home"
+    product_home = tmp_path / "looprail-home"
     tui_bundle = tmp_path / "entry.js"
     tui_bundle.write_text("", encoding="utf-8")
-    monkeypatch.setenv("PICO_HOME", str(product_home))
+    monkeypatch.setenv("LOOPRAIL_HOME", str(product_home))
     monkeypatch.chdir(project)
-    monkeypatch.setattr("pico.cli.tui_commands.resolve_dist_entry", lambda: tui_bundle)
+    monkeypatch.setattr("looprail.cli.tui_commands.resolve_dist_entry", lambda: tui_bundle)
     cfg = Config()
     cfg.agents.defaults.model = "anthropic/claude-sonnet-4-5"
     cfg.providers.anthropic.api_key = "sk-fake"
     save_config(cfg)
-    from pico.config.update import set_memory_backend
+    from looprail.config.update import set_memory_backend
 
     set_memory_backend(None)
 
@@ -151,7 +151,7 @@ def test_doctor_unresolved_routing_exit1(tmp_config: Path) -> None:
 
 
 def test_doctor_missing_tui_bundle_exit1(healthy_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("pico.cli.tui_commands.resolve_dist_entry", lambda: None)
+    monkeypatch.setattr("looprail.cli.tui_commands.resolve_dist_entry", lambda: None)
 
     r = runner.invoke(app, ["doctor", "--json"])
 
@@ -216,7 +216,7 @@ def test_doctor_unwritable_workspace_exit1(
 
 def test_doctor_shows_gateway_running(healthy_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A held instance lock surfaces as ``running (pid …)`` in the Gateway section."""
-    from pico.cli import _gateway_lock
+    from looprail.cli import _gateway_lock
 
     monkeypatch.setattr(
         _gateway_lock,
@@ -231,7 +231,7 @@ def test_doctor_shows_gateway_running(healthy_config: Path, monkeypatch: pytest.
 
 
 def test_doctor_shows_gateway_not_running(healthy_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from pico.cli import _gateway_lock
+    from looprail.cli import _gateway_lock
 
     monkeypatch.setattr(_gateway_lock, "read_status", lambda now: None)
     r = runner.invoke(app, ["doctor"])

@@ -11,8 +11,8 @@ import asyncio
 
 import pytest
 
-from pico.tui_rpc.methods.question import question_respond, register_question_methods
-from pico.tui_rpc.question_broker import QuestionBroker
+from looprail.tui_rpc.methods.question import question_respond, register_question_methods
+from looprail.tui_rpc.question_broker import QuestionBroker
 
 CID = "telegram:123"
 
@@ -188,7 +188,7 @@ async def test_question_respond_handler_unknown_returns_not_ok() -> None:
 
 
 async def test_register_question_methods_adds_respond() -> None:
-    from pico.tui_rpc.dispatcher import Dispatcher
+    from looprail.tui_rpc.dispatcher import Dispatcher
 
     _frames, send_frame = _frame_collector()
     broker = QuestionBroker(send_frame)

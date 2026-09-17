@@ -1,6 +1,6 @@
 """Tests for the ``model.*`` RPC handlers (TUI ``/model`` v1 backend).
 
-The five handlers wrap ``pico.config.update_providers`` write/read helpers
+The five handlers wrap ``looprail.config.update_providers`` write/read helpers
 plus the provider registry. Config is sandboxed by redirecting ``Path.home()``
 to a tmp dir (same mechanism as ``test_tui_rpc_config`` / ``test_tui_rpc_setup``)
 so the real user config is never touched. No network is hit.
@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from pico.providers.common_models import common_models_for
-from pico.tui_rpc.errors import ConfigValidationError, NotSupportedInV01Error
-from pico.tui_rpc.methods.model import (
+from looprail.providers.common_models import common_models_for
+from looprail.tui_rpc.errors import ConfigValidationError, NotSupportedInV01Error
+from looprail.tui_rpc.methods.model import (
     model_add_model,
     model_disconnect,
     model_options,
@@ -31,7 +31,7 @@ def fake_home(monkeypatch, tmp_path) -> Path:
 
 
 def _write_config(home: Path, payload: dict) -> None:
-    cfg_dir = home / ".pico"
+    cfg_dir = home / ".looprail"
     cfg_dir.mkdir(exist_ok=True)
     (cfg_dir / "config.json").write_text(json.dumps(payload), encoding="utf-8")
 
@@ -129,7 +129,7 @@ async def test_options_needs_api_base_flag(fake_home: Path) -> None:
 
 
 async def test_options_lists_providers_once(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from pico.tui_rpc.methods import model as model_methods
+    from looprail.tui_rpc.methods import model as model_methods
 
     _write_config(fake_home, {"agents": {"defaults": {"model": "anthropic/claude-sonnet-4-5"}}})
     original = model_methods.list_providers
@@ -156,7 +156,7 @@ async def test_save_key_happy_path_writes_key(fake_home: Path) -> None:
     assert entry["slug"] == "anthropic"
     assert entry["authenticated"] is True
 
-    cfg = json.loads((fake_home / ".pico" / "config.json").read_text())
+    cfg = json.loads((fake_home / ".looprail" / "config.json").read_text())
     assert cfg["providers"]["anthropic"]["apiKey"] == "sk-ant-new"
 
 
@@ -169,7 +169,7 @@ async def test_save_key_custom_accepts_api_base(fake_home: Path) -> None:
         }
     )
     assert result["provider"]["slug"] == "custom"
-    cfg = json.loads((fake_home / ".pico" / "config.json").read_text())
+    cfg = json.loads((fake_home / ".looprail" / "config.json").read_text())
     assert cfg["providers"]["custom"]["apiBase"] == "https://example.test/v1"
 
 
@@ -232,8 +232,8 @@ async def test_add_model_unknown_provider_rejected(fake_home: Path) -> None:
 
 
 async def test_model_methods_registered_via_helper(fake_home: Path) -> None:
-    from pico.tui_rpc.dispatcher import Dispatcher
-    from pico.tui_rpc.methods.model import register_model_methods
+    from looprail.tui_rpc.dispatcher import Dispatcher
+    from looprail.tui_rpc.methods.model import register_model_methods
 
     _write_config(fake_home, {"agents": {"defaults": {"model": "anthropic/claude-sonnet-4-5"}}})
     d = Dispatcher()

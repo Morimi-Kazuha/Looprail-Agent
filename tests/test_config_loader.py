@@ -1,4 +1,4 @@
-"""Tests for ``pico.config.loader.load_config``.
+"""Tests for ``looprail.config.loader.load_config``.
 
 Covers the migrations that drop / relocate retired blocks from old
 configs, plus the default-config fallback path.
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.config.loader import load_config
+from looprail.config.loader import load_config
 
 
 def _write(path: Path, body: dict) -> None:
@@ -64,7 +64,7 @@ def test_legacy_everos_skill_light_is_dropped(
 
 
 def test_legacy_everos_skill_light_block_is_not_relocated() -> None:
-    from pico.config.loader import _migrate_config
+    from looprail.config.loader import _migrate_config
 
     out = _migrate_config(
         {
@@ -85,7 +85,7 @@ def test_legacy_everos_skill_light_block_is_not_relocated() -> None:
 
 
 def test_legacy_everos_skill_light_snake_case_block_is_not_relocated() -> None:
-    from pico.config.loader import _migrate_config
+    from looprail.config.loader import _migrate_config
 
     out = _migrate_config(
         {
@@ -191,13 +191,13 @@ def test_removed_skill_hub_config_is_rejected_with_diagnostic(
 
 
 def test_read_raw_or_raise_absent_returns_empty(tmp_path: Path) -> None:
-    from pico.config.loader import read_raw_or_raise
+    from looprail.config.loader import read_raw_or_raise
 
     assert read_raw_or_raise(tmp_path / "nope.json") == {}
 
 
 def test_read_raw_or_raise_valid(tmp_path: Path) -> None:
-    from pico.config.loader import read_raw_or_raise
+    from looprail.config.loader import read_raw_or_raise
 
     p = tmp_path / "c.json"
     p.write_text('{"a": 1}', encoding="utf-8")
@@ -205,7 +205,7 @@ def test_read_raw_or_raise_valid(tmp_path: Path) -> None:
 
 
 def test_read_raw_or_raise_malformed_raises(tmp_path: Path) -> None:
-    from pico.config.loader import ConfigReadError, read_raw_or_raise
+    from looprail.config.loader import ConfigReadError, read_raw_or_raise
 
     p = tmp_path / "bad.json"
     p.write_text("{  // comment\n}", encoding="utf-8")
@@ -214,8 +214,8 @@ def test_read_raw_or_raise_malformed_raises(tmp_path: Path) -> None:
 
 
 def test_load_config_malformed_warns_loudly_and_uses_defaults(tmp_path: Path, capsys) -> None:
-    from pico.config.loader import load_config
-    from pico.config.schema import Config
+    from looprail.config.loader import load_config
+    from looprail.config.schema import Config
 
     p = tmp_path / "bad.json"
     p.write_text("{  // comment\n}", encoding="utf-8")
@@ -225,7 +225,7 @@ def test_load_config_malformed_warns_loudly_and_uses_defaults(tmp_path: Path, ca
 
 
 def test_read_raw_or_raise_empty_file_is_empty_dict(tmp_path: Path) -> None:
-    from pico.config.loader import read_raw_or_raise
+    from looprail.config.loader import read_raw_or_raise
 
     p = tmp_path / "empty.json"
     p.write_text("   \n", encoding="utf-8")
@@ -233,7 +233,7 @@ def test_read_raw_or_raise_empty_file_is_empty_dict(tmp_path: Path) -> None:
 
 
 def test_read_raw_or_raise_json_null_is_empty_dict(tmp_path: Path) -> None:
-    from pico.config.loader import read_raw_or_raise
+    from looprail.config.loader import read_raw_or_raise
 
     p = tmp_path / "null.json"
     p.write_text("null", encoding="utf-8")
@@ -242,7 +242,7 @@ def test_read_raw_or_raise_json_null_is_empty_dict(tmp_path: Path) -> None:
 
 def test_config_read_error_is_not_runtimeerror() -> None:
 
-    from pico.config.loader import ConfigReadError
+    from looprail.config.loader import ConfigReadError
 
     assert not issubclass(ConfigReadError, RuntimeError)
     assert issubclass(ConfigReadError, Exception)

@@ -3,7 +3,7 @@
 import httpx
 from websockets.exceptions import WebSocketException
 
-from pico.channels.errors import retryable_http, transient_network
+from looprail.channels.errors import retryable_http, transient_network
 
 
 def test_transient_network_builtins():

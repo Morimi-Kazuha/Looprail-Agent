@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-from pico.spine import ChatType, Origin, Source, TurnOutcome, TurnRequest, Usage
-from pico.spine.scheduler import Lane, OriginPools
+from looprail.spine import ChatType, Origin, Source, TurnOutcome, TurnRequest, Usage
+from looprail.spine.scheduler import Lane, OriginPools
 
 
 def _req(origin: Origin, text: str = "x") -> TurnRequest:

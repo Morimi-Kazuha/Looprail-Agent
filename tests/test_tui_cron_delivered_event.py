@@ -20,7 +20,7 @@ def test_cron_delivered_event_pydantic_validates() -> None:
     """``CronDeliveredEvent`` SHALL be a member of the ``TurnEvent``
     discriminated union with payload {job_id, name, text, fired_at}.
     """
-    from pico.tui_rpc.models import CronDeliveredEvent
+    from looprail.tui_rpc.models import CronDeliveredEvent
 
     event = CronDeliveredEvent(
         type="cron.delivered",
@@ -44,7 +44,7 @@ def test_cron_delivered_event_in_turn_event_union() -> None:
     """
     from pydantic import TypeAdapter
 
-    from pico.tui_rpc.models import CronDeliveredEvent, TurnEvent
+    from looprail.tui_rpc.models import CronDeliveredEvent, TurnEvent
 
     adapter = TypeAdapter(TurnEvent)
     parsed = adapter.validate_python(
@@ -80,7 +80,7 @@ def emitter_spy() -> MagicMock:
 async def test_fanout_cron_delivered_single_session(emitter_spy: MagicMock) -> None:
     """``_fanout_cron_delivered`` SHALL emit a ``cron.delivered`` event with the
     full {job_id, name, text, fired_at} payload to the active session."""
-    from pico.cli.tui_commands import _fanout_cron_delivered
+    from looprail.cli.tui_commands import _fanout_cron_delivered
 
     await _fanout_cron_delivered(
         emitter_spy,
@@ -106,7 +106,7 @@ async def test_fanout_cron_delivered_single_session(emitter_spy: MagicMock) -> N
 async def test_fanout_cron_delivered_multi_session(emitter_spy: MagicMock) -> None:
     """Each active session_key SHALL receive the cron.delivered event (fan-out,
     because the cron:<job_id> conversation matches no user subscription)."""
-    from pico.cli.tui_commands import _fanout_cron_delivered
+    from looprail.cli.tui_commands import _fanout_cron_delivered
 
     emitter_spy._by_session = {"sess_a": [object()], "sess_b": [object()]}
     await _fanout_cron_delivered(emitter_spy, job_id="j3", name="test", text="multi", fired_at="2026-06-04T12:00:00Z")
@@ -118,7 +118,7 @@ async def test_fanout_cron_delivered_multi_session(emitter_spy: MagicMock) -> No
 
 async def test_fanout_cron_delivered_no_active_sessions() -> None:
     """No active session subscribers -> a silent no-op (no emit, no exception)."""
-    from pico.cli.tui_commands import _fanout_cron_delivered
+    from looprail.cli.tui_commands import _fanout_cron_delivered
 
     emitter = MagicMock()
     emitter._by_session = {}
@@ -133,7 +133,7 @@ async def test_cron_callback_spine_fans_out_reply(emitter_spy: MagicMock) -> Non
     metadata; a deliver=False job SHALL NOT fan out."""
     from types import SimpleNamespace
 
-    from pico.cli.tui_commands import _build_cron_callback_spine
+    from looprail.cli.tui_commands import _build_cron_callback_spine
 
     async def base_on_cron(job):
         return "reminder body"

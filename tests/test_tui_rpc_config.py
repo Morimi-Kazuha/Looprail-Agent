@@ -18,13 +18,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from pico.tui_rpc.errors import (
+from looprail.tui_rpc.errors import (
     ConfigFieldReadonlyError,
     ConfigValidationError,
     ModelNotAvailableError,
     ModelSwitchInTurnError,
 )
-from pico.tui_rpc.methods.config import (
+from looprail.tui_rpc.methods.config import (
     CONFIG_WRITABLE_KEYS,
     config_get,
     config_set,
@@ -63,8 +63,8 @@ async def test_config_get_unknown_keys_silently_omitted(fake_home: Path) -> None
 
 
 async def test_config_get_reads_persisted_values(fake_home: Path) -> None:
-    (fake_home / ".pico").mkdir()
-    (fake_home / ".pico" / "config.json").write_text(json.dumps({"tui": {"theme": "solarized-dark"}}))
+    (fake_home / ".looprail").mkdir()
+    (fake_home / ".looprail" / "config.json").write_text(json.dumps({"tui": {"theme": "solarized-dark"}}))
     result = await config_get({"keys": ["tui.theme"]})
     assert result["config"]["tui.theme"] == "solarized-dark"
 
@@ -101,7 +101,7 @@ async def test_config_set_invalid_temperature_raises_validation(fake_home: Path)
 
 async def test_config_set_persists_to_config_json(fake_home: Path) -> None:
     await config_set({"key": "tui.theme", "value": "dracula"})
-    cfg_path = fake_home / ".pico" / "config.json"
+    cfg_path = fake_home / ".looprail" / "config.json"
     assert cfg_path.exists()
     payload = json.loads(cfg_path.read_text())
     assert payload["tui"]["theme"] == "dracula"
@@ -119,10 +119,10 @@ async def test_config_set_previous_value_returned(fake_home: Path) -> None:
 
 
 async def test_config_set_creates_config_when_missing(fake_home: Path) -> None:
-    """When ~/.pico/config.json doesn't exist yet, set must create it."""
-    assert not (fake_home / ".pico" / "config.json").exists()
+    """When ~/.looprail/config.json doesn't exist yet, set must create it."""
+    assert not (fake_home / ".looprail" / "config.json").exists()
     await config_set({"key": "tui.theme", "value": "ok"})
-    assert (fake_home / ".pico" / "config.json").exists()
+    assert (fake_home / ".looprail" / "config.json").exists()
 
 
 async def test_config_set_missing_key_param_raises_validation(fake_home: Path) -> None:
@@ -138,7 +138,7 @@ async def test_config_set_missing_key_param_raises_validation(fake_home: Path) -
 
 
 async def test_config_set_model_reassigns_loop_and_persists(fake_home: Path, monkeypatch) -> None:
-    import pico.tui_rpc.methods.config as config_mod
+    import looprail.tui_rpc.methods.config as config_mod
 
     loop = SimpleNamespace(provider="old-prov", model="old-model")
     new_provider = SimpleNamespace(name="new-prov")
@@ -166,13 +166,13 @@ async def test_config_set_model_reassigns_loop_and_persists(fake_home: Path, mon
     assert loop.model == "anthropic/claude-opus-4-8"
     assert loop.provider is new_provider
 
-    cfg = json.loads((fake_home / ".pico" / "config.json").read_text())
+    cfg = json.loads((fake_home / ".looprail" / "config.json").read_text())
     assert cfg["agents"]["defaults"]["model"] == "anthropic/claude-opus-4-8"
     assert cfg["agents"]["defaults"]["provider"] == "anthropic"
 
 
 async def test_config_set_model_uses_atomic_runtime_replacement(fake_home: Path, monkeypatch) -> None:
-    import pico.tui_rpc.methods.config as config_mod
+    import looprail.tui_rpc.methods.config as config_mod
 
     calls: list[tuple[object, str | None]] = []
     loop = SimpleNamespace(
@@ -211,13 +211,13 @@ async def test_config_set_model_bare_derives_provider(fake_home: Path) -> None:
         agent_loop_factory=lambda: None,
     )
     assert result["applied"] is True
-    cfg = json.loads((fake_home / ".pico" / "config.json").read_text())
+    cfg = json.loads((fake_home / ".looprail" / "config.json").read_text())
     assert cfg["agents"]["defaults"]["model"] == "anthropic/claude-opus-4-8"
     assert cfg["agents"]["defaults"]["provider"] == "anthropic"
 
 
 async def test_config_set_model_rejected_while_any_session_has_active_turn(fake_home: Path, monkeypatch) -> None:
-    import pico.tui_rpc.methods.turn as turn_mod
+    import looprail.tui_rpc.methods.turn as turn_mod
 
     monkeypatch.setitem(turn_mod._active_turns, "tui:other-session", object())
 
@@ -233,10 +233,10 @@ async def test_config_set_model_rejected_while_any_session_has_active_turn(fake_
 
 
 async def test_config_set_model_unconstructable_preserves_previous(fake_home: Path, monkeypatch) -> None:
-    import pico.tui_rpc.methods.config as config_mod
+    import looprail.tui_rpc.methods.config as config_mod
 
-    (fake_home / ".pico").mkdir()
-    (fake_home / ".pico" / "config.json").write_text(
+    (fake_home / ".looprail").mkdir()
+    (fake_home / ".looprail" / "config.json").write_text(
         json.dumps({"agents": {"defaults": {"model": "anthropic/claude-sonnet-4-5"}}})
     )
 
@@ -264,7 +264,7 @@ async def test_config_set_model_unconstructable_preserves_previous(fake_home: Pa
 
     assert loop.model == "anthropic/claude-sonnet-4-5"
     assert loop.provider == "keep-prov"
-    cfg = json.loads((fake_home / ".pico" / "config.json").read_text())
+    cfg = json.loads((fake_home / ".looprail" / "config.json").read_text())
     assert cfg["agents"]["defaults"]["model"] == "anthropic/claude-sonnet-4-5"
 
 
@@ -274,8 +274,8 @@ async def test_config_set_model_unconstructable_preserves_previous(fake_home: Pa
 
 
 async def test_config_methods_registered_via_helper(fake_home: Path) -> None:
-    from pico.tui_rpc.dispatcher import Dispatcher
-    from pico.tui_rpc.methods.config import register_config_methods
+    from looprail.tui_rpc.dispatcher import Dispatcher
+    from looprail.tui_rpc.methods.config import register_config_methods
 
     d = Dispatcher()
     register_config_methods(d)
@@ -306,7 +306,7 @@ async def test_config_methods_registered_via_helper(fake_home: Path) -> None:
 
 async def test_config_set_refuses_malformed_config_and_preserves_file(fake_home: Path) -> None:
 
-    cfg = fake_home / ".pico" / "config.json"
+    cfg = fake_home / ".looprail" / "config.json"
     cfg.parent.mkdir(parents=True, exist_ok=True)
     original = '{\n  "tui": {"theme": "dark"},\n  // comment => invalid JSON\n}\n'
     cfg.write_text(original, encoding="utf-8")
@@ -317,7 +317,7 @@ async def test_config_set_refuses_malformed_config_and_preserves_file(fake_home:
 
 async def test_config_get_refuses_malformed_config(fake_home: Path) -> None:
 
-    cfg = fake_home / ".pico" / "config.json"
+    cfg = fake_home / ".looprail" / "config.json"
     cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text('{\n  "tui": {"theme": "dark"},\n  // bad\n}\n', encoding="utf-8")
     with pytest.raises(ConfigValidationError):

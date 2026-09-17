@@ -2,5 +2,5 @@
 trajectory rendering, bash-editor design) + wiring into the generic evolver
 orchestrator. Replaces the external ``appworld-run/evo_scripts/appworld_bash.py``
 loop reimplementation — here the orchestrator/gate/baseline come from
-``pico.evolver.orchestrator`` and only the AppWorld-specific steps live here.
+``looprail.evolver.orchestrator`` and only the AppWorld-specific steps live here.
 """

@@ -1,4 +1,4 @@
-"""Tests for the native TUI behind the bare ``pico`` entry point."""
+"""Tests for the native TUI behind the bare ``looprail`` entry point."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
+from looprail.cli.commands import app
 
 runner = CliRunner()
 
@@ -17,11 +17,11 @@ runner = CliRunner()
 def test_tui_check_node_ok(monkeypatch):
     """When node is on PATH and version >= 22, --check exits 0."""
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess",
+        "looprail.cli.tui_commands.run_subprocess",
         lambda *_args, **_kw: 0,
     )
     result = runner.invoke(app, ["--check"])
@@ -31,19 +31,19 @@ def test_tui_check_node_ok(monkeypatch):
 def test_tui_check_node_missing(monkeypatch):
     """When node not found, --check exits 1 with friendly error."""
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: (None, None),
     )
     result = runner.invoke(app, ["--check"])
     assert result.exit_code == 1
     assert "Node" in result.output
-    assert "pico run --help" in result.output
+    assert "looprail run --help" in result.output
 
 
 def test_tui_check_node_too_old(monkeypatch):
     """When node < 22, --check exits 1."""
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (18, 0, 0)),
     )
     result = runner.invoke(app, ["--check"])
@@ -52,23 +52,23 @@ def test_tui_check_node_too_old(monkeypatch):
 
 
 def test_tui_color_flag_forwards_to_child_env(monkeypatch):
-    """`--color` exports PICO_TUI_COLOR for the Node child (read by
+    """`--color` exports LOOPRAIL_TUI_COLOR for the Node child (read by
     colorTier.ts)."""
     import os
 
-    monkeypatch.delenv("PICO_TUI_COLOR", raising=False)
+    monkeypatch.delenv("LOOPRAIL_TUI_COLOR", raising=False)
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
     captured: dict[str, str | None] = {}
 
     def fake_run_subprocess(*_a, **_k):
-        captured["color"] = os.environ.get("PICO_TUI_COLOR")
+        captured["color"] = os.environ.get("LOOPRAIL_TUI_COLOR")
         return 0
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess",
+        "looprail.cli.tui_commands.run_subprocess",
         fake_run_subprocess,
     )
 
@@ -80,17 +80,17 @@ def test_tui_color_flag_forwards_to_child_env(monkeypatch):
 
 def test_tui_print_colors_uses_no_rpc_spawn(monkeypatch, tmp_path):
     """`--print-colors` is a no-RPC stdio spawn: it must use run_subprocess
-    (not run_subprocess_with_rpc) and set PICO_TUI_PRINT_COLORS."""
+    (not run_subprocess_with_rpc) and set LOOPRAIL_TUI_PRINT_COLORS."""
     import os
 
     dist = tmp_path / "dist"
     dist.mkdir()
     (dist / "entry.js").write_text("", encoding="utf-8")
 
-    monkeypatch.delenv("PICO_TUI_PRINT_COLORS", raising=False)
-    monkeypatch.setattr("pico.cli.tui_commands._UI_TUI_DIR", tmp_path)
+    monkeypatch.delenv("LOOPRAIL_TUI_PRINT_COLORS", raising=False)
+    monkeypatch.setattr("looprail.cli.tui_commands._UI_TUI_DIR", tmp_path)
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
 
@@ -98,15 +98,15 @@ def test_tui_print_colors_uses_no_rpc_spawn(monkeypatch, tmp_path):
 
     def fake_plain(*_a, **_k):
         calls["plain"] = True
-        calls["print_colors"] = os.environ.get("PICO_TUI_PRINT_COLORS")
+        calls["print_colors"] = os.environ.get("LOOPRAIL_TUI_PRINT_COLORS")
         return 0
 
     def fake_rpc(*_a, **_k):
         calls["rpc"] = True
         return 3
 
-    monkeypatch.setattr("pico.cli.tui_commands.run_subprocess", fake_plain)
-    monkeypatch.setattr("pico.cli.tui_commands.run_subprocess_with_rpc", fake_rpc)
+    monkeypatch.setattr("looprail.cli.tui_commands.run_subprocess", fake_plain)
+    monkeypatch.setattr("looprail.cli.tui_commands.run_subprocess_with_rpc", fake_rpc)
 
     result = runner.invoke(app, ["--print-colors"])
 
@@ -118,17 +118,17 @@ def test_tui_print_colors_uses_no_rpc_spawn(monkeypatch, tmp_path):
 
 def test_tui_preview_colors_uses_no_rpc_spawn(monkeypatch, tmp_path):
     """`--preview-colors` is a no-RPC stdio spawn that sets
-    PICO_TUI_COLOR_PREVIEW."""
+    LOOPRAIL_TUI_COLOR_PREVIEW."""
     import os
 
     dist = tmp_path / "dist"
     dist.mkdir()
     (dist / "entry.js").write_text("", encoding="utf-8")
 
-    monkeypatch.delenv("PICO_TUI_COLOR_PREVIEW", raising=False)
-    monkeypatch.setattr("pico.cli.tui_commands._UI_TUI_DIR", tmp_path)
+    monkeypatch.delenv("LOOPRAIL_TUI_COLOR_PREVIEW", raising=False)
+    monkeypatch.setattr("looprail.cli.tui_commands._UI_TUI_DIR", tmp_path)
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
 
@@ -136,12 +136,12 @@ def test_tui_preview_colors_uses_no_rpc_spawn(monkeypatch, tmp_path):
 
     def fake_plain(*_a, **_k):
         calls["plain"] = True
-        calls["preview"] = os.environ.get("PICO_TUI_COLOR_PREVIEW")
+        calls["preview"] = os.environ.get("LOOPRAIL_TUI_COLOR_PREVIEW")
         return 0
 
-    monkeypatch.setattr("pico.cli.tui_commands.run_subprocess", fake_plain)
+    monkeypatch.setattr("looprail.cli.tui_commands.run_subprocess", fake_plain)
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess_with_rpc",
+        "looprail.cli.tui_commands.run_subprocess_with_rpc",
         lambda *_a, **_k: calls.__setitem__("rpc", True) or 3,
     )
 
@@ -153,15 +153,15 @@ def test_tui_preview_colors_uses_no_rpc_spawn(monkeypatch, tmp_path):
     assert calls["preview"] == "1"
 
 
-def test_pico_node_override_no_fallback(monkeypatch, tmp_path):
-    """When PICO_NODE is set but path missing, find_node returns (None, None)
+def test_looprail_node_override_no_fallback(monkeypatch, tmp_path):
+    """When LOOPRAIL_NODE is set but path missing, find_node returns (None, None)
     — must NOT fall back to venv/PATH."""
-    from pico.cli.tui_commands import find_node
+    from looprail.cli.tui_commands import find_node
 
-    monkeypatch.setenv("PICO_NODE", str(tmp_path / "nonexistent-node"))
+    monkeypatch.setenv("LOOPRAIL_NODE", str(tmp_path / "nonexistent-node"))
 
     node_path, version = find_node()
-    assert node_path is None, "PICO_NODE override must not fall back to venv/PATH"
+    assert node_path is None, "LOOPRAIL_NODE override must not fall back to venv/PATH"
     assert version is None
 
 
@@ -171,7 +171,7 @@ def test_find_node_discovers_windows_private_runtime(monkeypatch, tmp_path):
     if sys.platform == "win32":
         pytest.skip("uses a POSIX fake node executable")
 
-    from pico.cli import tui_commands
+    from looprail.cli import tui_commands
 
     node_dir = tmp_path / "runtime" / "node-v22.20.0-win-x64"
     node_dir.mkdir(parents=True)
@@ -180,8 +180,8 @@ def test_find_node_discovers_windows_private_runtime(monkeypatch, tmp_path):
     node.chmod(node.stat().st_mode | stat.S_IXUSR)
 
     monkeypatch.setattr(tui_commands.sys, "platform", "win32")
-    monkeypatch.setenv("PICO_HOME", str(tmp_path))
-    monkeypatch.delenv("PICO_NODE", raising=False)
+    monkeypatch.setenv("LOOPRAIL_HOME", str(tmp_path))
+    monkeypatch.delenv("LOOPRAIL_NODE", raising=False)
     monkeypatch.delenv("VIRTUAL_ENV", raising=False)
     monkeypatch.setenv("PATH", "")
 
@@ -193,7 +193,7 @@ def test_find_node_discovers_windows_private_runtime(monkeypatch, tmp_path):
 
 def test_dev_npx_derived_from_node_path(monkeypatch, tmp_path):
     """`--dev` mode must derive npx from the validated node_path,
-    not from PATH — so PICO_NODE's version-pin semantics are honored."""
+    not from PATH — so LOOPRAIL_NODE's version-pin semantics are honored."""
 
     fake_bin = tmp_path / "fake-node" / "bin"
     fake_bin.mkdir(parents=True)
@@ -203,7 +203,7 @@ def test_dev_npx_derived_from_node_path(monkeypatch, tmp_path):
     fake_npx.write_text("#!/bin/sh\necho ok\n")
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: (str(fake_node), (22, 5, 0)),
     )
 
@@ -216,12 +216,12 @@ def test_dev_npx_derived_from_node_path(monkeypatch, tmp_path):
         return 0
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess_with_rpc",
+        "looprail.cli.tui_commands.run_subprocess_with_rpc",
         fake_run_subprocess_with_rpc,
     )
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.shutil.which",
+        "looprail.cli.tui_commands.shutil.which",
         lambda _name: "/usr/bin/npx",
     )
 
@@ -234,7 +234,7 @@ def test_dev_npx_derived_from_node_path(monkeypatch, tmp_path):
 
 def test_run_subprocess_returns_child_exit_code(monkeypatch):
     """Verify run_subprocess transparently returns child's exit code."""
-    from pico.cli.tui_commands import run_subprocess
+    from looprail.cli.tui_commands import run_subprocess
 
     class FakeProc:
         def __init__(self, exit_code):
@@ -273,15 +273,15 @@ def test_rpc_handshake_timeout(monkeypatch, tmp_path):
     fake_ui_dir = tmp_path / "ui-tui"
     (fake_ui_dir / "dist").mkdir(parents=True)
     (fake_ui_dir / "dist" / "entry.js").write_text("// stub")
-    monkeypatch.setattr("pico.cli.tui_commands._UI_TUI_DIR", fake_ui_dir)
+    monkeypatch.setattr("looprail.cli.tui_commands._UI_TUI_DIR", fake_ui_dir)
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess_with_rpc",
+        "looprail.cli.tui_commands.run_subprocess_with_rpc",
         lambda *_a, **_kw: 3,
     )
 
@@ -298,7 +298,7 @@ def test_rpc_handshake_timeout_helper_real(tmp_path, monkeypatch):
     never writes anything to the request pipe → handshake timeout fires
     (we configure a 1s timeout in the test for speed).
     """
-    from pico.cli import tui_commands
+    from looprail.cli import tui_commands
 
     monkeypatch.setattr(tui_commands, "_RPC_HANDSHAKE_TIMEOUT_S", 1.0)
 
@@ -320,10 +320,10 @@ def test_rpc_handshake_timeout_helper_real(tmp_path, monkeypatch):
 def test_rpc_socket_env_constants_exposed():
     """Sanity: the production transport exposes the env var names the Node
     child reads -- the TCP-loopback address and the auth token."""
-    from pico.cli import tui_commands
+    from looprail.cli import tui_commands
 
-    assert tui_commands._RPC_SOCKET_ENV == "PICO_RPC_SOCKET"
-    assert tui_commands._RPC_TOKEN_ENV == "PICO_RPC_TOKEN"
+    assert tui_commands._RPC_SOCKET_ENV == "LOOPRAIL_RPC_SOCKET"
+    assert tui_commands._RPC_TOKEN_ENV == "LOOPRAIL_RPC_TOKEN"
 
 
 def test_production_dispatcher_includes_all_umbrella_methods():
@@ -334,12 +334,12 @@ def test_production_dispatcher_includes_all_umbrella_methods():
     registered by the production path. Future additions to the umbrella
     automatically extend this test.
     """
-    from pico.tui_rpc.dispatcher import Dispatcher
-    from pico.tui_rpc.methods import (
+    from looprail.tui_rpc.dispatcher import Dispatcher
+    from looprail.tui_rpc.methods import (
         register_aligned_methods,
         register_aligned_methods_except_system,
     )
-    from pico.tui_rpc.methods.system import (
+    from looprail.tui_rpc.methods.system import (
         system_hello,
         system_ping,
         system_version,
@@ -372,7 +372,7 @@ def test_production_dispatcher_includes_all_umbrella_methods():
         "terminal.resize",
     ):
         assert required in production_methods, (
-            f"{required} missing from production dispatcher — `pico` will return -32601 for it"
+            f"{required} missing from production dispatcher — `looprail` will return -32601 for it"
         )
     for removed in ("cli.dispatch", "commands.catalog", "slash.exec", "complete.slash", "reload.mcp"):
         assert removed not in production_methods
@@ -383,9 +383,9 @@ def test_confirm_registered_when_broker_present():
     (mirrors the emitter/turn gate). Without a broker neither the umbrella nor
     the production path registers it, so the drift test above stays balanced.
     """
-    from pico.tui_rpc.confirm_broker import ConfirmBroker
-    from pico.tui_rpc.dispatcher import Dispatcher
-    from pico.tui_rpc.methods import register_aligned_methods_except_system
+    from looprail.tui_rpc.confirm_broker import ConfirmBroker
+    from looprail.tui_rpc.dispatcher import Dispatcher
+    from looprail.tui_rpc.methods import register_aligned_methods_except_system
 
     async def _send(_frame):
         return None
@@ -403,7 +403,7 @@ def test_confirm_registered_when_broker_present():
 
 def test_rpc_socket_transport_handshake_ok(tmp_path, monkeypatch):
     """End-to-end: spawn a tiny Python child that connects to the TCP-loopback
-    address in `PICO_RPC_SOCKET`, sends the `PICO_RPC_TOKEN` auth line, then
+    address in `LOOPRAIL_RPC_SOCKET`, sends the `LOOPRAIL_RPC_TOKEN` auth line, then
     ``system.hello`` — the parent helper must complete the handshake and the
     child must exit 0.
 
@@ -411,17 +411,17 @@ def test_rpc_socket_transport_handshake_ok(tmp_path, monkeypatch):
     doesn't depend on the ui-tui build artifact; the wire protocol (an auth
     line then newline JSON over the socket) is identical regardless of language.
     """
-    from pico.cli import tui_commands
+    from looprail.cli import tui_commands
 
     monkeypatch.setattr(tui_commands, "_RPC_HANDSHAKE_TIMEOUT_S", 3.0)
 
     child_src = """
 import json, os, socket, sys
 
-host, port = os.environ["PICO_RPC_SOCKET"].rsplit(":", 1)
+host, port = os.environ["LOOPRAIL_RPC_SOCKET"].rsplit(":", 1)
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((host, int(port)))
-tok = os.environ.get("PICO_RPC_TOKEN")
+tok = os.environ.get("LOOPRAIL_RPC_TOKEN")
 if tok:
     s.sendall((tok + "\\n").encode("utf-8"))
 req = {"jsonrpc": "2.0", "id": 1, "method": "system.hello",
@@ -451,7 +451,7 @@ sys.exit(0)
 def test_rpc_socket_handshake_timeout_when_child_never_connects(tmp_path, monkeypatch):
     """If the spawned child never connects to the unix socket within the
     handshake deadline, parent must return exit code 3."""
-    from pico.cli import tui_commands
+    from looprail.cli import tui_commands
 
     monkeypatch.setattr(tui_commands, "_RPC_HANDSHAKE_TIMEOUT_S", 1.0)
 

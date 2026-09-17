@@ -1,4 +1,4 @@
-"""Schema-match test: Pydantic models (pico.tui_rpc.models) ↔ OpenRPC schema.
+"""Schema-match test: Pydantic models (looprail.tui_rpc.models) ↔ OpenRPC schema.
 
 This test is the CI guardrail that catches drift between the single source of
 truth (``ui-tui/rpc-schema/openrpc.json``) and the Python-side Pydantic models.
@@ -34,7 +34,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from pico.tui_rpc.models import METHOD_MODELS
+from looprail.tui_rpc.models import METHOD_MODELS
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "ui-tui" / "rpc-schema" / "openrpc.json"
 
@@ -345,7 +345,7 @@ def test_schema_match_turn_event_discriminated_union(schema: dict[str, Any]) -> 
     """
     from pydantic import TypeAdapter
 
-    from pico.tui_rpc.models import TurnEvent
+    from looprail.tui_rpc.models import TurnEvent
 
     oas = schema["components"]["schemas"]["TurnEvent"]
     assert oas.get("discriminator", {}).get("propertyName") == "type"
@@ -417,11 +417,11 @@ def test_error_codes_match_spec(schema: dict[str, Any]) -> None:
 
 
 def test_registered_method_set_matches_schema(methods_by_name: dict[str, dict[str, Any]]) -> None:
-    from pico.tui_rpc.confirm_broker import ConfirmBroker
-    from pico.tui_rpc.dispatcher import Dispatcher
-    from pico.tui_rpc.methods import register_aligned_methods
-    from pico.tui_rpc.question_broker import QuestionBroker
-    from pico.tui_rpc.subscriptions import SubscriptionEmitter
+    from looprail.tui_rpc.confirm_broker import ConfirmBroker
+    from looprail.tui_rpc.dispatcher import Dispatcher
+    from looprail.tui_rpc.methods import register_aligned_methods
+    from looprail.tui_rpc.question_broker import QuestionBroker
+    from looprail.tui_rpc.subscriptions import SubscriptionEmitter
 
     async def send_frame(_frame: dict[str, Any]) -> None:
         return None

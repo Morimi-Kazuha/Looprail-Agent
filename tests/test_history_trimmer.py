@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pico.context_engine.history_trimmer import HistoryTrimmer
+from looprail.context_engine.history_trimmer import HistoryTrimmer
 
 
 class _CountingProvider:

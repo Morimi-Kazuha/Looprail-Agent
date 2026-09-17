@@ -221,9 +221,9 @@ describe('readClipboardImage', () => {
   })
 
   it('cleans clipboard directories left by dead TUI processes', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pico-clipboard-cleanup-test-'))
-    const dead = join(root, 'pico-clipboard-12345-dead')
-    const alive = join(root, 'pico-clipboard-67890-alive')
+    const root = await mkdtemp(join(tmpdir(), 'looprail-clipboard-cleanup-test-'))
+    const dead = join(root, 'looprail-clipboard-12345-dead')
+    const alive = join(root, 'looprail-clipboard-67890-alive')
 
     try {
       await mkdir(dead)
@@ -244,14 +244,14 @@ describe('readClipboardImage', () => {
 describe('pasteClipboardImage', () => {
   it('routes a materialized clipboard image through image.attach', async () => {
     const rpc = vi.fn().mockResolvedValue({ name: 'clipboard.png', remainder: '' })
-    const readImage = vi.fn().mockResolvedValue('/tmp/pico-clipboard-test/clipboard.png')
+    const readImage = vi.fn().mockResolvedValue('/tmp/looprail-clipboard-test/clipboard.png')
 
     await expect(pasteClipboardImage(rpc, 'tui:active', readImage, () => 'tui:active')).resolves.toEqual({
       info: { name: 'clipboard.png', remainder: '' },
       status: 'attached'
     })
     expect(rpc).toHaveBeenCalledWith('image.attach', {
-      path: '/tmp/pico-clipboard-test/clipboard.png',
+      path: '/tmp/looprail-clipboard-test/clipboard.png',
       session_id: 'tui:active'
     })
   })
@@ -300,7 +300,7 @@ describe('pasteClipboardImage', () => {
     const readImage = vi.fn().mockImplementation(async () => {
       canAttach = false
 
-      return '/tmp/pico-clipboard-test/clipboard.png'
+      return '/tmp/looprail-clipboard-test/clipboard.png'
     })
     const releaseImage = vi.fn()
 
@@ -315,7 +315,7 @@ describe('pasteClipboardImage', () => {
         () => canAttach
       )
     ).resolves.toEqual({ status: 'busy' })
-    expect(releaseImage).toHaveBeenCalledWith('/tmp/pico-clipboard-test/clipboard.png')
+    expect(releaseImage).toHaveBeenCalledWith('/tmp/looprail-clipboard-test/clipboard.png')
     expect(rpc).not.toHaveBeenCalled()
   })
 
@@ -333,24 +333,24 @@ describe('pasteClipboardImage', () => {
     const operation = pasteClipboardImage(rpc, 'tui:active', readImage, () => activeSession, releaseImage)
 
     activeSession = 'tui:other'
-    resolveRead('/tmp/pico-clipboard-test/clipboard.png')
+    resolveRead('/tmp/looprail-clipboard-test/clipboard.png')
 
     await expect(operation).resolves.toEqual({ status: 'stale' })
-    expect(releaseImage).toHaveBeenCalledWith('/tmp/pico-clipboard-test/clipboard.png')
+    expect(releaseImage).toHaveBeenCalledWith('/tmp/looprail-clipboard-test/clipboard.png')
     expect(rpc).not.toHaveBeenCalled()
   })
 
   it('releases the clipboard image when image.attach rejects', async () => {
     const rpc = vi.fn().mockRejectedValue(new Error('transport closed'))
-    const readImage = vi.fn().mockResolvedValue('/tmp/pico-clipboard-test/clipboard.png')
+    const readImage = vi.fn().mockResolvedValue('/tmp/looprail-clipboard-test/clipboard.png')
     const releaseImage = vi.fn()
     const retainImage = vi.fn()
 
     await expect(
       pasteClipboardImage(rpc, 'tui:active', readImage, () => 'tui:active', releaseImage, retainImage)
     ).resolves.toEqual({ status: 'failed' })
-    expect(retainImage).toHaveBeenCalledWith('/tmp/pico-clipboard-test/clipboard.png', 'tui:active')
-    expect(releaseImage).toHaveBeenCalledWith('/tmp/pico-clipboard-test/clipboard.png')
+    expect(retainImage).toHaveBeenCalledWith('/tmp/looprail-clipboard-test/clipboard.png', 'tui:active')
+    expect(releaseImage).toHaveBeenCalledWith('/tmp/looprail-clipboard-test/clipboard.png')
   })
 
   it('releases a retained image when the Session changes during image.attach', async () => {
@@ -362,7 +362,7 @@ describe('pasteClipboardImage', () => {
           resolveAttach = resolve
         })
     )
-    const path = '/tmp/pico-clipboard-test/clipboard.png'
+    const path = '/tmp/looprail-clipboard-test/clipboard.png'
     const releaseImage = vi.fn()
     const retainImage = vi.fn()
     const operation = pasteClipboardImage(

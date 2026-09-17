@@ -16,12 +16,12 @@ from pathlib import Path
 
 import pytest
 
-from pico.proactive_engine.schedulers.cron.tool import (
+from looprail.proactive_engine.schedulers.cron.tool import (
     DeliveryTarget,
     is_ephemeral_channel,
     resolve_cron_delivery,
 )
-from pico.session.manager import SessionManager
+from looprail.session.manager import SessionManager
 
 
 @pytest.fixture

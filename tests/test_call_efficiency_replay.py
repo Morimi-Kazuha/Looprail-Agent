@@ -8,16 +8,16 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.picobench.packs.tokenwise_cost.live import (
+from benchmarks.looprailbench.packs.tokenwise_cost.live import (
     CampaignConfig,
     LiveTrialResult,
     build_campaign_report,
     load_task_corpus,
 )
-from benchmarks.picobench.packs.tokenwise_cost.replay import main, verify_legacy_report
-from pico.call_efficiency.pricing import estimate_cost_from_rates
+from benchmarks.looprailbench.packs.tokenwise_cost.replay import main, verify_legacy_report
+from looprail.call_efficiency.pricing import estimate_cost_from_rates
 
-CORPUS = Path(__file__).resolve().parents[1] / "benchmarks" / "picobench" / "tasks" / "tokenwise_cost" / "formal.json"
+CORPUS = Path(__file__).resolve().parents[1] / "benchmarks" / "looprailbench" / "tasks" / "tokenwise_cost" / "formal.json"
 
 
 def _historical_report(tmp_path: Path) -> dict:
@@ -71,8 +71,8 @@ def test_replay_reprices_trials_and_rebuilds_the_historical_claim(tmp_path: Path
 
     replay = verify_legacy_report(source, expected_source_digest=source["report_digest"])
 
-    assert replay["schema"] == "pico.picobench.call-efficiency-replay.report.v1"
-    assert replay["source_schema"] == "pico.picobench.tokenwise-cost.report.v1"
+    assert replay["schema"] == "looprail.bench.call-efficiency-replay.report.v1"
+    assert replay["source_schema"] == "looprail.bench.tokenwise-cost.report.v1"
     assert replay["source_report_digest"] == source["report_digest"]
     assert replay["source_report_digest_valid"] is True
     assert replay["expected_source_digest_matches"] is True
@@ -153,7 +153,7 @@ def test_replay_cli_writes_bound_report_and_returns_equivalence_status(tmp_path:
 
     written = json.loads(output_path.read_text(encoding="utf-8"))
     assert result == 0
-    assert written["schema"] == "pico.picobench.call-efficiency-replay.report.v1"
+    assert written["schema"] == "looprail.bench.call-efficiency-replay.report.v1"
     assert written["source_report_digest"] == source["report_digest"]
     assert written["equivalent"] is True
 

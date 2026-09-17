@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.methods.setup import register_setup_methods, setup_status
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.methods.setup import register_setup_methods, setup_status
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def fake_home(monkeypatch, tmp_path) -> Path:
 
 
 async def test_setup_status_provider_configured_true(fake_home: Path) -> None:
-    cfg_dir = fake_home / ".pico"
+    cfg_dir = fake_home / ".looprail"
     cfg_dir.mkdir()
     (cfg_dir / "config.json").write_text(
         json.dumps({"agents": {"defaults": {"provider": "anthropic", "model": "anthropic/claude-sonnet-4-5"}}})
@@ -39,7 +39,7 @@ async def test_setup_status_provider_configured_true(fake_home: Path) -> None:
 
 async def test_setup_status_provider_without_model_returns_false(fake_home: Path) -> None:
 
-    cfg_dir = fake_home / ".pico"
+    cfg_dir = fake_home / ".looprail"
     cfg_dir.mkdir()
     (cfg_dir / "config.json").write_text(json.dumps({"agents": {"defaults": {"provider": "anthropic"}}}))
     result = await setup_status({})
@@ -53,7 +53,7 @@ async def test_setup_status_missing_config_falls_back_true(fake_home: Path) -> N
 
 
 async def test_setup_status_malformed_config_falls_back_true(fake_home: Path) -> None:
-    cfg_dir = fake_home / ".pico"
+    cfg_dir = fake_home / ".looprail"
     cfg_dir.mkdir()
     (cfg_dir / "config.json").write_text("not-valid-json{{{")
     result = await setup_status({})
@@ -61,7 +61,7 @@ async def test_setup_status_malformed_config_falls_back_true(fake_home: Path) ->
 
 
 async def test_setup_status_provider_auto_returns_false(fake_home: Path) -> None:
-    cfg_dir = fake_home / ".pico"
+    cfg_dir = fake_home / ".looprail"
     cfg_dir.mkdir()
     (cfg_dir / "config.json").write_text(json.dumps({"agents": {"defaults": {"provider": "auto"}}}))
     result = await setup_status({})
@@ -69,7 +69,7 @@ async def test_setup_status_provider_auto_returns_false(fake_home: Path) -> None
 
 
 async def test_setup_status_registered_via_helper(fake_home: Path) -> None:
-    cfg_dir = fake_home / ".pico"
+    cfg_dir = fake_home / ".looprail"
     cfg_dir.mkdir()
     (cfg_dir / "config.json").write_text(
         json.dumps({"agents": {"defaults": {"provider": "openai", "model": "openai/gpt-4o-mini"}}})

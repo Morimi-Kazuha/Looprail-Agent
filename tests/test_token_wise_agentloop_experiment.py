@@ -36,13 +36,13 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.providers.litellm_provider import LiteLLMProvider
-from pico.token_wise.cache_optimizer import CacheOptimizer
-from pico.token_wise.registry import StrategyRegistry
-from pico.token_wise.usage_tracker import UsageTracker
+from looprail.agent.loop import AgentLoop
+from looprail.providers.litellm_provider import LiteLLMProvider
+from looprail.token_wise.cache_optimizer import CacheOptimizer
+from looprail.token_wise.registry import StrategyRegistry
+from looprail.token_wise.usage_tracker import UsageTracker
 
-REPORT_PATH = Path(__file__).resolve().parent.parent / "pico" / "token_wise" / "EXPERIMENT_REPORT.md"
+REPORT_PATH = Path(__file__).resolve().parent.parent / "looprail" / "token_wise" / "EXPERIMENT_REPORT.md"
 MODEL = "anthropic/claude-sonnet-4-5"
 TURNS = 6
 COST_GUARD_USD = 0.50
@@ -93,7 +93,7 @@ def _seed_workspace(workspace: Path) -> None:
         "Document the unit of every numeric quantity (ms, MB, USD).",
         "Prefer explicit empty checks over truthy checks for collections.",
     ]
-    soul_lines: list[str] = ["# Soul\n", "I am Pico, a precise, terse code reviewer.\n"]
+    soul_lines: list[str] = ["# Soul\n", "I am Looprail, a precise, terse code reviewer.\n"]
     soul_lines.append("## Detailed style guide\n")
     for i, r in enumerate(rules, 1):
         soul_lines.append(f"### Rule {i}\n{r}\n")
@@ -187,7 +187,7 @@ class _RecordingTracker(UsageTracker):
 async def _run_user_turn(loop, content: str, *, session_key: str, chat_id: str) -> None:
     """Run one USER turn through run_turn for its side-effects: the experiment
     measures usage via the tracker, not the reply, so the output is swallowed."""
-    from pico.spine import ChatType, Origin, Source, TurnRequest
+    from looprail.spine import ChatType, Origin, Source, TurnRequest
 
     async def _swallow(_ev) -> None:
         return None

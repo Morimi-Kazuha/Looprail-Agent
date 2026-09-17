@@ -23,16 +23,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from pico.config.loader import load_config
-from pico.session.manager import SessionManager
-from pico.tui_rpc.confirm_broker import ConfirmBroker
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.errors import SessionNotFoundError, TurnInProgressError
-from pico.tui_rpc.methods import image as image_module
-from pico.tui_rpc.methods import session as session_module
-from pico.tui_rpc.methods import turn as turn_module
-from pico.tui_rpc.methods.image import image_attach, pending_images
-from pico.tui_rpc.methods.session import (
+from looprail.config.loader import load_config
+from looprail.session.manager import SessionManager
+from looprail.tui_rpc.confirm_broker import ConfirmBroker
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.errors import SessionNotFoundError, TurnInProgressError
+from looprail.tui_rpc.methods import image as image_module
+from looprail.tui_rpc.methods import session as session_module
+from looprail.tui_rpc.methods import turn as turn_module
+from looprail.tui_rpc.methods.image import image_attach, pending_images
+from looprail.tui_rpc.methods.session import (
     register_session_methods,
     session_branch,
     session_close,
@@ -44,7 +44,7 @@ from pico.tui_rpc.methods.session import (
     session_resume,
     session_title,
 )
-from pico.utils.atomic_io import StorageCorruptionError
+from looprail.utils.atomic_io import StorageCorruptionError
 
 _SESSION_ID_RE = re.compile(r"^tui:\d{8}_\d{6}_[0-9a-f]{6}$")
 
@@ -563,7 +563,7 @@ async def test_session_list_returns_sessions_for_tui_channel(tmp_path: Path, mon
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     for key in ("tui:20260610_100000_aaa111", "tui:20260610_110000_bbb222"):
@@ -587,7 +587,7 @@ async def test_session_list_sorted_by_updated_at_desc(tmp_path: Path, monkeypatc
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     older = mgr.get_or_create("tui:20260610_090000_old111")
@@ -612,7 +612,7 @@ async def test_session_list_item_shape(tmp_path: Path, monkeypatch: pytest.Monke
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     s = mgr.get_or_create("tui:20260610_100000_shape1")
@@ -638,7 +638,7 @@ async def test_session_list_only_tui_channel(tmp_path: Path, monkeypatch: pytest
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     tui_session = mgr.get_or_create("tui:20260610_100000_tui01")
@@ -661,7 +661,7 @@ async def test_session_list_honors_limit_after_sort(tmp_path: Path, monkeypatch:
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     for chat_id in ("20260610_090000_lim001", "20260610_100000_lim002", "20260610_110000_lim003"):
@@ -683,7 +683,7 @@ async def test_session_list_ignores_non_positive_limit(tmp_path: Path, monkeypat
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     for chat_id in ("20260610_090000_nl0001", "20260610_100000_nl0002"):
@@ -703,7 +703,7 @@ async def test_session_list_empty_workspace(tmp_path: Path, monkeypatch: pytest.
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     monkeypatch.setattr(session_module, "_get_or_build_manager", lambda cfg: mgr)
@@ -718,7 +718,7 @@ async def test_session_delete_removes_session(tmp_path: Path, monkeypatch: pytes
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     s = mgr.get_or_create("tui:20260610_100000_rm01")
@@ -973,7 +973,7 @@ async def test_session_delete_unknown_key_returns_null(tmp_path: Path, monkeypat
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     monkeypatch.setattr(session_module, "_get_or_build_manager", lambda cfg: mgr)
@@ -988,7 +988,7 @@ async def test_session_delete_missing_param_returns_null(tmp_path: Path, monkeyp
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     monkeypatch.setattr(session_module, "_get_or_build_manager", lambda cfg: mgr)
@@ -1003,7 +1003,7 @@ async def test_session_most_recent_returns_session_key(tmp_path: Path, monkeypat
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     s = mgr.get_or_create("tui:20260610_100000_recent1")
@@ -1023,7 +1023,7 @@ async def test_session_most_recent_returns_null_when_no_sessions(
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     monkeypatch.setattr(session_module, "_get_or_build_manager", lambda cfg: mgr)
@@ -1044,7 +1044,7 @@ async def test_session_title_on_existing_file_persists_immediately(
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     s = mgr.get_or_create("tui:20260610_100000_title1")
@@ -1073,7 +1073,7 @@ async def test_session_title_on_fresh_session_is_pending_and_writes_no_file(
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     monkeypatch.setattr(session_module, "_get_or_build_manager", lambda cfg: mgr)
@@ -1109,7 +1109,7 @@ async def test_session_title_get_returns_current_title(tmp_path: Path, monkeypat
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     s = mgr.get_or_create("tui:20260610_100000_title2")
@@ -1128,7 +1128,7 @@ async def test_session_list_via_dispatcher(tmp_path: Path, monkeypatch: pytest.M
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     monkeypatch.setattr(session_module, "_get_or_build_manager", lambda cfg: mgr)
@@ -1146,7 +1146,7 @@ async def test_session_delete_via_dispatcher(tmp_path: Path, monkeypatch: pytest
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     s = mgr.get_or_create("tui:20260610_100000_disp1")
@@ -1209,7 +1209,7 @@ async def test_session_most_recent_via_dispatcher(tmp_path: Path, monkeypatch: p
     cfg.agents.defaults.workspace = str(tmp_path)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)
 
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     monkeypatch.setattr(session_module, "_get_or_build_manager", lambda cfg: mgr)
@@ -1272,7 +1272,7 @@ def test_manager_for_falls_through_when_loop_sessions_not_a_manager(
 def test_is_turn_active_reflects_active_turns(monkeypatch):
     import asyncio
 
-    from pico.tui_rpc.methods import turn as turn_module
+    from looprail.tui_rpc.methods import turn as turn_module
 
     assert turn_module.is_turn_active("tui:none") is False
 
@@ -1307,7 +1307,7 @@ class _LoopWithManager:
 
 
 async def test_session_clear_keeps_id_and_wipes(tmp_path):
-    from pico.tui_rpc.methods.session import session_clear
+    from looprail.tui_rpc.methods.session import session_clear
 
     mgr, key = _seed_manager(tmp_path)
     result = await session_clear({"session_id": key}, agent_loop_factory=lambda: _LoopWithManager(mgr))
@@ -1317,7 +1317,7 @@ async def test_session_clear_keeps_id_and_wipes(tmp_path):
 
 
 async def test_session_clear_resets_persisted_clarification_state(tmp_path):
-    from pico.tui_rpc.methods.session import session_clear
+    from looprail.tui_rpc.methods.session import session_clear
 
     mgr, key = _seed_manager(tmp_path)
     session = mgr.get_or_create(key)
@@ -1337,7 +1337,7 @@ async def test_session_clear_resets_persisted_clarification_state(tmp_path):
 
 
 async def test_session_clear_fences_stale_lazy_writer(tmp_path):
-    from pico.tui_rpc.methods.session import session_clear
+    from looprail.tui_rpc.methods.session import session_clear
 
     key = "tui:lazy_clear"
     mgr = SessionManager(tmp_path)
@@ -1356,7 +1356,7 @@ async def test_session_clear_fences_stale_lazy_writer(tmp_path):
 
 
 async def test_session_clear_fences_stale_writer_for_persisted_empty_session(tmp_path):
-    from pico.tui_rpc.methods.session import session_clear
+    from looprail.tui_rpc.methods.session import session_clear
 
     key = "tui:empty_clear"
     mgr = SessionManager(tmp_path)
@@ -1379,7 +1379,7 @@ async def test_session_clear_save_failure_returns_false_and_rolls_back_memory(
     tmp_path,
     monkeypatch,
 ):
-    from pico.tui_rpc.methods.session import session_clear
+    from looprail.tui_rpc.methods.session import session_clear
 
     mgr, key = _seed_manager(tmp_path)
     pending = {
@@ -1393,7 +1393,7 @@ async def test_session_clear_save_failure_returns_false_and_rolls_back_memory(
     def _boom_replace(*_args, **_kwargs) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr("pico.session.manager.atomic_replace", _boom_replace)
+    monkeypatch.setattr("looprail.session.manager.atomic_replace", _boom_replace)
     result = await session_clear(
         {"session_id": key},
         agent_loop_factory=lambda: _LoopWithManager(mgr),
@@ -1416,7 +1416,7 @@ async def test_session_clear_save_failure_returns_false_and_rolls_back_memory(
 
 
 async def test_session_clear_rejects_when_turn_active(tmp_path, monkeypatch):
-    from pico.tui_rpc.methods.session import session_clear
+    from looprail.tui_rpc.methods.session import session_clear
 
     mgr, key = _seed_manager(tmp_path)
     monkeypatch.setattr(turn_module, "is_turn_active", lambda k: k == key)
@@ -1425,7 +1425,7 @@ async def test_session_clear_rejects_when_turn_active(tmp_path, monkeypatch):
 
 
 async def test_session_undo_drops_last_turn(tmp_path):
-    from pico.tui_rpc.methods.session import session_undo
+    from looprail.tui_rpc.methods.session import session_undo
 
     mgr, key = _seed_manager(tmp_path)
     result = await session_undo({"session_id": key}, agent_loop_factory=lambda: _LoopWithManager(mgr))
@@ -1434,7 +1434,7 @@ async def test_session_undo_drops_last_turn(tmp_path):
 
 
 async def test_session_undo_resets_persisted_clarification_state(tmp_path):
-    from pico.tui_rpc.methods.session import session_undo
+    from looprail.tui_rpc.methods.session import session_undo
 
     mgr, key = _seed_manager(tmp_path)
     session = mgr.get_or_create(key)
@@ -1454,7 +1454,7 @@ async def test_session_undo_resets_persisted_clarification_state(tmp_path):
 
 
 async def test_session_undo_fences_stale_lazy_writer_and_preserves_retained_turn(tmp_path):
-    from pico.tui_rpc.methods.session import session_undo
+    from looprail.tui_rpc.methods.session import session_undo
 
     key = "tui:lazy_undo"
     mgr = SessionManager(tmp_path)
@@ -1483,7 +1483,7 @@ async def test_session_undo_save_failure_returns_zero_and_rolls_back_memory(
     tmp_path,
     monkeypatch,
 ):
-    from pico.tui_rpc.methods.session import session_undo
+    from looprail.tui_rpc.methods.session import session_undo
 
     mgr, key = _seed_manager(tmp_path)
     pending = {
@@ -1497,7 +1497,7 @@ async def test_session_undo_save_failure_returns_zero_and_rolls_back_memory(
     def _boom_replace(*_args, **_kwargs) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr("pico.session.manager.atomic_replace", _boom_replace)
+    monkeypatch.setattr("looprail.session.manager.atomic_replace", _boom_replace)
     result = await session_undo(
         {"session_id": key},
         agent_loop_factory=lambda: _LoopWithManager(mgr),
@@ -1520,7 +1520,7 @@ async def test_session_undo_save_failure_returns_zero_and_rolls_back_memory(
 
 
 async def test_session_undo_nothing_to_undo_returns_zero(tmp_path):
-    from pico.tui_rpc.methods.session import session_undo
+    from looprail.tui_rpc.methods.session import session_undo
 
     mgr = SessionManager(tmp_path)
     mgr.get_or_create("tui:empty")
@@ -1529,7 +1529,7 @@ async def test_session_undo_nothing_to_undo_returns_zero(tmp_path):
 
 
 async def test_session_undo_rejects_when_turn_active(tmp_path, monkeypatch):
-    from pico.tui_rpc.methods.session import session_undo
+    from looprail.tui_rpc.methods.session import session_undo
 
     mgr, key = _seed_manager(tmp_path)
     monkeypatch.setattr(turn_module, "is_turn_active", lambda k: True)
@@ -1755,14 +1755,14 @@ async def test_session_export_writes_verified_portable_artifact(
     body = written.read_text(encoding="utf-8")
     assert "hello" in body and "hi there" in body
     assert written.parent == (tmp_path / "exports")
-    assert written.name.endswith(".pico-session.json")
+    assert written.name.endswith(".looprail-session.json")
 
 
 async def test_session_export_uses_live_manager_state_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     configured_workspace = tmp_path / "configured"
-    project_state = tmp_path / "project" / ".pico"
+    project_state = tmp_path / "project" / ".looprail"
     cfg = load_config()
     cfg.agents.defaults.workspace = str(configured_workspace)
     monkeypatch.setattr(session_module, "load_config", lambda: cfg)

@@ -5,7 +5,7 @@ import asyncio
 
 import pytest
 
-from pico.agent.tools.message import MessageTool
+from looprail.agent.tools.message import MessageTool
 
 pytestmark = pytest.mark.asyncio
 

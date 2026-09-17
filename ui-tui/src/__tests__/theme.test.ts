@@ -6,16 +6,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // `theme.js` 在模块加载时读取 `process.env` 计算 DEFAULT_THEME，而 `fromSkin`
-// 会闭包捕获 DEFAULT_THEME。若开发者 shell 设置 PICO_TUI_THEME=light，或将
-// PICO_TUI_BACKGROUND 设为亮色，基准主题会翻转，使这些断言只在本地失败。
+// 会闭包捕获 DEFAULT_THEME。若开发者 shell 设置 LOOPRAIL_TUI_THEME=light，或将
+// LOOPRAIL_TUI_BACKGROUND 设为亮色，基准主题会翻转，使这些断言只在本地失败。
 // 因此先清理相关环境变量，再动态导入全新模块，确保所有闭包捕获环境的符号
 // （DEFAULT_THEME、DARK_THEME、LIGHT_THEME、fromSkin）都基于已知的空环境加载。
 //
 // `detectLightMode` 显式接收 env，静态导入也安全；为保持一致仍采用动态导入。
 const RELEVANT_ENV = [
-  'PICO_TUI_LIGHT',
-  'PICO_TUI_THEME',
-  'PICO_TUI_BACKGROUND',
+  'LOOPRAIL_TUI_LIGHT',
+  'LOOPRAIL_TUI_THEME',
+  'LOOPRAIL_TUI_BACKGROUND',
   'COLORFGBG',
   'COLORTERM',
   'TERM_PROGRAM'
@@ -44,7 +44,7 @@ describe('DEFAULT_THEME', () => {
   it('has brand defaults', async () => {
     const { DEFAULT_THEME } = await importThemeWithCleanEnv()
 
-    expect(DEFAULT_THEME.brand.name).toBe('Pico')
+    expect(DEFAULT_THEME.brand.name).toBe('Looprail')
     expect(DEFAULT_THEME.brand.icon).toBe('◆')
     expect(DEFAULT_THEME.brand.prompt).toBe('❯')
     expect(DEFAULT_THEME.brand.tool).toBe('·')
@@ -152,7 +152,7 @@ describe('cursorColorHex (OSC 12 hardware cursor)', () => {
   })
 
   it('uses the light title color across all tiers when the scheme is light', async () => {
-    const { cursorColorHex, resolveTheme } = await importThemeWithEnv({ PICO_TUI_THEME: 'light' })
+    const { cursorColorHex, resolveTheme } = await importThemeWithEnv({ LOOPRAIL_TUI_THEME: 'light' })
 
     expect(cursorColorHex(resolveTheme('light', 3))).toBe('#444444')
     expect(cursorColorHex(resolveTheme('light', 2))).toBe('#444444')
@@ -183,14 +183,14 @@ describe('detectLightMode', () => {
     expect(detectLightMode({ TERM_PROGRAM: 'Apple_Terminal' })).toBe(false)
   })
 
-  it('honors PICO_TUI_LIGHT on/off', async () => {
+  it('honors LOOPRAIL_TUI_LIGHT on/off', async () => {
     const { detectLightMode } = await importThemeWithCleanEnv()
 
-    expect(detectLightMode({ PICO_TUI_LIGHT: '1' })).toBe(true)
-    expect(detectLightMode({ PICO_TUI_LIGHT: 'true' })).toBe(true)
-    expect(detectLightMode({ PICO_TUI_LIGHT: 'on' })).toBe(true)
-    expect(detectLightMode({ PICO_TUI_LIGHT: '0' })).toBe(false)
-    expect(detectLightMode({ PICO_TUI_LIGHT: 'off' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_LIGHT: '1' })).toBe(true)
+    expect(detectLightMode({ LOOPRAIL_TUI_LIGHT: 'true' })).toBe(true)
+    expect(detectLightMode({ LOOPRAIL_TUI_LIGHT: 'on' })).toBe(true)
+    expect(detectLightMode({ LOOPRAIL_TUI_LIGHT: '0' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_LIGHT: 'off' })).toBe(false)
   })
 
   it('sniffs COLORFGBG bg slots 7 and 15 as light (#11300)', async () => {
@@ -215,43 +215,43 @@ describe('detectLightMode', () => {
     expect(detectLightMode({ COLORFGBG: '15;' })).toBe(false)
   })
 
-  it('lets PICO_TUI_LIGHT=0 override a light COLORFGBG', async () => {
+  it('lets LOOPRAIL_TUI_LIGHT=0 override a light COLORFGBG', async () => {
     const { detectLightMode } = await importThemeWithCleanEnv()
 
-    expect(detectLightMode({ COLORFGBG: '0;15', PICO_TUI_LIGHT: '0' })).toBe(false)
+    expect(detectLightMode({ COLORFGBG: '0;15', LOOPRAIL_TUI_LIGHT: '0' })).toBe(false)
   })
 
-  it('honors PICO_TUI_THEME=light/dark as a symmetric explicit override', async () => {
+  it('honors LOOPRAIL_TUI_THEME=light/dark as a symmetric explicit override', async () => {
     const { detectLightMode } = await importThemeWithCleanEnv()
 
-    expect(detectLightMode({ PICO_TUI_THEME: 'light' })).toBe(true)
-    expect(detectLightMode({ PICO_TUI_THEME: 'dark' })).toBe(false)
-    expect(detectLightMode({ COLORFGBG: '0;15', PICO_TUI_THEME: 'dark' })).toBe(false)
-    expect(detectLightMode({ COLORFGBG: '15;0', PICO_TUI_THEME: 'light' })).toBe(true)
+    expect(detectLightMode({ LOOPRAIL_TUI_THEME: 'light' })).toBe(true)
+    expect(detectLightMode({ LOOPRAIL_TUI_THEME: 'dark' })).toBe(false)
+    expect(detectLightMode({ COLORFGBG: '0;15', LOOPRAIL_TUI_THEME: 'dark' })).toBe(false)
+    expect(detectLightMode({ COLORFGBG: '15;0', LOOPRAIL_TUI_THEME: 'light' })).toBe(true)
   })
 
-  it('uses PICO_TUI_BACKGROUND luminance when COLORFGBG is missing', async () => {
+  it('uses LOOPRAIL_TUI_BACKGROUND luminance when COLORFGBG is missing', async () => {
     const { detectLightMode } = await importThemeWithCleanEnv()
 
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: '#ffffff' })).toBe(true)
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: '#000000' })).toBe(false)
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: '#1e1e1e' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: '#ffffff' })).toBe(true)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: '#000000' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: '#1e1e1e' })).toBe(false)
     // 三位十六进制颜色按 CSS 规则归一化。
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: '#fff' })).toBe(true)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: '#fff' })).toBe(true)
     // 无效内容回退到默认暗色路径。
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: 'not-a-colour' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: 'not-a-colour' })).toBe(false)
   })
 
   it('rejects partially-invalid hex instead of silently truncating', async () => {
     const { detectLightMode } = await importThemeWithCleanEnv()
     // `parseInt('fffgff'.slice(2,4), 16)` 会返回 15，因此严格正则必须拒绝这类
     // 输入，使其回退到默认暗色，而不是产生误报的亮色判断。
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: '#fffgff' })).toBe(false)
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: 'ffggff' })).toBe(false)
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: '#xyz' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: '#fffgff' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: 'ffggff' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: '#xyz' })).toBe(false)
     // 长度错误同样应被拒绝，不能隐式补齐或截断。
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: '#fffff' })).toBe(false)
-    expect(detectLightMode({ PICO_TUI_BACKGROUND: '#fffffff' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: '#fffff' })).toBe(false)
+    expect(detectLightMode({ LOOPRAIL_TUI_BACKGROUND: '#fffffff' })).toBe(false)
   })
 
   it('treats COLORFGBG as authoritative when present so it dominates the TERM_PROGRAM allow-list', async () => {
@@ -286,16 +286,16 @@ describe('applyDetectedBackground (OSC 11 reply)', () => {
     expect(applyDetectedBackground('#1e1e2e')).toEqual({ changed: false, scheme: 'dark' })
   })
 
-  it('caches the measured color into PICO_TUI_BACKGROUND', async () => {
+  it('caches the measured color into LOOPRAIL_TUI_BACKGROUND', async () => {
     const { applyDetectedBackground } = await importThemeWithCleanEnv()
 
     applyDetectedBackground('rgb:eaea/eaea/eaea')
 
-    expect(process.env.PICO_TUI_BACKGROUND).toBe('#eaeaea')
+    expect(process.env.LOOPRAIL_TUI_BACKGROUND).toBe('#eaeaea')
   })
 
-  it('lets an explicit PICO_TUI_THEME override the measured background', async () => {
-    const { applyDetectedBackground, currentScheme } = await importThemeWithEnv({ PICO_TUI_THEME: 'dark' })
+  it('lets an explicit LOOPRAIL_TUI_THEME override the measured background', async () => {
+    const { applyDetectedBackground, currentScheme } = await importThemeWithEnv({ LOOPRAIL_TUI_THEME: 'dark' })
 
     // 实测背景为亮色，但显式暗色覆盖优先；这里复用 detectLightMode 的优先级。
     expect(applyDetectedBackground('rgb:ffff/ffff/ffff')).toEqual({ changed: false, scheme: 'dark' })
@@ -312,7 +312,7 @@ describe('applyDetectedBackground (OSC 11 reply)', () => {
 
 describe('fromSkin', () => {
   // `fromSkin` 闭包捕获由环境派生的 DEFAULT_THEME，因此必须清理环境后再动态导入；
-  // 否则外部 PICO_TUI_THEME=light 会翻转基准调色板，使断言结果依赖开发者 shell。
+  // 否则外部 LOOPRAIL_TUI_THEME=light 会翻转基准调色板，使断言结果依赖开发者 shell。
 
   it('overrides banner colors', async () => {
     const { fromSkin } = await importThemeWithCleanEnv()

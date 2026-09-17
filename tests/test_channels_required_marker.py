@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from pico.config.update_channels import channel_field_specs
+from looprail.config.update_channels import channel_field_specs
 
 EXPECTED_REQUIRED: dict[str, set[str]] = {
     "feishu": {"app_id", "app_secret"},

@@ -12,12 +12,12 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.agent.loop.main import _is_hard_tool_failure
-from pico.agent.tools.base import ToolResult
-from pico.providers.base import LLMProvider, LLMResponse, ToolCallRequest
-from pico.spine.message import ChatType, Source
-from pico.spine.turn import Origin, TurnRequest
+from looprail.agent.loop import AgentLoop
+from looprail.agent.loop.main import _is_hard_tool_failure
+from looprail.agent.tools.base import ToolResult
+from looprail.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from looprail.spine.message import ChatType, Source
+from looprail.spine.turn import Origin, TurnRequest
 
 
 @pytest.fixture

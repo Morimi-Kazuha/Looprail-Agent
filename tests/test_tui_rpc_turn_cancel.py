@@ -17,14 +17,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.methods.turn import (
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.methods.turn import (
     register_turn_methods,
     turn_cancel,
     turn_send,
     turn_subscribe,
 )
-from pico.tui_rpc.subscriptions import SubscriptionEmitter
+from looprail.tui_rpc.subscriptions import SubscriptionEmitter
 
 
 class FakeHandle:
@@ -48,7 +48,7 @@ class FakeScheduler:
 
 @pytest.fixture(autouse=True)
 def _clear_active_turns():
-    from pico.tui_rpc.methods import turn as _turn_mod
+    from looprail.tui_rpc.methods import turn as _turn_mod
 
     _turn_mod._active_turns.clear()
     _turn_mod._active_request_keys.clear()
@@ -107,7 +107,7 @@ async def test_turn_cancel_no_active_turn_returns_cancelled_false(
 
 
 async def test_turn_cancel_cancels_the_handle(emitter: SubscriptionEmitter) -> None:
-    from pico.tui_rpc.methods import turn as turn_mod
+    from looprail.tui_rpc.methods import turn as turn_mod
 
     await turn_send(
         {"session_key": "tui:default", "content": "x"}, emitter=emitter, scheduler=FakeScheduler(), turn_ids={}

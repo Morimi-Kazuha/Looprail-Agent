@@ -28,8 +28,8 @@ def _make_test_id(entry):
 @pytest.mark.parametrize(("slash", "expected"), _WHITELIST, ids=[_make_test_id(e) for e in _WHITELIST])
 def test_dogfood_slash_command(harness, slash, expected):
 
-    harness.spawn("uv run pico")
-    assert harness.wait(r"Pico", timeout=25.0), f"TUI not ready in 25s for /{slash}; screen=\n{harness.screen()}"
+    harness.spawn("uv run looprail")
+    assert harness.wait(r"Looprail", timeout=25.0), f"TUI not ready in 25s for /{slash}; screen=\n{harness.screen()}"
     harness.type(f"/{slash}")
     harness.press("enter")
     assert harness.wait(expected, timeout=10.0), (

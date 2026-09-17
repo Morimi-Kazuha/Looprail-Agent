@@ -37,8 +37,8 @@ def subject(tmp_path: Path) -> tuple[Path, str]:
     (repo / "benchmarks/appworld/__init__.py").touch()
     (repo / "benchmarks/appworld/agent_cli.py").write_text("PROMPT = 'v1'\n")
     (repo / "benchmarks/appworld/tool.py").write_text("VALUE = 1\n")
-    (repo / "pico/agent").mkdir(parents=True)
-    (repo / "pico/agent/loop.py").write_text("x = 1\n")
+    (repo / "looprail/agent").mkdir(parents=True)
+    (repo / "looprail/agent/loop.py").write_text("x = 1\n")
     (repo / "grader.py").write_text("score = 1\n")
     for cmd in (["git", "init", "-q"], ["git", "add", "-A"], ["git", "commit", "-qm", "init"]):
         subprocess.run(cmd, cwd=repo, check=True, env=_ENV, capture_output=True)

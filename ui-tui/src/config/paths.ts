@@ -1,6 +1,6 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-export const getPicoHome = (env: NodeJS.ProcessEnv = process.env) => env.PICO_HOME?.trim() || join(homedir(), '.pico')
+export const getLooprailHome = (env: NodeJS.ProcessEnv = process.env) => env.LOOPRAIL_HOME?.trim() || join(homedir(), '.looprail')
 
-export const getPicoHomeLabel = (env: NodeJS.ProcessEnv = process.env) => env.PICO_HOME?.trim() || '~/.pico'
+export const getLooprailHomeLabel = (env: NodeJS.ProcessEnv = process.env) => env.LOOPRAIL_HOME?.trim() || '~/.looprail'

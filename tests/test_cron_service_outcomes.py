@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from pico.proactive_engine.schedulers.cron.service import CronService
-from pico.proactive_engine.schedulers.cron.types import CronSchedule
+from looprail.proactive_engine.schedulers.cron.service import CronService
+from looprail.proactive_engine.schedulers.cron.types import CronSchedule
 
 
 def _stored_job(job_id: str, schedule: dict) -> dict:

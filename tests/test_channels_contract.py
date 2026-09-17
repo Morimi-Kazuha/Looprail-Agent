@@ -2,15 +2,15 @@
 the Channel / Supports* protocols (runtime-checkable), ChannelSpec, and the
 capability-proof helper."""
 
-from pico.channels import (
+from looprail.channels import (
     Capabilities,
     Channel,
     ChannelSpec,
     SupportsLogin,
     SupportsStreaming,
 )
-from pico.channels.contract import capability_violations
-from pico.channels.intake import Intake
+from looprail.channels.contract import capability_violations
+from looprail.channels.intake import Intake
 
 
 class _Min:

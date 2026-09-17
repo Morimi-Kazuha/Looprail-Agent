@@ -13,11 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.config.schema import ToolSearchConfig
-from pico.providers.base import LLMProvider, LLMResponse
-from pico.token_wise.base import TokenStrategy
-from pico.token_wise.registry import StrategyRegistry
+from looprail.agent.loop import AgentLoop
+from looprail.config.schema import ToolSearchConfig
+from looprail.providers.base import LLMProvider, LLMResponse
+from looprail.token_wise.base import TokenStrategy
+from looprail.token_wise.registry import StrategyRegistry
 
 
 class _StubProvider(LLMProvider):

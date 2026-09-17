@@ -1,4 +1,4 @@
-"""CLI tests for ``pico`` commands - ``_build_tui_agent_loop`` wiring.
+"""CLI tests for ``looprail`` commands - ``_build_tui_agent_loop`` wiring.
 
 Verifies the memory backend and plugin tools are wired into the AgentLoop
 constructed by ``_build_tui_agent_loop``, mirroring the agent-path coverage
@@ -26,13 +26,13 @@ def patched_tui_loop_deps(monkeypatch: pytest.MonkeyPatch, tmp_path):
     Returns ``captured`` dict the tests inspect.
     """
     monkeypatch.chdir(tmp_path)
-    product_home = tmp_path / "pico-home"
-    monkeypatch.setenv("PICO_HOME", str(product_home))
+    product_home = tmp_path / "looprail-home"
+    monkeypatch.setenv("LOOPRAIL_HOME", str(product_home))
     captured: dict[str, Any] = {}
 
     config = MagicMock()
     config.workspace_path = tmp_path
-    config.agents.defaults.workspace = "~/.pico/workspace"
+    config.agents.defaults.workspace = "~/.looprail/workspace"
     config.agents.defaults.model = "stub-model"
     config.agents.defaults.max_tool_iterations = 5
     config.agents.defaults.context_window_tokens = 65_536
@@ -46,21 +46,21 @@ def patched_tui_loop_deps(monkeypatch: pytest.MonkeyPatch, tmp_path):
     config.tools.mcp_servers = []
     config.tools.sandbox = MagicMock()
     config.channels = MagicMock()
-    monkeypatch.setattr("pico.cli._helpers.load_runtime_config", lambda _a, _b: config)
-    monkeypatch.setattr("pico.cli._helpers.make_provider", lambda _c: MagicMock())
+    monkeypatch.setattr("looprail.cli._helpers.load_runtime_config", lambda _a, _b: config)
+    monkeypatch.setattr("looprail.cli._helpers.make_provider", lambda _c: MagicMock())
 
     ec_config = MagicMock()
     ec_config.skill_forge = MagicMock()
     ec_config.runtime = MagicMock()
-    monkeypatch.setattr("pico.config.pico.load_pico_config", lambda: ec_config)
+    monkeypatch.setattr("looprail.config.looprail.load_looprail_config", lambda: ec_config)
 
-    monkeypatch.setattr("pico.session.manager.SessionManager", lambda _wp: MagicMock())
+    monkeypatch.setattr("looprail.session.manager.SessionManager", lambda _wp: MagicMock())
     cron_dir = tmp_path / "cron"
     cron_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("pico.config.paths.get_cron_dir", lambda: cron_dir)
+    monkeypatch.setattr("looprail.config.paths.get_cron_dir", lambda: cron_dir)
     sync_calls: list[tuple[Any, bool]] = []
     monkeypatch.setattr(
-        "pico.utils.helpers.sync_workspace_templates",
+        "looprail.utils.helpers.sync_workspace_templates",
         lambda workspace, silent=False: sync_calls.append((workspace, silent)),
     )
 
@@ -70,22 +70,22 @@ def patched_tui_loop_deps(monkeypatch: pytest.MonkeyPatch, tmp_path):
             self.tools = MagicMock()
             self.configure_personalization = MagicMock()
 
-    monkeypatch.setattr("pico.agent.loop.AgentLoop", _AgentLoopSpy)
+    monkeypatch.setattr("looprail.agent.loop.AgentLoop", _AgentLoopSpy)
 
     fake_registry = sentinel.fake_registry
     fake_backend = sentinel.fake_backend
     fake_tools = [sentinel.fake_tool_1]
 
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         lambda cfg: fake_registry,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.maybe_build_memory_backend",
+        "looprail.cli._plugin_stack.maybe_build_memory_backend",
         lambda ws, cfg, *, registry=None: fake_backend,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_tools",
+        "looprail.cli._plugin_stack.build_plugin_tools",
         lambda ws, cfg, *, registry=None: fake_tools,
     )
 
@@ -106,8 +106,8 @@ def test_tui_adapter_uses_shared_runtime_assembly(
     patched_tui_loop_deps,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.cli import _runtime_assembly
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli import _runtime_assembly
+    from looprail.cli.tui_commands import _build_tui_agent_loop
 
     original = _runtime_assembly.assemble_runtime
     calls: list[tuple[tuple, dict]] = []
@@ -127,7 +127,7 @@ def test_tui_adapter_uses_shared_runtime_assembly(
     assert "router" not in calls[0][1]
     assert calls[0][1]["paths"].workspace == patched_tui_loop_deps["config"].workspace_path
     assert (
-        calls[0][1]["paths"].state.parent == patched_tui_loop_deps["config"].workspace_path / "pico-home" / "projects"
+        calls[0][1]["paths"].state.parent == patched_tui_loop_deps["config"].workspace_path / "looprail-home" / "projects"
     )
     assert patched_tui_loop_deps["sync_calls"] == [(calls[0][1]["paths"].state, True)]
 
@@ -136,9 +136,9 @@ def test_tui_build_marks_plugin_error_message_public(
     patched_tui_loop_deps,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.cli.tui_commands import _build_tui_runtime
-    from pico.plugin.registry import PluginNotFoundError
-    from pico.tui_rpc.errors import InternalError
+    from looprail.cli.tui_commands import _build_tui_runtime
+    from looprail.plugin.registry import PluginNotFoundError
+    from looprail.tui_rpc.errors import InternalError
 
     message = (
         "memory.backend='codecairn' is no longer supported; install and initialize "
@@ -148,7 +148,7 @@ def test_tui_build_marks_plugin_error_message_public(
     def _raise(*args, **kwargs):
         raise PluginNotFoundError(message)
 
-    monkeypatch.setattr("pico.cli._runtime_assembly.assemble_runtime", _raise)
+    monkeypatch.setattr("looprail.cli._runtime_assembly.assemble_runtime", _raise)
 
     with pytest.raises(InternalError) as excinfo:
         _build_tui_runtime()
@@ -161,7 +161,7 @@ def test_tui_agent_loop_receives_non_none_backend(patched_tui_loop_deps) -> None
     """``_build_tui_agent_loop`` must pass ``backend=<non-None>`` to AgentLoop
     when the plugin stack returns a backend (today it passes nothing, so
     ``AgentLoop.backend`` defaults to ``None`` and store/recall are no-ops)."""
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli.tui_commands import _build_tui_agent_loop
 
     _build_tui_agent_loop()
 
@@ -178,7 +178,7 @@ def test_tui_agent_loop_receives_non_none_backend(patched_tui_loop_deps) -> None
 def test_tui_agent_loop_receives_plugin_tools(patched_tui_loop_deps) -> None:
     """``_build_tui_agent_loop`` must pass ``plugin_tools=`` to AgentLoop
     so plugin-contributed tools are registered in the TUI agent's tool registry."""
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli.tui_commands import _build_tui_agent_loop
 
     _build_tui_agent_loop()
 
@@ -197,7 +197,7 @@ def test_tui_agent_loop_receives_tool_search_config(patched_tui_loop_deps) -> No
     interactive TUI honors ``tools.tool_search`` (progressive disclosure) at
     parity with the ``agent`` / ``gateway`` entrypoints; else the feature is
     silently unavailable in the primary interactive surface."""
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli.tui_commands import _build_tui_agent_loop
 
     _build_tui_agent_loop()
 
@@ -231,21 +231,21 @@ def test_tui_build_plugin_registry_called_once(monkeypatch: pytest.MonkeyPatch, 
     config.tools.mcp_servers = []
     config.tools.sandbox = MagicMock()
     config.channels = MagicMock()
-    monkeypatch.setattr("pico.cli._helpers.load_runtime_config", lambda _a, _b: config)
-    monkeypatch.setattr("pico.cli._helpers.make_provider", lambda _c: MagicMock())
+    monkeypatch.setattr("looprail.cli._helpers.load_runtime_config", lambda _a, _b: config)
+    monkeypatch.setattr("looprail.cli._helpers.make_provider", lambda _c: MagicMock())
 
     ec_config = MagicMock()
     ec_config.skill_forge = MagicMock()
     ec_config.runtime = MagicMock()
-    monkeypatch.setattr("pico.config.pico.load_pico_config", lambda: ec_config)
+    monkeypatch.setattr("looprail.config.looprail.load_looprail_config", lambda: ec_config)
 
-    monkeypatch.setattr("pico.session.manager.SessionManager", lambda _wp: MagicMock())
+    monkeypatch.setattr("looprail.session.manager.SessionManager", lambda _wp: MagicMock())
     cron_dir = tmp_path / "cron"
     cron_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("pico.config.paths.get_cron_dir", lambda: cron_dir)
+    monkeypatch.setattr("looprail.config.paths.get_cron_dir", lambda: cron_dir)
 
     monkeypatch.setattr(
-        "pico.agent.loop.AgentLoop",
+        "looprail.agent.loop.AgentLoop",
         lambda **kw: MagicMock(tools=MagicMock(), configure_personalization=MagicMock()),
     )
 
@@ -264,11 +264,11 @@ def test_tui_build_plugin_registry_called_once(monkeypatch: pytest.MonkeyPatch, 
         passed_registries.append(("tools", registry))
         return []
 
-    monkeypatch.setattr("pico.cli._plugin_stack.build_plugin_registry", _spy_registry)
-    monkeypatch.setattr("pico.cli._plugin_stack.maybe_build_memory_backend", _spy_backend)
-    monkeypatch.setattr("pico.cli._plugin_stack.build_plugin_tools", _spy_tools)
+    monkeypatch.setattr("looprail.cli._plugin_stack.build_plugin_registry", _spy_registry)
+    monkeypatch.setattr("looprail.cli._plugin_stack.maybe_build_memory_backend", _spy_backend)
+    monkeypatch.setattr("looprail.cli._plugin_stack.build_plugin_tools", _spy_tools)
 
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli.tui_commands import _build_tui_agent_loop
 
     _build_tui_agent_loop()
 
@@ -315,7 +315,7 @@ def rpc_server_deps(monkeypatch: pytest.MonkeyPatch):
     fake_agent_loop.close = AsyncMock()
     ctx["agent_loop"] = fake_agent_loop
 
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     fake_runtime = RuntimeAssembly(
         agent_loop=fake_agent_loop,
@@ -325,13 +325,13 @@ def rpc_server_deps(monkeypatch: pytest.MonkeyPatch):
     ctx["runtime"] = fake_runtime
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands._build_tui_runtime",
+        "looprail.cli.tui_commands._build_tui_runtime",
         lambda: fake_runtime,
     )
 
     fake_dispatcher = MagicMock()
     fake_dispatcher.register = MagicMock()
-    monkeypatch.setattr("pico.tui_rpc.dispatcher.Dispatcher", lambda: fake_dispatcher)
+    monkeypatch.setattr("looprail.tui_rpc.dispatcher.Dispatcher", lambda: fake_dispatcher)
 
     async def _fake_serve_forever():
         await asyncio.sleep(0)
@@ -340,38 +340,38 @@ def rpc_server_deps(monkeypatch: pytest.MonkeyPatch):
     fake_server.send_frame = AsyncMock()
     fake_server.serve_forever = _fake_serve_forever
     monkeypatch.setattr(
-        "pico.tui_rpc.server.RpcServer",
+        "looprail.tui_rpc.server.RpcServer",
         lambda **kw: fake_server,
     )
 
     fake_emitter = MagicMock()
     monkeypatch.setattr(
-        "pico.tui_rpc.subscriptions.SubscriptionEmitter",
+        "looprail.tui_rpc.subscriptions.SubscriptionEmitter",
         lambda **kw: fake_emitter,
     )
 
     fake_confirm_broker = MagicMock()
     fake_confirm_broker.cancel_all = MagicMock()
     monkeypatch.setattr(
-        "pico.tui_rpc.confirm_broker.ConfirmBroker",
+        "looprail.tui_rpc.confirm_broker.ConfirmBroker",
         lambda **kw: fake_confirm_broker,
     )
 
     fake_question_broker = MagicMock()
     monkeypatch.setattr(
-        "pico.tui_rpc.question_broker.QuestionBroker",
+        "looprail.tui_rpc.question_broker.QuestionBroker",
         lambda **kw: fake_question_broker,
     )
 
     async def _fake_system_hello(params):
         return {"version": "0.0.0"}
 
-    monkeypatch.setattr("pico.tui_rpc.methods.system.system_hello", _fake_system_hello)
-    monkeypatch.setattr("pico.tui_rpc.methods.system.system_ping", AsyncMock())
-    monkeypatch.setattr("pico.tui_rpc.methods.system.system_version", AsyncMock())
+    monkeypatch.setattr("looprail.tui_rpc.methods.system.system_hello", _fake_system_hello)
+    monkeypatch.setattr("looprail.tui_rpc.methods.system.system_ping", AsyncMock())
+    monkeypatch.setattr("looprail.tui_rpc.methods.system.system_version", AsyncMock())
     aligned_register = MagicMock()
     monkeypatch.setattr(
-        "pico.tui_rpc.methods.register_aligned_methods_except_system",
+        "looprail.tui_rpc.methods.register_aligned_methods_except_system",
         aligned_register,
     )
 
@@ -393,10 +393,10 @@ def rpc_server_deps(monkeypatch: pytest.MonkeyPatch):
             _fake_turn_teardown,
         )
 
-    monkeypatch.setattr("pico.tui_rpc.spine.build_tui", _fake_build_tui)
+    monkeypatch.setattr("looprail.tui_rpc.spine.build_tui", _fake_build_tui)
 
-    monkeypatch.setattr("pico.cli._cron_handler.make_on_cron_job", MagicMock())
-    monkeypatch.setattr("pico.tui_rpc.methods.turn.clear_active", MagicMock())
+    monkeypatch.setattr("looprail.cli._cron_handler.make_on_cron_job", MagicMock())
+    monkeypatch.setattr("looprail.tui_rpc.methods.turn.clear_active", MagicMock())
 
     ctx["fake_server"] = fake_server
     ctx["fake_confirm_broker"] = fake_confirm_broker
@@ -409,7 +409,7 @@ async def _run_until_done_with_immediate_proc_done(monkeypatch, ctx):
     """Helper: drive ``_run_rpc_server_until_done`` with proc_done set immediately
     so the function exits as fast as possible (handshake timeout path — still
     exercises the full try/finally, including start/stop)."""
-    from pico.cli.tui_commands import _run_rpc_server_until_done
+    from looprail.cli.tui_commands import _run_rpc_server_until_done
 
     proc_done = asyncio.Event()
     proc_done.set()
@@ -426,7 +426,7 @@ async def _run_until_done_with_handshake(monkeypatch, ctx):
     we invoke the registered ``system.hello`` handler (which sets
     ``handshake_done``), let the background start run, then set ``proc_done``.
     """
-    from pico.cli.tui_commands import _run_rpc_server_until_done
+    from looprail.cli.tui_commands import _run_rpc_server_until_done
 
     proc_done = asyncio.Event()
     fake_sock = MagicMock()
@@ -457,7 +457,7 @@ async def test_rpc_server_starts_before_runtime_build_finishes(
         moments["serve_start"] = time.monotonic()
         await asyncio.sleep(0)
 
-    monkeypatch.setattr("pico.cli.tui_commands._build_tui_runtime", _slow_build)
+    monkeypatch.setattr("looprail.cli.tui_commands._build_tui_runtime", _slow_build)
     rpc_server_deps["fake_server"].serve_forever = _serve_forever
 
     await _run_until_done_with_immediate_proc_done(monkeypatch, rpc_server_deps)
@@ -477,7 +477,7 @@ async def test_rpc_runner_latches_backend_start_failure_for_turns(
     rpc_server_deps,
     monkeypatch,
 ) -> None:
-    from pico.tui_rpc.errors import InternalError
+    from looprail.tui_rpc.errors import InternalError
 
     async def _fail_start():
         rpc_server_deps["start_calls"].append("start")
@@ -531,7 +531,7 @@ async def test_rpc_runner_finishes_runtime_close_after_cancellation_during_turn_
     rpc_server_deps,
     monkeypatch,
 ) -> None:
-    from pico.cli.tui_commands import _run_rpc_server_until_done
+    from looprail.cli.tui_commands import _run_rpc_server_until_done
 
     teardown_entered = asyncio.Event()
     teardown_release = asyncio.Event()
@@ -541,7 +541,7 @@ async def test_rpc_runner_finishes_runtime_close_after_cancellation_during_turn_
         await teardown_release.wait()
 
     monkeypatch.setattr(
-        "pico.tui_rpc.spine.build_tui",
+        "looprail.tui_rpc.spine.build_tui",
         lambda *args, **kwargs: (
             MagicMock(),
             MagicMock(),
@@ -595,9 +595,9 @@ async def test_rpc_runner_latches_spine_build_failure_and_closes_runtime(
     def _fail_build(*args, **kwargs):
         raise _SpineBuildFailure
 
-    monkeypatch.setattr("pico.tui_rpc.spine.build_tui", _fail_build)
+    monkeypatch.setattr("looprail.tui_rpc.spine.build_tui", _fail_build)
 
-    from pico.cli.tui_commands import _run_rpc_server_until_done
+    from looprail.cli.tui_commands import _run_rpc_server_until_done
 
     proc_done = asyncio.Event()
     proc_done.set()
@@ -631,9 +631,9 @@ async def test_rpc_runner_stop_called_even_when_serve_raises(rpc_server_deps, mo
     async def _raising_wait(*args, **kwargs):
         raise exc
 
-    monkeypatch.setattr("pico.cli.tui_commands.asyncio.wait", _raising_wait)
+    monkeypatch.setattr("looprail.cli.tui_commands.asyncio.wait", _raising_wait)
 
-    from pico.cli.tui_commands import _run_rpc_server_until_done
+    from looprail.cli.tui_commands import _run_rpc_server_until_done
 
     proc_done = asyncio.Event()
     fake_sock = MagicMock()
@@ -737,11 +737,11 @@ async def test_rpc_runner_activates_fd_redirect_before_backend_start(rpc_server_
             call_log.append("redirect_exit")
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.redirect_terminal_fds_to_file",
+        "looprail.cli.tui_commands.redirect_terminal_fds_to_file",
         _spy_redirect,
     )
     monkeypatch.setattr(
-        "pico.config.paths.get_logs_dir",
+        "looprail.config.paths.get_logs_dir",
         lambda: tmp_path,
     )
 
@@ -779,7 +779,7 @@ async def test_rpc_runner_activates_fd_redirect_before_backend_start(rpc_server_
 def test_is_abnormal_child_exit(exit_code: int, abnormal: bool) -> None:
     """Clean (0), the graceful signal codes SIGHUP/SIGINT/SIGTERM (129/130/143)
     and the handshake path (3) are not abnormal; a hard SIGKILL (137) is."""
-    from pico.cli.tui_commands import _is_abnormal_child_exit
+    from looprail.cli.tui_commands import _is_abnormal_child_exit
 
     assert _is_abnormal_child_exit(exit_code) is abnormal
 
@@ -795,8 +795,8 @@ def test_tui_announces_log_path_only_on_abnormal_exit(
     clean exit (0) or Ctrl+C (130) leaves stderr silent."""
     from typer.testing import CliRunner
 
-    from pico.cli import tui_commands
-    from pico.cli.commands import app
+    from looprail.cli import tui_commands
+    from looprail.cli.commands import app
 
     monkeypatch.setattr(tui_commands, "_stdout_isatty", lambda: False)
     monkeypatch.setattr(tui_commands, "find_node", lambda: ("/fake/node", (22, 0, 0)))

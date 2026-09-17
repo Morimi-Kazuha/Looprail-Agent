@@ -1,0 +1,43 @@
+"""提供 Context Management Engine 的稳定公开入口。
+
+当前只有一个 Engine：:class:`ContextAssembler`。:func:`build_context_engine` 用扁平
+:class:`SegmentBuilder` 列表组装它，列表包含 seg1–5 与 Curator；历史上的 ``legacy`` /
+``curator`` / ``default`` 分裂已经收敛。这里重导出组装协议、TurnContext、HistoryTrimmer 和
+Factory，调用方无需依赖内部文件布局，也不应再按旧 Engine 名称分支。
+"""
+
+from looprail.context_engine.assembler import ContextAssembler
+from looprail.context_engine.base import (
+    AssembledPrefix,
+    AssemblyContext,
+    ContextEngine,
+    Segment,
+    SegmentBuilder,
+)
+from looprail.context_engine.budget import (
+    ContextBudgetError,
+    ContextDecision,
+    ContextLimits,
+    resolve_context_limits,
+)
+from looprail.context_engine.curator import TurnContext
+from looprail.context_engine.factory import build_context_engine
+from looprail.context_engine.history_trimmer import HistoryTrimmer, RuntimeContextTrimmer, RuntimeTrimOutcome
+
+__all__ = [
+    "AssembledPrefix",
+    "AssemblyContext",
+    "ContextAssembler",
+    "ContextBudgetError",
+    "ContextDecision",
+    "ContextEngine",
+    "ContextLimits",
+    "HistoryTrimmer",
+    "RuntimeContextTrimmer",
+    "RuntimeTrimOutcome",
+    "Segment",
+    "SegmentBuilder",
+    "TurnContext",
+    "build_context_engine",
+    "resolve_context_limits",
+]

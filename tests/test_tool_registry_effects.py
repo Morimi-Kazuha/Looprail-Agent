@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from pico.agent.effects import (
+from looprail.agent.effects import (
     EffectClass,
     EffectJournal,
     EffectStatus,
@@ -14,9 +14,9 @@ from pico.agent.effects import (
     RecoveryPlanner,
     observe_local_write,
 )
-from pico.agent.tools.base import Tool, ToolResult
-from pico.agent.tools.execution import ToolCapability, ToolEffect, ToolExecutionContext, ToolInvocation
-from pico.agent.tools.registry import ToolRegistry
+from looprail.agent.tools.base import Tool, ToolResult
+from looprail.agent.tools.execution import ToolCapability, ToolEffect, ToolExecutionContext, ToolInvocation
+from looprail.agent.tools.registry import ToolRegistry
 
 
 class _Crash(BaseException):

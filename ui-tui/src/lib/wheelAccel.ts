@@ -65,10 +65,10 @@ export function initWheelAccel(xtermJs = false, base = 1): WheelAccelState {
   return { burstCount: 0, base, dir: 0, frac: 0, mult: base, pendingFlip: false, time: 0, wheelMode: false, xtermJs }
 }
 
-/** PICO_TUI_SCROLL_SPEED（也可用 CLAUDE_CODE_SCROLL_SPEED 保持兼容），
+/** LOOPRAIL_TUI_SCROLL_SPEED（也可用 CLAUDE_CODE_SCROLL_SPEED 保持兼容），
  *  默认值为 1，并限制在 (0, 20]。 */
 export function readScrollSpeedBase(): number {
-  const n = parseFloat(process.env.PICO_TUI_SCROLL_SPEED ?? process.env.CLAUDE_CODE_SCROLL_SPEED ?? '')
+  const n = parseFloat(process.env.LOOPRAIL_TUI_SCROLL_SPEED ?? process.env.CLAUDE_CODE_SCROLL_SPEED ?? '')
 
   return Number.isFinite(n) && n > 0 ? Math.min(n, 20) : 1
 }

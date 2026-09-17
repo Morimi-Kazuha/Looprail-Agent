@@ -1,121 +1,110 @@
-# ForgeAgent
+# Looprail
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12%2B-3776AB.svg)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
-**ForgeAgent — A local-first Coding Agent for long-running tasks in real code repositories.**
+**A local-first Coding Agent Runtime for long-running tasks in real code repositories.**
 
 [中文说明](README.zh-CN.md)
 
-ForgeAgent is a personal open-source Coding Agent for working inside real repositories. It can inspect code, use local tools, change files, run tests, and continue from observed results across a multi-step task.
+Looprail separates model reasoning from deterministic runtime execution. The
+model decides what to do; the Runtime governs tool execution, context assembly,
+state persistence and recovery, tracing, and evaluation. The result is a
+repository-aware execution loop that can keep working across many steps.
 
-The model handles reasoning and decisions. The local Runtime provides controlled execution, state management, checkpoints, memory, and evidence for the work it performs.
+## Core Features
 
-The public identity is ForgeAgent; the current Python package and CLI retain `pico` compatibility identifiers, so commands below use `uv run pico`.
+- **Agent Loop** — Carries a repository task through inspection, changes,
+  commands, observations, and follow-up decisions.
+- **Governed Tool Runtime** — Validates tool calls and applies execution,
+  filesystem, timeout, and effect boundaries.
+- **Repository-aware Context Engine** — Builds bounded context from the
+  workspace, history, tools, and relevant memory.
+- **Durable Session + Checkpoint / Resume** — Persists task state and supports
+  conservative recovery after interruption.
+- **Structured Memory** — Stores scoped, attributed knowledge for later work.
+- **Trace + Deterministic Evaluation** — Makes execution inspectable and
+  checks important contracts without requiring a live model.
+- **Controlled Self-Evolution** — Evaluates candidate Runtime changes behind
+  explicit evidence and human activation.
+- **Local-first execution** — Works from a local checkout with the repository
+  and its normal development tools in view.
 
-## What is ForgeAgent?
-
-ForgeAgent is designed for tasks that need more than one prompt-and-answer cycle. A task can move through a repository workflow such as:
-
-```text
-Understand the task
-  → inspect the repository
-  → search and read code
-  → modify files
-  → run commands and tests
-  → inspect results
-  → continue reasoning
-  → verify completion
-```
-
-The goal is a useful local execution loop with durable state and inspectable results, while keeping high-impact actions under explicit runtime controls.
-
-## Features
-
-- **Agent Loop** — Runs multi-step repository tasks instead of treating every request as a single model call.
-- **Repository Tools** — Searches, reads, edits, and works with shell commands and tests in a real workspace.
-- **Tool Runtime** — Validates model-requested tool calls and applies controlled execution policies.
-- **Context Management** — Builds bounded, relevant repository context instead of appending everything to every prompt.
-- **Checkpoint & Resume** — Persists session state so interrupted work can be continued.
-- **Structured Memory** — Stores scoped, reusable knowledge that can support future tasks.
-- **Trace & Evaluation** — Records execution traces and uses deterministic verification to check results.
-- **Controlled Self-Evolution** — Uses execution evidence to evaluate candidate Runtime improvements under explicit human control.
-
-## Architecture
-
-The main loop is intentionally simple at the product level:
+## Simple Architecture
 
 ```mermaid
 flowchart TD
-    U[User Task] --> L[Agent Loop]
+    U[User / CLI] --> L[Agent Loop]
     L --> C[Context Engine]
-    C <--> M[Structured Memory]
-    C --> A[Model]
-    A --> T[Tool Runtime]
+    C <--> S[Session / Structured Memory]
+    C --> M[Model]
+    M --> L
+    L --> T[Tool Runtime]
     T --> R[Repository / Shell / Tests]
-    R --> O[Observations]
-    O --> L
-    L --> S[Session / Checkpoint]
+    R --> L
     L --> E[Trace / Evaluation]
+    S -. Checkpoint / Resume .-> L
 ```
+
+The model handles uncertain reasoning. The Runtime provides the deterministic
+contracts around that reasoning.
 
 ## Quick Start
 
-After cloning the GitHub repository, run these commands from its root:
-
-```bash
-cd forge-agent
-uv sync --frozen --extra dev --dev
-uv run pico --version
-```
-
-Initialize local settings when needed:
-
-```bash
-uv run pico onboard --skip-memory
-```
-
-Run a task against a repository:
-
-```bash
-uv run pico run --workspace /path/to/project \
-  -m "Find the cause of the failing tests, fix the bug, run the relevant tests, and summarize the changes."
-```
-
-On Windows, replace `/path/to/project` with the path to the target repository. Use `uv run pico run --help` for session, resume, configuration, and output options.
-
-## Example
-
-```bash
-uv run pico run --workspace /path/to/project \
-  -m "Add the missing validation, update the tests, and verify the change."
-```
-
-ForgeAgent can inspect the workspace, invoke repository tools, edit code, execute tests, and use their observations to decide what to do next.
-
-## Testing
+Looprail is currently documented from a source checkout; this workflow does
+not assume a package has been published to PyPI.
 
 From the repository root:
 
-```powershell
-.\scripts\run_medium_baseline.ps1
+```bash
+uv sync --frozen --extra dev --dev
+uv run --frozen looprail --version
 ```
 
-The current frozen core Runtime acceptance suite reports **671 passed** on the Windows / Python 3.12 baseline. This is the core acceptance result, not a claim that every repository test is always green.
+Configure a Provider and the local Runtime from the interactive wizard:
+
+```bash
+uv run --frozen looprail onboard --skip-memory
+```
+
+`--skip-memory` is the supported source-checkout setup when no external Memory
+implementation is installed. The wizard still configures the Provider and
+local execution path.
+
+## Usage Example
+
+Run one task against a real repository:
+
+```bash
+uv run --frozen looprail run --workspace "<repo-root>" -m "Inspect the failing tests, make the smallest safe fix, run the relevant tests, and summarize the result."
+```
+
+Replace `<repo-root>` with the target repository path. Run
+`uv run --frozen looprail run --help` for session, resume, configuration, and
+output options.
+
+## Testing
+
+The supported deterministic Runtime regression baseline is:
+
+```powershell
+.\scripts\run_runtime_baseline.ps1 -Python .\.venv\Scripts\python.exe
+```
+
+The current baseline reports **671 passed** on Windows with Python 3.12.
+LooprailBench provides additional deterministic evaluation infrastructure; its
+source and reproducibility helpers live under
+[`benchmarks/looprailbench/`](benchmarks/looprailbench/).
 
 ## Roadmap
 
-- Improve CLI visualization and interaction.
-- Add richer execution-progress rendering.
-- Strengthen sandbox and high-risk tool policies.
-- Expand real-repository Coding Agent benchmarks.
-- Improve Context compression and retrieval strategies.
-- Improve long-term Memory quality and lifecycle.
-- Expand Controlled Self-Evolution experiments.
-- Improve cross-platform portability.
+- Broader cross-platform validation.
+- Expanded deterministic evaluation.
+- A clearer public release and distribution workflow.
 
 ## License
 
-ForgeAgent is released under the [Apache License 2.0](LICENSE).
+Looprail is released under the [Apache License 2.0](LICENSE).
 
-Third-party attribution and notices are preserved in [NOTICES.md] and [LICENSES/].
+Third-party attribution and notices are preserved in [NOTICES.md](NOTICES.md)
+and [LICENSES/](LICENSES/).

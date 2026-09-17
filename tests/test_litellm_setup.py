@@ -2,7 +2,7 @@
 
 import logging
 
-from pico.providers.litellm_setup import import_litellm
+from looprail.providers.litellm_setup import import_litellm
 
 _LITELLM_LOGGERS = ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy")
 

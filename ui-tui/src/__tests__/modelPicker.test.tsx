@@ -73,7 +73,7 @@ const oauthProvider: ModelOptionProvider = {
   needs_api_base: false,
   slug: 'oauthvendor',
   total_models: 0,
-  warning: 'run pico model to authenticate'
+  warning: 'run looprail model to authenticate'
 }
 
 interface Harness {
@@ -178,7 +178,7 @@ describe('ModelPicker', () => {
 
     await h.type(DOWN)
     const providerFrame = h.frame()
-    expect(providerFrame).toContain('run pico model to authenticate')
+    expect(providerFrame).toContain('run looprail model to authenticate')
 
     await h.type(ENTER)
 

@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from pico.memory_engine import Memory, MemoryBackend
+from looprail.memory_engine import Memory, MemoryBackend
 
 # ---------------------------------------------------------------------------
 

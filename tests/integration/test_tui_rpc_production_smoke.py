@@ -1,6 +1,6 @@
 """Production-path smoke (pytest integration).
 
-Spawns the exact RPC server, dispatcher, and socket transport that ``pico``
+Spawns the exact RPC server, dispatcher, and socket transport that ``looprail``
 uses, drives it from a Python child process, and asserts five retained
 production-path methods return success.
 
@@ -24,7 +24,7 @@ from __future__ import annotations
 import os
 import sys
 
-from pico.cli import tui_commands
+from looprail.cli import tui_commands
 
 CHILD_SRC = r"""
 import json
@@ -32,10 +32,10 @@ import os
 import socket
 import sys
 
-host, port = os.environ["PICO_RPC_SOCKET"].rsplit(":", 1)
+host, port = os.environ["LOOPRAIL_RPC_SOCKET"].rsplit(":", 1)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect((host, int(port)))
-_tok = os.environ.get("PICO_RPC_TOKEN")
+_tok = os.environ.get("LOOPRAIL_RPC_TOKEN")
 if _tok:
     sock.sendall((_tok + "\n").encode("utf-8"))
 buf = b""

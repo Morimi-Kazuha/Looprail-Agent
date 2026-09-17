@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 
-from pico.cli.gateway_commands import _health_handler
+from looprail.cli.gateway_commands import _health_handler
 
 
 async def test_health_handler_returns_ok_json() -> None:

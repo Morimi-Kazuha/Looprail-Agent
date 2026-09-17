@@ -12,23 +12,23 @@ from benchmarks.appworld.evolve.eval import (
     files_of,
     prepare_candidate_manifest,
 )
-from pico.evolver.activation import load_activation_record
-from pico.evolver.analysis.stability_bucket import StabilityBucket, TaskStability
-from pico.evolver.orchestrator.config import OrchestratorConfig, Termination
-from pico.evolver.orchestrator.gates.policy import (
+from looprail.evolver.activation import load_activation_record
+from looprail.evolver.analysis.stability_bucket import StabilityBucket, TaskStability
+from looprail.evolver.orchestrator.config import OrchestratorConfig, Termination
+from looprail.evolver.orchestrator.gates.policy import (
     CandidateOutcome,
     FrozenColdStartBaseline,
 )
-from pico.evolver.orchestrator.gates.strategies import FocusedFisherGate
-from pico.evolver.orchestrator.loop import EvolutionOrchestrator
-from pico.evolver.orchestrator.production import build_evolution_orchestrator
-from pico.evolver.orchestrator.scoring import (
+from looprail.evolver.orchestrator.gates.strategies import FocusedFisherGate
+from looprail.evolver.orchestrator.loop import EvolutionOrchestrator
+from looprail.evolver.orchestrator.production import build_evolution_orchestrator
+from looprail.evolver.orchestrator.scoring import (
     EvalBackend,
     EvaluationVerdict,
     TaskEval,
 )
-from pico.evolver.scheduler.anchor_selection import simple_anchor
-from pico.evolver.tree.node import HarnessNode, NodeStatus
+from looprail.evolver.scheduler.anchor_selection import simple_anchor
+from looprail.evolver.tree.node import HarnessNode, NodeStatus
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -49,10 +49,10 @@ def _subject_repo(tmp_path: Path) -> tuple[Path, str]:
     _git(repo, "init", "-q")
     env = {
         **os.environ,
-        "GIT_AUTHOR_NAME": "Pico Test",
-        "GIT_AUTHOR_EMAIL": "pico-test@example.invalid",
-        "GIT_COMMITTER_NAME": "Pico Test",
-        "GIT_COMMITTER_EMAIL": "pico-test@example.invalid",
+        "GIT_AUTHOR_NAME": "Looprail Test",
+        "GIT_AUTHOR_EMAIL": "looprail-test@example.invalid",
+        "GIT_COMMITTER_NAME": "Looprail Test",
+        "GIT_COMMITTER_EMAIL": "looprail-test@example.invalid",
     }
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True, env=env)
     subprocess.run(["git", "commit", "-qm", "fixture"], cwd=repo, check=True, env=env)

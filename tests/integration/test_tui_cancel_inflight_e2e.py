@@ -26,12 +26,12 @@ from pathlib import Path
 
 import pytest
 
-from pico.spine import StreamDelta, TurnOutcome, Usage
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.methods.turn import clear_active, register_turn_methods
-from pico.tui_rpc.server import RpcServer
-from pico.tui_rpc.spine import build_tui
-from pico.tui_rpc.subscriptions import SubscriptionEmitter
+from looprail.spine import StreamDelta, TurnOutcome, Usage
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.methods.turn import clear_active, register_turn_methods
+from looprail.tui_rpc.server import RpcServer
+from looprail.tui_rpc.spine import build_tui
+from looprail.tui_rpc.subscriptions import SubscriptionEmitter
 
 SESSION_KEY = "tui:default"
 
@@ -115,7 +115,7 @@ async def _drain_events(client: socket.socket, *, duration: float = 0.6) -> list
 
 @pytest.fixture(autouse=True)
 def _clear_active_turns():
-    from pico.tui_rpc.methods import turn as _turn_mod
+    from looprail.tui_rpc.methods import turn as _turn_mod
 
     _turn_mod._active_turns.clear()
     _turn_mod._active_request_keys.clear()

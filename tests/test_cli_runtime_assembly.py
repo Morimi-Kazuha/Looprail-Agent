@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, sentinel
 
 import pytest
 
-from pico.agent.spine_runner import AgentTurnRunner
-from pico.agent.tools.base import Tool
-from pico.cli._gateway_spine import GatewayTurnRunner
-from pico.spine import (
+from looprail.agent.spine_runner import AgentTurnRunner
+from looprail.agent.tools.base import Tool
+from looprail.cli._gateway_spine import GatewayTurnRunner
+from looprail.spine import (
     ChatType,
     Origin,
     Source,
@@ -21,7 +21,7 @@ from pico.spine import (
     TurnRunner,
     Usage,
 )
-from pico.tui_rpc.spine import TuiTurnRunner
+from looprail.tui_rpc.spine import TuiTurnRunner
 
 
 def _runtime_configs(tmp_path):
@@ -52,7 +52,7 @@ def _runtime_configs(tmp_path):
         tools=tools,
         channels=sentinel.channels_config,
     )
-    pico_config = SimpleNamespace(
+    looprail_config = SimpleNamespace(
         plugins=SimpleNamespace(disabled=[], config={}),
         memory=sentinel.memory_config,
         context=sentinel.context_config,
@@ -62,7 +62,7 @@ def _runtime_configs(tmp_path):
             router=sentinel.skill_forge_router_config,
         ),
     )
-    return config, pico_config
+    return config, looprail_config
 
 
 @pytest.mark.parametrize(
@@ -80,9 +80,9 @@ def test_runtime_assembly_preserves_config_and_plugin_parity(
     interactive: bool,
     router,
 ) -> None:
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
-    config, pico_config = _runtime_configs(tmp_path)
+    config, looprail_config = _runtime_configs(tmp_path)
     provider = object()
     cron_service = object()
     session_manager = object()
@@ -93,11 +93,11 @@ def test_runtime_assembly_preserves_config_and_plugin_parity(
     captured: dict = {}
 
     monkeypatch.setattr(
-        "pico.session.manager.SessionManager",
+        "looprail.session.manager.SessionManager",
         lambda workspace: calls.append(("session", workspace)) or session_manager,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         lambda cfg: calls.append(("registry", cfg)) or registry,
     )
 
@@ -109,10 +109,10 @@ def test_runtime_assembly_preserves_config_and_plugin_parity(
         calls.append(("tools", registry))
         return plugin_tools
 
-    monkeypatch.setattr("pico.cli._plugin_stack.maybe_build_memory_backend", _build_backend)
-    monkeypatch.setattr("pico.cli._plugin_stack.build_plugin_tools", _build_tools)
+    monkeypatch.setattr("looprail.cli._plugin_stack.maybe_build_memory_backend", _build_backend)
+    monkeypatch.setattr("looprail.cli._plugin_stack.build_plugin_tools", _build_tools)
     monkeypatch.setattr(
-        "pico.call_efficiency.CallEfficiency.from_config",
+        "looprail.call_efficiency.CallEfficiency.from_config",
         lambda config, *, telemetry_dir, provider: sentinel.call_efficiency,
     )
 
@@ -121,11 +121,11 @@ def test_runtime_assembly_preserves_config_and_plugin_parity(
             captured.update(kwargs)
             self.configure_personalization = MagicMock()
 
-    monkeypatch.setattr("pico.agent.loop.AgentLoop", _AgentLoopSpy)
+    monkeypatch.setattr("looprail.agent.loop.AgentLoop", _AgentLoopSpy)
 
     runtime = _runtime_assembly.assemble_runtime(
         config,
-        pico_config,
+        looprail_config,
         provider=provider,
         cron_service=cron_service,
         interactive=interactive,
@@ -137,7 +137,7 @@ def test_runtime_assembly_preserves_config_and_plugin_parity(
     assert runtime.call_efficiency is sentinel.call_efficiency
     assert calls == [
         ("session", tmp_path),
-        ("registry", pico_config),
+        ("registry", looprail_config),
         ("backend", registry),
         ("tools", registry),
     ]
@@ -169,7 +169,7 @@ def test_runtime_assembly_preserves_config_and_plugin_parity(
         "channels_config": sentinel.channels_config,
         "router": router,
         "call_efficiency": sentinel.call_efficiency,
-        "skill_forge_config": pico_config.skill_forge,
+        "skill_forge_config": looprail_config.skill_forge,
         "context_config": sentinel.context_config,
         "context_engine_factory": None,
         "runtime_config": sentinel.runtime_config,
@@ -186,23 +186,23 @@ def test_runtime_assembly_closes_call_efficiency_when_construction_fails(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
-    config, pico_config = _runtime_configs(tmp_path)
+    config, looprail_config = _runtime_configs(tmp_path)
     controller = SimpleNamespace(close=MagicMock())
     monkeypatch.setattr(
-        "pico.call_efficiency.CallEfficiency.from_config",
+        "looprail.call_efficiency.CallEfficiency.from_config",
         lambda config, *, telemetry_dir, provider: controller,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         MagicMock(side_effect=RuntimeError("plugin failed")),
     )
 
     with pytest.raises(RuntimeError, match="plugin failed"):
         _runtime_assembly.assemble_runtime(
             config,
-            pico_config,
+            looprail_config,
             provider=object(),
             cron_service=object(),
             interactive=False,
@@ -215,23 +215,23 @@ def test_runtime_assembly_preserves_construction_error_when_cleanup_also_fails(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
-    config, pico_config = _runtime_configs(tmp_path)
+    config, looprail_config = _runtime_configs(tmp_path)
     controller = SimpleNamespace(close=MagicMock(side_effect=RuntimeError("close failed")))
     monkeypatch.setattr(
-        "pico.call_efficiency.CallEfficiency.from_config",
+        "looprail.call_efficiency.CallEfficiency.from_config",
         lambda config, *, telemetry_dir, provider: controller,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         MagicMock(side_effect=RuntimeError("plugin failed")),
     )
 
     with pytest.raises(RuntimeError, match="plugin failed"):
         _runtime_assembly.assemble_runtime(
             config,
-            pico_config,
+            looprail_config,
             provider=object(),
             cron_service=object(),
             interactive=False,
@@ -244,21 +244,21 @@ def test_runtime_assembly_forwards_context_engine_factory(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
-    config, pico_config = _runtime_configs(tmp_path)
+    config, looprail_config = _runtime_configs(tmp_path)
     captured: dict = {}
 
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         lambda _config: object(),
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.maybe_build_memory_backend",
+        "looprail.cli._plugin_stack.maybe_build_memory_backend",
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_tools",
+        "looprail.cli._plugin_stack.build_plugin_tools",
         lambda *args, **kwargs: [],
     )
 
@@ -267,11 +267,11 @@ def test_runtime_assembly_forwards_context_engine_factory(
             captured.update(kwargs)
             self.configure_personalization = MagicMock()
 
-    monkeypatch.setattr("pico.agent.loop.AgentLoop", _AgentLoopSpy)
+    monkeypatch.setattr("looprail.agent.loop.AgentLoop", _AgentLoopSpy)
 
     _runtime_assembly.assemble_runtime(
         config,
-        pico_config,
+        looprail_config,
         provider=object(),
         cron_service=object(),
         interactive=False,
@@ -286,31 +286,31 @@ def test_runtime_assembly_separates_workspace_from_state(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    from pico.cli import _runtime_assembly
-    from pico.config.paths import RuntimePaths
+    from looprail.cli import _runtime_assembly
+    from looprail.config.paths import RuntimePaths
 
-    config, pico_config = _runtime_configs(tmp_path / "configured")
+    config, looprail_config = _runtime_configs(tmp_path / "configured")
     paths = RuntimePaths(
         workspace=tmp_path / "project",
-        state=tmp_path / "project" / ".pico",
+        state=tmp_path / "project" / ".looprail",
     )
     captured: dict = {}
     calls: list[tuple[str, object]] = []
 
     monkeypatch.setattr(
-        "pico.session.manager.SessionManager",
+        "looprail.session.manager.SessionManager",
         lambda state: calls.append(("session", state)) or object(),
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         lambda _config: object(),
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.maybe_build_memory_backend",
+        "looprail.cli._plugin_stack.maybe_build_memory_backend",
         lambda workspace, *_args, **_kwargs: calls.append(("backend", workspace)) or None,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_tools",
+        "looprail.cli._plugin_stack.build_plugin_tools",
         lambda workspace, *_args, **_kwargs: calls.append(("tools", workspace)) or [],
     )
 
@@ -319,11 +319,11 @@ def test_runtime_assembly_separates_workspace_from_state(
             captured.update(kwargs)
             self.configure_personalization = MagicMock()
 
-    monkeypatch.setattr("pico.agent.loop.AgentLoop", _AgentLoopSpy)
+    monkeypatch.setattr("looprail.agent.loop.AgentLoop", _AgentLoopSpy)
 
     _runtime_assembly.assemble_runtime(
         config,
-        pico_config,
+        looprail_config,
         provider=object(),
         cron_service=object(),
         interactive=True,
@@ -371,31 +371,31 @@ async def test_runtime_hosts_keep_protected_tool_capabilities(
     interactive: bool,
     router,
 ) -> None:
-    from pico.cli._runtime_assembly import assemble_runtime
-    from pico.config.pico import PicoConfig
-    from pico.config.schema import Config
+    from looprail.cli._runtime_assembly import assemble_runtime
+    from looprail.config.looprail import LooprailConfig
+    from looprail.config.schema import Config
 
     config = Config()
     config.agents.defaults.workspace = str(tmp_path / host)
     config.agents.defaults.model = "retained-model"
     config.tools.disabled_tools = ["write_file"]
-    pico_config = PicoConfig(base=config)
+    looprail_config = LooprailConfig(base=config)
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         lambda cfg: object(),
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.maybe_build_memory_backend",
+        "looprail.cli._plugin_stack.maybe_build_memory_backend",
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_tools",
+        "looprail.cli._plugin_stack.build_plugin_tools",
         lambda *args, **kwargs: [_RetainedPluginTool()],
     )
 
     runtime = assemble_runtime(
         config,
-        pico_config,
+        looprail_config,
         provider=object(),
         cron_service=MagicMock(),
         interactive=interactive,
@@ -424,31 +424,31 @@ async def test_project_local_runtime_keeps_tools_and_state_in_their_roots(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    from pico.cli._runtime_assembly import assemble_runtime
-    from pico.config.paths import RuntimePaths
-    from pico.config.pico import PicoConfig
-    from pico.config.schema import Config
+    from looprail.cli._runtime_assembly import assemble_runtime
+    from looprail.config.looprail import LooprailConfig
+    from looprail.config.paths import RuntimePaths
+    from looprail.config.schema import Config
 
     project = tmp_path / "project"
-    state = project / ".pico"
+    state = project / ".looprail"
     project.mkdir()
     config = Config()
     config.agents.defaults.model = "retained-model"
-    pico_config = PicoConfig(base=config)
-    pico_config.memory.backend = None
+    looprail_config = LooprailConfig(base=config)
+    looprail_config.memory.backend = None
     paths = RuntimePaths(workspace=project, state=state)
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         lambda _config: object(),
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_tools",
+        "looprail.cli._plugin_stack.build_plugin_tools",
         lambda *args, **kwargs: [],
     )
 
     runtime = assemble_runtime(
         config,
-        pico_config,
+        looprail_config,
         provider=object(),
         cron_service=MagicMock(),
         interactive=True,
@@ -472,7 +472,7 @@ async def test_project_local_runtime_keeps_tools_and_state_in_their_roots(
 
 
 async def test_runtime_assembly_owns_memory_and_agent_resources_once() -> None:
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     order: list[str] = []
     backend = SimpleNamespace(
@@ -504,7 +504,7 @@ async def test_runtime_assembly_owns_memory_and_agent_resources_once() -> None:
 
 
 async def test_runtime_assembly_serializes_concurrent_close() -> None:
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     entered = asyncio.Event()
     release = asyncio.Event()
@@ -537,7 +537,7 @@ async def test_runtime_assembly_serializes_concurrent_close() -> None:
 
 
 async def test_runtime_assembly_finishes_started_close_before_propagating_caller_cancellation() -> None:
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     entered = asyncio.Event()
     release = asyncio.Event()
@@ -570,7 +570,7 @@ async def test_runtime_assembly_finishes_started_close_before_propagating_caller
 
 
 async def test_tui_runtime_host_finishes_close_after_cancellation_during_build() -> None:
-    from pico.cli._runtime_host import TuiRuntimeHost
+    from looprail.cli._runtime_host import TuiRuntimeHost
 
     build_entered = asyncio.Event()
     build_release = asyncio.Event()
@@ -597,7 +597,7 @@ async def test_tui_runtime_host_finishes_close_after_cancellation_during_build()
 
 
 async def test_runtime_assembly_continues_backend_shutdown_after_call_efficiency_failure() -> None:
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     backend = SimpleNamespace(start=AsyncMock(), stop=AsyncMock())
     agent_loop = SimpleNamespace(begin_close=MagicMock(), close=AsyncMock())
@@ -618,7 +618,7 @@ async def test_runtime_assembly_continues_backend_shutdown_after_call_efficiency
 
 
 async def test_runtime_assembly_preserves_memory_start_failure() -> None:
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     failure = RuntimeError("offline")
     backend = SimpleNamespace(
@@ -645,7 +645,7 @@ async def test_runtime_assembly_preserves_memory_start_failure() -> None:
 async def test_runtime_assembly_retries_agent_close_without_double_stopping_memory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
     backend = SimpleNamespace(start=AsyncMock(), stop=AsyncMock())
     agent_loop = SimpleNamespace(
@@ -674,7 +674,7 @@ async def test_runtime_assembly_retries_agent_close_without_double_stopping_memo
 
 
 async def test_runtime_assembly_stops_memory_before_propagating_cancellation() -> None:
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     backend = SimpleNamespace(start=AsyncMock(), stop=AsyncMock())
     runtime = RuntimeAssembly(
@@ -693,7 +693,7 @@ async def test_runtime_assembly_stops_memory_before_propagating_cancellation() -
 
 
 async def test_runtime_assembly_exposes_memory_stop_failure_after_agent_close() -> None:
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     order: list[str] = []
 

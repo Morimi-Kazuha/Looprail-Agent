@@ -19,8 +19,8 @@ from typing import Callable, Optional
 
 from benchmarks.appworld.evolve.eval import Candidate, materialize_candidate_patch
 from benchmarks.appworld.evolve.sandbox import Sandbox
-from pico.evolver.orchestrator.config import Budget
-from pico.evolver.tree.node import HarnessNode
+from looprail.evolver.orchestrator.config import Budget
+from looprail.evolver.tree.node import HarnessNode
 
 # WHY 可修复性权重：分类本身将 W6/W7 标为能力上限或噪音，但它们通常又是最常见
 # 失败，因此按原始数量选择 WHY 会把每轮都浪费在它们上。降权后，在探索明显项后
@@ -305,7 +305,7 @@ def _fmt_history(history: dict[str, list[dict]], why: str) -> str:
 
 _BEACON_REQUIREMENT = (
     "\nINSTRUMENTATION (required for python edits): the new code path MUST call\n"
-    "    from pico.evolver.activation.ledger import activation_beacon\n"
+    "    from looprail.evolver.activation.ledger import activation_beacon\n"
     "    activation_beacon('<your tag>', '<site>')\n"
     "at the exact place your mechanism fires (INSIDE its trigger condition, NOT at "
     "import/module level — a beacon that fires on every task carries no attribution "

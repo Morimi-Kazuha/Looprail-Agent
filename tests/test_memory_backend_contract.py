@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pico.memory_engine import (
+from looprail.memory_engine import (
     LifecycleContractTests,
     Memory,
     MemoryBackend,

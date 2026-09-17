@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from pico.providers.base import LLMProvider, LLMResponse
+from looprail.providers.base import LLMProvider, LLMResponse
 
 
 class _ScriptedProvider(LLMProvider):

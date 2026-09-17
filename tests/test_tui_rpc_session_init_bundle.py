@@ -21,9 +21,9 @@ from typing import Any
 
 import pytest
 
-from pico.config.loader import load_config
-from pico.tui_rpc.methods import session as session_module
-from pico.tui_rpc.methods.session import _default_session_info
+from looprail.config.loader import load_config
+from looprail.tui_rpc.methods import session as session_module
+from looprail.tui_rpc.methods.session import _default_session_info
 
 # ---------------------------------------------------------------------------
 
@@ -31,7 +31,7 @@ from pico.tui_rpc.methods.session import _default_session_info
 
 
 class _FakeToolRegistry:
-    """Stand-in for ``pico.agent.tools.registry.ToolRegistry``."""
+    """Stand-in for ``looprail.agent.tools.registry.ToolRegistry``."""
 
     @property
     def tool_names(self) -> list[str]:
@@ -75,7 +75,7 @@ class _FakeUsageTracker:
 
 
 class _FakeStrategyRegistry:
-    """Stand-in for ``pico.token_wise.registry.StrategyRegistry``."""
+    """Stand-in for ``looprail.token_wise.registry.StrategyRegistry``."""
 
     def __init__(self, with_usage_tracker: bool = True) -> None:
         self._tracker = _FakeUsageTracker() if with_usage_tracker else None
@@ -162,9 +162,9 @@ def test_default_session_info_contains_real_usage_baseline(fake_agent_loop, conf
 def test_default_session_info_contains_real_version(fake_agent_loop, config) -> None:
     """T1.1.d (AC-4): ``info.version`` reads importlib.metadata, not hardcoded '0.1'."""
     info = _default_session_info(fake_agent_loop, config)
-    expected_version = importlib.metadata.version("pico-harness")
+    expected_version = importlib.metadata.version("looprail")
     assert info["version"] == expected_version, (
-        f"info.version must be importlib.metadata.version('pico-harness') = {expected_version!r}"
+        f"info.version must be importlib.metadata.version('looprail') = {expected_version!r}"
     )
     assert info["version"] != "0.1", "the literal '0.1' placeholder must be replaced"
 
@@ -194,7 +194,7 @@ def test_default_session_info_falls_back_when_agent_loop_none(config) -> None:
     assert info["usage"]["calls"] == 0
     assert info["usage"]["context_max"] == config.agents.defaults.context_window_tokens
 
-    assert info["version"] == importlib.metadata.version("pico-harness")
+    assert info["version"] == importlib.metadata.version("looprail")
 
     assert info["lazy"] is True, "lazy=True on agent_loop=None fallback signals UI that tools/skills are placeholder"
 
@@ -229,7 +229,7 @@ def test_register_session_methods_accepts_factory() -> None:
 
 def test_resolve_context_window_helper_removed() -> None:
     """the stub _resolve_context_window helper has been removed."""
-    session_py = Path(__file__).parent.parent / "pico" / "tui_rpc" / "methods" / "session.py"
+    session_py = Path(__file__).parent.parent / "looprail" / "tui_rpc" / "methods" / "session.py"
     src = session_py.read_text(encoding="utf-8")
     assert "_resolve_context_window" not in src, (
         "_resolve_context_window stub helper should be removed; "
@@ -282,7 +282,7 @@ def test_default_session_info_contains_real_model(fake_agent_loop, config) -> No
 
 def test_placeholder_model_constant_removed() -> None:
     """_PLACEHOLDER_MODEL constant removed."""
-    session_py = Path(__file__).parent.parent / "pico" / "tui_rpc" / "methods" / "session.py"
+    session_py = Path(__file__).parent.parent / "looprail" / "tui_rpc" / "methods" / "session.py"
     src = session_py.read_text(encoding="utf-8")
     assert "_PLACEHOLDER_MODEL" not in src
     assert '"claude-sonnet-4-6"' not in src

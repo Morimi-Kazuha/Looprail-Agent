@@ -52,7 +52,7 @@ class TestSpawn:
             _completed(),
         ]
         h = Harness(cols=100, rows=30)
-        h.spawn("uv run pico")
+        h.spawn("uv run looprail")
 
         start_call = mock_run.call_args_list[0]
         cmd = start_call.args[0]
@@ -60,7 +60,7 @@ class TestSpawn:
         assert cmd[1] == "start"
         assert "--cols" in cmd and cmd[cmd.index("--cols") + 1] == "100"
         assert "--rows" in cmd and cmd[cmd.index("--rows") + 1] == "30"
-        assert cmd[-3:] == ["uv", "run", "pico"] or "pico" in cmd[-1] or "pico" in " ".join(cmd[-4:])
+        assert cmd[-3:] == ["uv", "run", "looprail"] or "looprail" in cmd[-1] or "looprail" in " ".join(cmd[-4:])
 
     def test_spawn_captures_session_id(self, mock_run):
         mock_run.side_effect = [
@@ -108,7 +108,7 @@ class TestSpawn:
         ]
         h = Harness()
         h.env_set({"FORCE_COLOR": "1", "FOO": "bar"})
-        h.spawn("uv run pico")
+        h.spawn("uv run looprail")
         start_call = mock_run.call_args_list[0]
 
         env = start_call.kwargs.get("env")
@@ -119,7 +119,7 @@ class TestSpawn:
     def test_spawn_sets_default_force_color(self, mock_run):
         mock_run.side_effect = [_completed(stdout="sid\n"), _completed()]
         h = Harness()
-        h.spawn("uv run pico")
+        h.spawn("uv run looprail")
         env = mock_run.call_args_list[0].kwargs.get("env")
 
         assert env["FORCE_COLOR"] == "1"

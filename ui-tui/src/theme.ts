@@ -102,7 +102,7 @@ function mix(a: string, b: string, t: number) {
 // ── 品牌色 ───────────────────────────────────────────────────────────
 
 const BRAND: ThemeBrand = {
-  name: 'Pico',
+  name: 'Looprail',
   icon: '◆',
   prompt: '❯',
   welcome: 'Type your message or /help for commands.',
@@ -121,7 +121,7 @@ const cleanPromptSymbol = (s: string | undefined, fallback: string) => {
 
 // ── 品牌黄色色阶（渐变标志/立体阴影）────────────────────────────────
 //
-// 品牌资产（pico-tui-design-system 的“品牌色阶”），按从亮到暗排序，用于渐变横幅图案。
+// 品牌资产（looprail-tui-design-system 的“品牌色阶”），按从亮到暗排序，用于渐变横幅图案。
 // .50/.300/.500/.700/.900 是文档定义的标题色带
 // （docs/tui-color-problem/title-gradient-table.md），其他节点为插值。横幅只读取前几个主色带，
 // 并回退到最后一个，因此色阶长度不影响正确性。
@@ -494,12 +494,12 @@ const FALSE_RE = /^(?:0|false|no|off)$/
 
 // 默认配置为浅色但可能不暴露 COLORFGBG 的终端所用 TERM_PROGRAM 回退白名单。默认留空：
 // 单凭 TERM_PROGRAM 无法区分明暗配置，Terminal.app 两者都有且都不输出 COLORFGBG；暗色配置
-// 又很常见，因此无法检测时保持暗色，除非 PICO_TUI_THEME、PICO_TUI_LIGHT、
-// PICO_TUI_BACKGROUND 或 COLORFGBG 明确表示浅色。仍允许注入，供测试验证优先级规则。
+// 又很常见，因此无法检测时保持暗色，除非 LOOPRAIL_TUI_THEME、LOOPRAIL_TUI_LIGHT、
+// LOOPRAIL_TUI_BACKGROUND 或 COLORFGBG 明确表示浅色。仍允许注入，供测试验证优先级规则。
 const LIGHT_DEFAULT_TERM_PROGRAMS = new Set<string>([])
 
 // 尽力进行 RGB 到亮度检查。目前只接受 3 位或 6 位十六进制值，可带或不带前导 `#`。
-// 环境变量名 `PICO_TUI_BACKGROUND` 刻意保持通用，未来 OSC11 查询辅助方法也可在其中缓存结果；
+// 环境变量名 `LOOPRAIL_TUI_BACKGROUND` 刻意保持通用，未来 OSC11 查询辅助方法也可在其中缓存结果；
 // 其他格式（rgb()/hsl()/具名颜色）需先在此显式解析。
 const LUMA_LIGHT_THRESHOLD = 0.6
 
@@ -533,21 +533,21 @@ function backgroundLuminance(raw: string): null | number {
 
 // 使用有序、可解释的信号选择浅色或暗色（#11300）：
 //
-//   1. `PICO_TUI_LIGHT` 布尔值：`1`/`true`/`yes`/`on` 表示浅色，
+//   1. `LOOPRAIL_TUI_LIGHT` 布尔值：`1`/`true`/`yes`/`on` 表示浅色，
 //      `0`/`false`/`no`/`off` 表示暗色；任一显式值都优先于后续信号。
-//   2. `PICO_TUI_THEME` 具名覆盖：`light` / `dark` 优先于下方所有信号。
-//   3. `PICO_TUI_BACKGROUND` 的 3 位或 6 位十六进制提示：亮度不低于阈值时为浅色。
+//   2. `LOOPRAIL_TUI_THEME` 具名覆盖：`light` / `dark` 优先于下方所有信号。
+//   3. `LOOPRAIL_TUI_BACKGROUND` 的 3 位或 6 位十六进制提示：亮度不低于阈值时为浅色。
 //   4. `COLORFGBG` 最后字段：XFCE、rxvt、Terminal.app 的浅色配置输出槽位 7 或 15；
 //      0 到 15 的其他值视为权威暗色，避免下方 TERM_PROGRAM 白名单覆盖显式暗色配置。
 //   5. `TERM_PROGRAM` 默认浅色白名单，默认留空，见 LIGHT_DEFAULT_TERM_PROGRAMS。
 //
-// 无法判断时保持暗色，因为 Pico 默认调色板为暗色。
+// 无法判断时保持暗色，因为 Looprail 默认调色板为暗色。
 export function detectLightMode(
   env: NodeJS.ProcessEnv = process.env,
   // 允许注入，使测试即使在生产白名单为空时也能验证 COLORFGBG 优先于 TERM_PROGRAM 的规则。
   lightDefaultTermPrograms: ReadonlySet<string> = LIGHT_DEFAULT_TERM_PROGRAMS
 ): boolean {
-  const lightFlag = (env.PICO_TUI_LIGHT ?? '').trim().toLowerCase()
+  const lightFlag = (env.LOOPRAIL_TUI_LIGHT ?? '').trim().toLowerCase()
 
   if (TRUE_RE.test(lightFlag)) {
     return true
@@ -557,7 +557,7 @@ export function detectLightMode(
     return false
   }
 
-  const themeFlag = (env.PICO_TUI_THEME ?? '').trim().toLowerCase()
+  const themeFlag = (env.LOOPRAIL_TUI_THEME ?? '').trim().toLowerCase()
 
   if (themeFlag === 'light') {
     return true
@@ -567,7 +567,7 @@ export function detectLightMode(
     return false
   }
 
-  const bgHint = backgroundLuminance(env.PICO_TUI_BACKGROUND ?? '')
+  const bgHint = backgroundLuminance(env.LOOPRAIL_TUI_BACKGROUND ?? '')
 
   if (bgHint !== null) {
     return bgHint >= LUMA_LIGHT_THRESHOLD
@@ -661,8 +661,8 @@ function oscColorToHex(data: string): null | string {
 /**
  * 将 OSC 11 背景色响应纳入明暗模式探测。
  *
- * 将解析后的颜色缓存到 PICO_TUI_BACKGROUND，再次运行 detectLightMode()，使
- * 现有优先级规则保持不变；显式 PICO_TUI_THEME/PICO_TUI_LIGHT 仍优先于实测
+ * 将解析后的颜色缓存到 LOOPRAIL_TUI_BACKGROUND，再次运行 detectLightMode()，使
+ * 现有优先级规则保持不变；显式 LOOPRAIL_TUI_THEME/LOOPRAIL_TUI_LIGHT 仍优先于实测
  * 背景色。返回解析后的配色模式及其是否不同于当前模式，供调用方判断是否重设
  * 主题；响应无法解析为颜色时返回 null。
  */
@@ -673,7 +673,7 @@ export function applyDetectedBackground(oscData: string): { changed: boolean; sc
     return null
   }
 
-  process.env.PICO_TUI_BACKGROUND = hex
+  process.env.LOOPRAIL_TUI_BACKGROUND = hex
   const scheme: ColorScheme = detectLightMode() ? 'light' : 'dark'
   const changed = scheme !== currentScheme()
   detectedScheme = scheme

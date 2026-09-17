@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from pico.evolver.orchestrator.providers.claude_cli import (
+from looprail.evolver.orchestrator.providers.claude_cli import (
     make_claude_call_fn,
     render_messages,
 )

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 EverMind.
 # See NOTICES.md.
 
-"""Tests for the bare ``pico`` TUI after the Hermes UI shell fork.
+"""Tests for the bare ``looprail`` TUI after the Hermes UI shell fork.
 
 Adds coverage on top of `test_cli_tui_bootstrap.py` that is specific to the
 post-fork state.
@@ -18,8 +18,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
-from pico.cli.tui_commands import _UI_TUI_DIR
+from looprail.cli.commands import app
+from looprail.cli.tui_commands import _UI_TUI_DIR
 
 runner = CliRunner()
 
@@ -39,11 +39,11 @@ def test_ui_tui_dir_resolves_under_repo_root():
 def test_check_exits_zero_when_node_ok_and_run_succeeds(monkeypatch):
     """--check returns 0 when node found, version OK, and child spawned."""
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess",
+        "looprail.cli.tui_commands.run_subprocess",
         lambda *_a, **_kw: 0,
     )
     result = runner.invoke(app, ["--check"])
@@ -55,15 +55,15 @@ def test_check_propagates_nonzero_child_exit(monkeypatch, tmp_path):
     dist_entry = tmp_path / "entry.js"
     dist_entry.write_text("", encoding="utf-8")
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
     monkeypatch.setattr(
-        "pico.cli.tui_commands.resolve_dist_entry",
+        "looprail.cli.tui_commands.resolve_dist_entry",
         lambda: dist_entry,
     )
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess",
+        "looprail.cli.tui_commands.run_subprocess",
         lambda *_a, **_kw: 42,
     )
 
@@ -77,15 +77,15 @@ def test_check_exits_two_when_dist_missing_and_no_dev(monkeypatch):
     have run). When missing, exit code is 2 with a helpful 'npm run build' hint.
     """
     monkeypatch.setattr(
-        "pico.cli.tui_commands.resolve_dist_entry",
+        "looprail.cli.tui_commands.resolve_dist_entry",
         lambda: None,
     )
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess",
+        "looprail.cli.tui_commands.run_subprocess",
         lambda *_a, **_kw: 0,
     )
     result = runner.invoke(app, ["--check"])
@@ -95,7 +95,7 @@ def test_check_exits_two_when_dist_missing_and_no_dev(monkeypatch):
 
 def test_dev_mode_uses_rpc_socket_post_fork(monkeypatch, tmp_path):
     """Interactive `--dev` must spawn via run_subprocess_with_rpc, not the
-    plain run_subprocess. entry.tsx requires PICO_RPC_SOCKET,
+    plain run_subprocess. entry.tsx requires LOOPRAIL_RPC_SOCKET,
     so a plain spawn exits 2 ("spawn via parent"). This guards the regression
     where `--dev` was left on the pre-RPC plain-spawn branch. `--watch` is
     dropped because watch restarts are incompatible with the one-shot RPC
@@ -107,7 +107,7 @@ def test_dev_mode_uses_rpc_socket_post_fork(monkeypatch, tmp_path):
     (fake_bin / "npx").write_text("#!/bin/sh\necho ok\n")
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: (str(fake_bin / "node"), (22, 5, 0)),
     )
 
@@ -121,11 +121,11 @@ def test_dev_mode_uses_rpc_socket_post_fork(monkeypatch, tmp_path):
         raise AssertionError("interactive --dev must not use plain run_subprocess")
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess_with_rpc",
+        "looprail.cli.tui_commands.run_subprocess_with_rpc",
         fake_run_subprocess_with_rpc,
     )
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess",
+        "looprail.cli.tui_commands.run_subprocess",
         fail_plain,
     )
 
@@ -139,7 +139,7 @@ def test_dev_mode_uses_rpc_socket_post_fork(monkeypatch, tmp_path):
 
 def test_dev_check_mode_keeps_plain_spawn(monkeypatch, tmp_path):
     """`--dev --check` stays on the plain run_subprocess: entry.tsx short-
-    circuits on PICO_TUI_CHECK before the socket guard, so the smoke path
+    circuits on LOOPRAIL_TUI_CHECK before the socket guard, so the smoke path
     needs no RPC server. Opening one would be wasted setup."""
     fake_bin = tmp_path / "fake-node" / "bin"
     fake_bin.mkdir(parents=True)
@@ -147,7 +147,7 @@ def test_dev_check_mode_keeps_plain_spawn(monkeypatch, tmp_path):
     (fake_bin / "npx").write_text("#!/bin/sh\necho ok\n")
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: (str(fake_bin / "node"), (22, 5, 0)),
     )
 
@@ -161,11 +161,11 @@ def test_dev_check_mode_keeps_plain_spawn(monkeypatch, tmp_path):
         raise AssertionError("--dev --check must not open an RPC socket")
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess",
+        "looprail.cli.tui_commands.run_subprocess",
         fake_run_subprocess,
     )
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess_with_rpc",
+        "looprail.cli.tui_commands.run_subprocess_with_rpc",
         fail_rpc,
     )
 
@@ -176,15 +176,15 @@ def test_dev_check_mode_keeps_plain_spawn(monkeypatch, tmp_path):
     assert "src/entry.tsx" in args, f"--dev --check should run src/entry.tsx, got args={args!r}"
 
 
-def test_check_sets_pico_tui_check_env_var(monkeypatch):
-    """`--check` must propagate PICO_TUI_CHECK=1 into the environment so
+def test_check_sets_looprail_tui_check_env_var(monkeypatch):
+    """`--check` must propagate LOOPRAIL_TUI_CHECK=1 into the environment so
     the Node child (ui-tui/src/entry.tsx) takes the early-exit smoke path
     instead of starting the Ink UI. Without this, `--check` would block the
     terminal until the user hit Ctrl+C — a real bug reported during
     manual smoke that this test guards against regression."""
-    monkeypatch.delenv("PICO_TUI_CHECK", raising=False)
+    monkeypatch.delenv("LOOPRAIL_TUI_CHECK", raising=False)
     monkeypatch.setattr(
-        "pico.cli.tui_commands.find_node",
+        "looprail.cli.tui_commands.find_node",
         lambda: ("/usr/bin/node", (22, 5, 0)),
     )
 
@@ -198,14 +198,14 @@ def test_check_sets_pico_tui_check_env_var(monkeypatch):
         return 0
 
     monkeypatch.setattr(
-        "pico.cli.tui_commands.run_subprocess",
+        "looprail.cli.tui_commands.run_subprocess",
         fake_run_subprocess,
     )
 
     result = runner.invoke(app, ["--check"])
     assert result.exit_code == 0, result.output
-    assert captured_env.get("PICO_TUI_CHECK") == "1", (
-        "--check must export PICO_TUI_CHECK=1 so the node child can take "
+    assert captured_env.get("LOOPRAIL_TUI_CHECK") == "1", (
+        "--check must export LOOPRAIL_TUI_CHECK=1 so the node child can take "
         "the early-exit smoke path; missing means the smoke test hangs."
     )
 

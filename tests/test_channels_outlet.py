@@ -1,5 +1,5 @@
-from pico.channels.outlet import ChannelOutletAdapter
-from pico.spine import (
+from looprail.channels.outlet import ChannelOutletAdapter
+from looprail.spine import (
     ChatType,
     MediaOut,
     Notice,
@@ -11,8 +11,8 @@ from pico.spine import (
     ToolEvent,
     ToolPhase,
 )
-from pico.spine.delivery import Outlet
-from pico.spine.message import Media
+from looprail.spine.delivery import Outlet
+from looprail.spine.message import Media
 
 
 def _src(channel="telegram", chat_id="c1") -> Source:

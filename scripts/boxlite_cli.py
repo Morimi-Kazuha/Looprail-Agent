@@ -548,8 +548,8 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Boxlite runtime home dir (DB, images, layers). "
         "Overrides BOXLITE_HOME and the default ~/.boxlite. "
-        "Use Pico's data dir to inspect Pico-managed VMs, e.g. "
-        "$(uv run python -c 'from pico.config.paths import get_sandbox_dir; print(get_sandbox_dir(\"boxlite\"))').",
+        "Use Looprail's data dir to inspect Looprail-managed VMs, e.g. "
+        "$(uv run python -c 'from looprail.config.paths import get_sandbox_dir; print(get_sandbox_dir(\"boxlite\"))').",
     )
     sub = p.add_subparsers(dest="resource", required=True)
 

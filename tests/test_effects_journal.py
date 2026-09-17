@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from pico.agent.effects import (
+from looprail.agent.effects import (
     EffectClass,
     EffectJournal,
     EffectRecord,
@@ -167,7 +167,7 @@ def test_concurrent_journal_appends_preserve_complete_effect_histories(tmp_path)
 def test_record_serialization_uses_lowercase_stable_enum_values() -> None:
     payload = _record().to_dict()
 
-    assert payload["schema"] == "pico.effect.v1"
+    assert payload["schema"] == "looprail.effect.v1"
     assert payload["effect_class"] == "read"
     assert payload["status"] == "prepared"
     assert json.dumps(payload, ensure_ascii=False)

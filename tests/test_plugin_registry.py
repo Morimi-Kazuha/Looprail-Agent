@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.plugin import (
+from looprail.plugin import (
     Contributes,
     DiscoveredPlugin,
     MemoryBackendContribution,

@@ -14,7 +14,7 @@ const execFileAsync = promisify(execFile)
 const CLIPBOARD_MAX_BUFFER = 4 * 1024 * 1024
 const CLIPBOARD_IMAGE_MAX_BUFFER = 32 * 1024 * 1024
 const CLIPBOARD_READ_TIMEOUT_MS = 5000
-const CLIPBOARD_IMAGE_DIR_RE = /^pico-clipboard-(\d+)-/
+const CLIPBOARD_IMAGE_DIR_RE = /^looprail-clipboard-(\d+)-/
 const POWERSHELL_ARGS = ['-NoProfile', '-NonInteractive', '-Command', 'Get-Clipboard -Raw'] as const
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const MACOS_IMAGE_SCRIPT = [
@@ -230,7 +230,7 @@ export async function readClipboardImage(
         continue
       }
 
-      const dir = await mkdtemp(join(tmpdir(), `pico-clipboard-${process.pid}-`))
+      const dir = await mkdtemp(join(tmpdir(), `looprail-clipboard-${process.pid}-`))
       const path = join(dir, 'clipboard.png')
 
       try {

@@ -12,7 +12,7 @@ import json
 import pytest
 
 from benchmarks.appworld.evolve.adapter import read_kept_out_dir
-from pico.evolver.orchestrator.scoring import (
+from looprail.evolver.orchestrator.scoring import (
     EvaluationVerdict,
     MeasurementFailure,
     MeasurementStatus,
@@ -23,11 +23,11 @@ from pico.evolver.orchestrator.scoring import (
     measurement_validity,
     with_infra_rerun,
 )
-from pico.evolver.orchestrator.sealed.runner import (
+from looprail.evolver.orchestrator.sealed.runner import (
     SealedTestRunner,
     unseal_retention,
 )
-from pico.evolver.tree.node import HarnessNode
+from looprail.evolver.tree.node import HarnessNode
 
 
 def _te(tid, passes, attempts, infra=0, failure=None):

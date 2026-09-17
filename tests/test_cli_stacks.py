@@ -20,11 +20,11 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.hook import AgentHook, CompositeHook
-from pico.cli._eval_stack import build_eval_stack
-from pico.cli._hooks_stack import build_hooks_stack
-from pico.cli._token_wise_stack import install_from_config
-from pico.eval_engine import EvalEngine, EvalEngineConfig
+from looprail.agent.hook import AgentHook, CompositeHook
+from looprail.cli._eval_stack import build_eval_stack
+from looprail.cli._hooks_stack import build_hooks_stack
+from looprail.cli._token_wise_stack import install_from_config
+from looprail.eval_engine import EvalEngine, EvalEngineConfig
 
 # ---------------------------------------------------------------------------
 
@@ -60,7 +60,7 @@ class TestBuildEvalStack:
         assert len(hooks) == 3
 
     async def test_default_hooks_are_noops_when_mounted_into_chain(self):
-        from pico.agent.hook.base import AgentHookContext
+        from looprail.agent.hook.base import AgentHookContext
 
         engine = build_eval_stack()
         composite = CompositeHook(engine.hooks())
@@ -127,16 +127,16 @@ class TestInstallFromConfig:
     after relocation to the CLI tier."""
 
     def test_returns_strategy_registry(self):
-        from pico.config.pico import TokenWiseConfig
-        from pico.token_wise import StrategyRegistry
+        from looprail.config.looprail import TokenWiseConfig
+        from looprail.token_wise import StrategyRegistry
 
         cfg = TokenWiseConfig()
         registry = install_from_config(cfg)
         assert isinstance(registry, StrategyRegistry)
 
     def test_disabled_config_yields_empty_registry(self):
-        from pico.config.pico import TokenWiseConfig
-        from pico.token_wise import StrategyRegistry
+        from looprail.config.looprail import TokenWiseConfig
+        from looprail.token_wise import StrategyRegistry
 
         cfg = TokenWiseConfig(enabled=False)
         registry = install_from_config(cfg)
@@ -145,7 +145,7 @@ class TestInstallFromConfig:
         assert len(registry) == 0
 
     def test_none_config_yields_empty_registry(self):
-        from pico.token_wise import StrategyRegistry
+        from looprail.token_wise import StrategyRegistry
 
         registry = install_from_config(None)
         assert isinstance(registry, StrategyRegistry)
@@ -153,14 +153,14 @@ class TestInstallFromConfig:
 
     def test_module_path(self):
         """Pin the new canonical import path so future refactors
-        catch any test still trying ``pico.token_wise.install``."""
-        from pico.cli import _token_wise_stack
+        catch any test still trying ``looprail.token_wise.install``."""
+        from looprail.cli import _token_wise_stack
 
         assert hasattr(_token_wise_stack, "install_from_config")
 
     def test_old_module_path_is_gone(self):
         with pytest.raises(ModuleNotFoundError):
-            import pico.token_wise.install  # noqa: F401
+            import looprail.token_wise.install  # noqa: F401
 
 
 # ===========================================================================

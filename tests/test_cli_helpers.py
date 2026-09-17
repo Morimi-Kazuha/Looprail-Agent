@@ -1,4 +1,4 @@
-"""Unit tests for ``pico.cli._helpers``.
+"""Unit tests for ``looprail.cli._helpers``.
 
 Currently focused on ``send_probe`` — the shared LLM probe used by
 ``onboard`` Step 3 and ``doctor --probe``. Provider and config are
@@ -14,15 +14,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from pico.cli import _helpers
-from pico.cli._helpers import send_probe
+from looprail.cli import _helpers
+from looprail.cli._helpers import send_probe
 
 
 @pytest.fixture
 def stub_load_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """``load_config`` is lazy-imported inside ``send_probe`` — patch at source."""
     monkeypatch.setattr(
-        "pico.config.loader.load_config",
+        "looprail.config.loader.load_config",
         lambda: object(),
     )
 
@@ -84,8 +84,8 @@ def test_send_probe_timeout_raises(monkeypatch: pytest.MonkeyPatch, stub_load_co
 
 
 def test_make_provider_custom_routes_through_litellm(tmp_path: Path) -> None:
-    from pico.config.loader import load_config
-    from pico.providers.litellm_provider import LiteLLMProvider
+    from looprail.config.loader import load_config
+    from looprail.providers.litellm_provider import LiteLLMProvider
 
     p = tmp_path / "config.json"
     p.write_text(
@@ -102,8 +102,8 @@ def test_make_provider_custom_routes_through_litellm(tmp_path: Path) -> None:
 
 
 def test_make_provider_preserves_builtin_deepseek_route(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pico.config.schema import Config
-    from pico.providers.litellm_provider import LiteLLMProvider
+    from looprail.config.schema import Config
+    from looprail.providers.litellm_provider import LiteLLMProvider
 
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     config = Config()
@@ -121,8 +121,8 @@ def test_make_provider_preserves_builtin_deepseek_route(monkeypatch: pytest.Monk
 
 
 def test_make_provider_routes_custom_openai_compatible_endpoint() -> None:
-    from pico.config.schema import Config
-    from pico.providers.litellm_provider import LiteLLMProvider
+    from looprail.config.schema import Config
+    from looprail.providers.litellm_provider import LiteLLMProvider
 
     config = Config()
     config.agents.defaults.provider = "custom"
@@ -165,14 +165,14 @@ def _write_config(tmp_path: Path, *, api_key: str | None) -> Path:
 def test_check_provider_credentials_exits_when_no_key(tmp_path: Path) -> None:
     import typer
 
-    from pico.config.loader import load_config
+    from looprail.config.loader import load_config
 
     with pytest.raises(typer.Exit):
         _helpers.check_provider_credentials(load_config(_write_config(tmp_path, api_key=None)))
 
 
 def test_check_provider_credentials_passes_with_key(tmp_path: Path) -> None:
-    from pico.config.loader import load_config
+    from looprail.config.loader import load_config
 
     _helpers.check_provider_credentials(load_config(_write_config(tmp_path, api_key="sk-x")))
 
@@ -180,8 +180,8 @@ def test_check_provider_credentials_passes_with_key(tmp_path: Path) -> None:
 def test_make_lazy_provider_returns_lazy_without_building(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """``make_lazy_provider`` returns a LazyProvider that answers ``get_default_model``
     from config without building the real (litellm-importing) provider."""
-    from pico.config.loader import load_config
-    from pico.providers.lazy import LazyProvider
+    from looprail.config.loader import load_config
+    from looprail.providers.lazy import LazyProvider
 
     monkeypatch.setattr(_helpers, "make_provider", lambda _c: SimpleNamespace(name="real"))
 

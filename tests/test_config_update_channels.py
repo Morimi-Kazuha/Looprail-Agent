@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from pico.config.update_channels import (
+from looprail.config.update_channels import (
     channel_field_specs,
     disable_channel,
     enable_channel,
@@ -28,7 +28,7 @@ def _read(path: Path) -> dict:
 
 
 def _all_channel_names() -> list[str]:
-    from pico.config.schema import ChannelsConfig
+    from looprail.config.schema import ChannelsConfig
 
     return [
         name
@@ -217,7 +217,7 @@ def test_retained_channel_crud_round_trip(name: str, cfg_path: Path) -> None:
 
 
 def test_malformed_config_refuses_write_and_preserves_file(cfg_path: Path) -> None:
-    from pico.config.loader import ConfigReadError
+    from looprail.config.loader import ConfigReadError
 
     original = '{\n  "channels": {"qq": {"enabled": true}},\n  // invalid JSON\n}\n'
     cfg_path.write_text(original, encoding="utf-8")

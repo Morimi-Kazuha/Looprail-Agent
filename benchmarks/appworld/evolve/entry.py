@@ -34,8 +34,8 @@ import sys
 from pathlib import Path
 
 from benchmarks.appworld.evolve import adapter as aw_adapter
-from pico.evolver.launch.contract import BenchBundle, LaunchContext, validate_whitelist
-from pico.evolver.orchestrator.scoring import eval_with_infra_rerun
+from looprail.evolver.launch.contract import BenchBundle, LaunchContext, validate_whitelist
+from looprail.evolver.orchestrator.scoring import eval_with_infra_rerun
 
 _KNOWN_KEYS = {
     "config_path",
@@ -139,13 +139,13 @@ def build(ctx: LaunchContext) -> BenchBundle:
         import contextlib
         import io
 
-        from pico.config.loader import load_config as _load_subject_config
+        from looprail.config.loader import load_config as _load_subject_config
 
         with contextlib.redirect_stdout(io.StringIO()):
             _load_subject_config(config_path)
     except ValueError as exc:
         raise ValueError(
-            f"bench_config.config_path {config_path} is not a valid Pico "
+            f"bench_config.config_path {config_path} is not a valid Looprail "
             f"runtime config: {exc}\nStart from docs/examples/subject_runtime.json"
         ) from exc
 
@@ -312,7 +312,7 @@ def build(ctx: LaunchContext) -> BenchBundle:
             baseline_mode=bc.get("baseline_mode", "frozen"),
         )
 
-    from pico.evolver.tree.node import HarnessNode
+    from looprail.evolver.tree.node import HarnessNode
 
     root_node = HarnessNode(
         node_id="C0",
@@ -330,7 +330,7 @@ def build(ctx: LaunchContext) -> BenchBundle:
             import dataclasses
 
             from benchmarks.appworld.evolve.run import build_appworld_sealed_runner
-            from pico.evolver.orchestrator.sealed.runner import unseal_retention
+            from looprail.evolver.orchestrator.sealed.runner import unseal_retention
 
             runner = build_appworld_sealed_runner(
                 aw_cfg=cfg,

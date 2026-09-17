@@ -1,4 +1,4 @@
-// `pico --print-colors`（平面色块）与 `--preview-colors`（在真实界面上下文中
+// `looprail --print-colors`（平面色块）与 `--preview-colors`（在真实界面上下文中
 // 展示 token）所用的诊断颜色渲染器。
 //
 // 两者使用与界面完全相同的着色路径，因此输出准确反映当前颜色级别或通过
@@ -26,7 +26,7 @@ export function renderColorSwatches(theme: Theme, tier: 0 | 1 | 2 | 3): string {
   const labelWidth = Math.max(...roles.map(r => r.length))
 
   const lines: string[] = []
-  lines.push(`Pico TUI palette — tier ${tier} (${TIER_NAMES[tier] ?? 'unknown'})`)
+  lines.push(`Looprail TUI palette — tier ${tier} (${TIER_NAMES[tier] ?? 'unknown'})`)
   lines.push('')
 
   for (const role of roles) {
@@ -37,7 +37,7 @@ export function renderColorSwatches(theme: Theme, tier: 0 | 1 | 2 | 3): string {
   }
 
   lines.push('')
-  lines.push('Force a tier to compare:  pico --color <truecolor|256|16|none> --print-colors')
+  lines.push('Force a tier to compare:  looprail --color <truecolor|256|16|none> --print-colors')
 
   return lines.join('\n') + '\n'
 }
@@ -54,7 +54,7 @@ export function renderColorPreview(theme: Theme, tier: 0 | 1 | 2 | 3): string {
     out.push(fg(`── ${title} `.padEnd(60, '─'), c.muted))
   }
 
-  out.push(`Pico TUI color usage preview — tier ${tier} (${TIER_NAMES[tier] ?? 'unknown'})`)
+  out.push(`Looprail TUI color usage preview — tier ${tier} (${TIER_NAMES[tier] ?? 'unknown'})`)
 
   section('Transcript surfaces')
   out.push('  ' + fgbg(' base transcript ', c.text, c.surface))
@@ -121,7 +121,7 @@ export function renderColorPreview(theme: Theme, tier: 0 | 1 | 2 | 3): string {
   out.push('  ' + fgbg('- removed line of code', c.diffRemovedWord, c.diffRemoved))
 
   out.push('')
-  out.push(fg('Force a tier:  pico --color <truecolor|256|16|none> --preview-colors', c.muted))
+  out.push(fg('Force a tier:  looprail --color <truecolor|256|16|none> --preview-colors', c.muted))
 
   return out.join('\n') + '\n'
 }

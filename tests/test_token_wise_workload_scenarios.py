@@ -24,7 +24,7 @@ Variants in both scenarios:
     V3  TokenWise            — 4 breakpoints incl. history
 
 The test writes a combined report at
-``pico/token_wise/EXPERIMENT_REPORT_WORKLOADS.md``.
+``looprail/token_wise/EXPERIMENT_REPORT_WORKLOADS.md``.
 
 Skipped automatically when ``OPENROUTER_API_KEY`` is missing.
 """
@@ -41,14 +41,14 @@ from typing import Any
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.agent.tools.base import Tool
-from pico.providers.litellm_provider import LiteLLMProvider
-from pico.token_wise.cache_optimizer import CacheOptimizer
-from pico.token_wise.registry import StrategyRegistry
-from pico.token_wise.usage_tracker import UsageTracker
+from looprail.agent.loop import AgentLoop
+from looprail.agent.tools.base import Tool
+from looprail.providers.litellm_provider import LiteLLMProvider
+from looprail.token_wise.cache_optimizer import CacheOptimizer
+from looprail.token_wise.registry import StrategyRegistry
+from looprail.token_wise.usage_tracker import UsageTracker
 
-REPORT_PATH = Path(__file__).resolve().parent.parent / "pico" / "token_wise" / "EXPERIMENT_REPORT_WORKLOADS.md"
+REPORT_PATH = Path(__file__).resolve().parent.parent / "looprail" / "token_wise" / "EXPERIMENT_REPORT_WORKLOADS.md"
 MODEL = "anthropic/claude-sonnet-4-5"
 COST_GUARD_USD = 1.50
 _OPENROUTER_PIN = {"provider": {"order": ["Anthropic"], "allow_fallbacks": False}}
@@ -77,7 +77,7 @@ def _medium_soul() -> str:
     """A ~2 KB SOUL.md — small enough that history can dominate the prompt."""
     return (
         "# Soul\n\n"
-        "I am Pico, a careful assistant. I reply concisely and never invent facts.\n\n"
+        "I am Looprail, a careful assistant. I reply concisely and never invent facts.\n\n"
         "## Working principles\n\n"
         "- Be precise about what you know vs what you assume.\n"
         "- Prefer direct answers over hedged ones.\n"
@@ -99,7 +99,7 @@ def _small_soul() -> str:
     """A ~1 KB SOUL.md — for the tools scenario where history grows fast."""
     return (
         "# Soul\n\n"
-        "I am Pico, a tool-using assistant.\n\n"
+        "I am Looprail, a tool-using assistant.\n\n"
         "## Tool usage\n\n"
         "When the user gives an item id, immediately call the ``data_lookup`` "
         "tool with that id. After receiving the result, reply with one short "
@@ -230,7 +230,7 @@ class ScenarioResult:
 async def _run_user_turn(loop, content: str, *, session_key: str, chat_id: str) -> None:
     """Run one USER turn through run_turn for its side-effects: the experiment
     measures usage via the tracker, not the reply, so the output is swallowed."""
-    from pico.spine import ChatType, Origin, Source, TurnRequest
+    from looprail.spine import ChatType, Origin, Source, TurnRequest
 
     async def _swallow(_ev) -> None:
         return None

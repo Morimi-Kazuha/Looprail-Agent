@@ -6,6 +6,7 @@ import { delimiter, join } from 'node:path'
  * `Buffer.open_in_editor()` 选择逻辑一致，使传统 CLI 和 TUI 在同一机器上启动
  * 相同编辑器。
  */
+// `pico` is a POSIX editor executable here, not the retired project CLI.
 const FALLBACKS = ['editor', 'nano', 'pico', 'vi', 'emacs']
 
 const isExecutable = (path: string): boolean => {

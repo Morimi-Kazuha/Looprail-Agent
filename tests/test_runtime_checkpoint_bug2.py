@@ -17,10 +17,10 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.agent.loop.checkpoint import CheckpointService
-from pico.config.pico import CheckpointConfig, RuntimeConfig
-from pico.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from looprail.agent.loop import AgentLoop
+from looprail.agent.loop.checkpoint import CheckpointService
+from looprail.config.looprail import CheckpointConfig, RuntimeConfig
+from looprail.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 
 @pytest.fixture
@@ -384,7 +384,7 @@ async def test_recovery_consumed_once(workspace):
 async def test_checkpoint_degrades_when_git_missing(workspace, monkeypatch):
     """If git is unavailable, commit_turn returns (None, []) and never raises —
     the safety net must not break the turn it protects."""
-    import pico.agent.loop.checkpoint as ckpt_mod
+    import looprail.agent.loop.checkpoint as ckpt_mod
 
     async def _boom(*a, **k):
         raise FileNotFoundError("git not found")
@@ -399,7 +399,7 @@ async def test_checkpoint_degrades_when_git_missing(workspace, monkeypatch):
 
 async def test_loop_survives_checkpoint_failure(workspace, monkeypatch):
     """Same failure, but through the loop: the turn still returns a result."""
-    import pico.agent.loop.checkpoint as ckpt_mod
+    import looprail.agent.loop.checkpoint as ckpt_mod
 
     async def _boom(*a, **k):
         raise OSError("disk gone")

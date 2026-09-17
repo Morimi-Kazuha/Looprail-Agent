@@ -17,20 +17,20 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.context import ContextBuilder
-from pico.config.pico import ContextConfig
-from pico.context_engine import ContextAssembler, TurnContext
-from pico.context_engine.base import AssemblyContext, Segment
-from pico.context_engine.segments import (
+from looprail.agent.context import ContextBuilder
+from looprail.config.looprail import ContextConfig
+from looprail.context_engine import ContextAssembler, TurnContext
+from looprail.context_engine.base import AssemblyContext, Segment
+from looprail.context_engine.segments import (
     ActiveSkillsSegmentBuilder,
     BootstrapSegmentBuilder,
     IdentitySegmentBuilder,
     MemorySegmentBuilder,
     SkillsSegmentBuilder,
 )
-from pico.context_engine.segments.curator import CuratorSegmentBuilder
-from pico.memory_engine import Memory, TokenBudget
-from pico.memory_engine.skill_forge import RouterHit, SkillForgeRouter
+from looprail.context_engine.segments.curator import CuratorSegmentBuilder
+from looprail.memory_engine import Memory, TokenBudget
+from looprail.memory_engine.skill_forge import RouterHit, SkillForgeRouter
 
 
 @pytest.fixture

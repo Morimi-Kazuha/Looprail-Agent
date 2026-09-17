@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from loguru import logger
 
-from pico.spine import (
+from looprail.spine import (
     BusyPolicy,
     ChatType,
     Origin,
@@ -16,7 +16,7 @@ from pico.spine import (
     TurnRequest,
     Usage,
 )
-from pico.spine.scheduler import _DEFAULT_IDLE_TTL, SchedulerDrainingError
+from looprail.spine.scheduler import _DEFAULT_IDLE_TTL, SchedulerDrainingError
 
 
 def _req(
@@ -640,8 +640,8 @@ async def test_reap_loop_self_terminates_when_no_lanes():
 
 async def test_running_reaper_actually_sweeps_and_reaps_an_idle_lane(monkeypatch):
 
-    monkeypatch.setattr("pico.spine.scheduler._SWEEP_INTERVAL", 0.01)
-    monkeypatch.setattr("pico.spine.scheduler._DEFAULT_IDLE_TTL", 0.0)
+    monkeypatch.setattr("looprail.spine.scheduler._SWEEP_INTERVAL", 0.01)
+    monkeypatch.setattr("looprail.spine.scheduler._DEFAULT_IDLE_TTL", 0.0)
     sched = _scheduler(SuccessRunner())
     await sched.submit(_req(channel="tg", chat_id="1")).result()
     for _ in range(100):
@@ -659,7 +659,7 @@ async def test_shutdown_on_an_idle_scheduler_is_a_clean_noop():
 
 
 async def test_submit_backlog_warns_when_pending_reaches_the_threshold(monkeypatch):
-    monkeypatch.setattr("pico.spine.scheduler._DEPTH_WARN_THRESHOLD", 3)
+    monkeypatch.setattr("looprail.spine.scheduler._DEPTH_WARN_THRESHOLD", 3)
     runner = HangingRunner()
     sched = _scheduler(runner)
     lines, sink_id = _capture_logs()
@@ -679,7 +679,7 @@ async def test_submit_backlog_warns_when_pending_reaches_the_threshold(monkeypat
 
 async def test_inject_fallback_re_enqueue_also_triggers_the_depth_warning(monkeypatch):
 
-    monkeypatch.setattr("pico.spine.scheduler._DEPTH_WARN_THRESHOLD", 3)
+    monkeypatch.setattr("looprail.spine.scheduler._DEPTH_WARN_THRESHOLD", 3)
     gate = asyncio.Event()
     runner = NonDrainingRunner(gate)
     sched = _scheduler(runner)

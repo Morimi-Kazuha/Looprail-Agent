@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from pico.plugin import (
+from looprail.plugin import (
     Contributes,
     DiscoveredPlugin,
     PluginConflictError,
@@ -100,7 +100,7 @@ class TestManifestTools:
 
     def test_backend_and_tool_may_share_name(self) -> None:
 
-        from pico.plugin import MemoryBackendContribution
+        from looprail.plugin import MemoryBackendContribution
 
         mf = PluginManifest(
             id="p",
@@ -177,12 +177,12 @@ class TestRegistryTools:
 
 class TestBuildPluginTools:
     def _config(self, plugin_config: dict | None = None):
-        from pico.config.pico import PicoConfig, PluginsConfig
+        from looprail.config.looprail import LooprailConfig, PluginsConfig
 
-        return PicoConfig(plugins=PluginsConfig(config=dict(plugin_config or {})))
+        return LooprailConfig(plugins=PluginsConfig(config=dict(plugin_config or {})))
 
     def test_builds_tools_from_registry(self, tmp_path: Path) -> None:
-        from pico.cli._plugin_stack import build_plugin_tools
+        from looprail.cli._plugin_stack import build_plugin_tools
 
         seen = {}
 
@@ -200,12 +200,12 @@ class TestBuildPluginTools:
         assert seen["config"] == {"flag": "on"}
 
     def test_empty_when_no_tools(self, tmp_path: Path) -> None:
-        from pico.cli._plugin_stack import build_plugin_tools
+        from looprail.cli._plugin_stack import build_plugin_tools
 
         assert build_plugin_tools(tmp_path, self._config(), registry=PluginRegistry()) == []
 
     def test_failing_factory_is_skipped(self, tmp_path: Path) -> None:
-        from pico.cli._plugin_stack import build_plugin_tools
+        from looprail.cli._plugin_stack import build_plugin_tools
 
         def boom(ctx):
             raise RuntimeError("nope")
@@ -217,7 +217,7 @@ class TestBuildPluginTools:
         assert build_plugin_tools(tmp_path, self._config(), registry=reg) == []
 
     def test_none_factory_is_skipped(self, tmp_path: Path) -> None:
-        from pico.cli._plugin_stack import build_plugin_tools
+        from looprail.cli._plugin_stack import build_plugin_tools
 
         def opt_out(ctx):
             return None
@@ -235,7 +235,7 @@ class TestBuildPluginTools:
 
 class TestRenderAttachments:
     def test_non_image_surfaced_as_note(self, tmp_path: Path) -> None:
-        from pico.context_engine.segments import render
+        from looprail.context_engine.segments import render
 
         pdf = tmp_path / "report.pdf"
         pdf.write_bytes(b"%PDF-1.4 data")
@@ -248,7 +248,7 @@ class TestRenderAttachments:
     def test_image_inlined_as_block(self, tmp_path: Path) -> None:
         import base64 as _b64
 
-        from pico.context_engine.segments import render
+        from looprail.context_engine.segments import render
 
         png = tmp_path / "a.png"
         png.write_bytes(
@@ -264,7 +264,7 @@ class TestRenderAttachments:
     def test_mixed_image_and_doc(self, tmp_path: Path) -> None:
         import base64 as _b64
 
-        from pico.context_engine.segments import render
+        from looprail.context_engine.segments import render
 
         png = tmp_path / "a.png"
         png.write_bytes(
@@ -281,6 +281,6 @@ class TestRenderAttachments:
         assert "d.pdf" in text_block
 
     def test_no_media_returns_text(self) -> None:
-        from pico.context_engine.segments import render
+        from looprail.context_engine.segments import render
 
         assert render.build_user_content("hi", None) == "hi"

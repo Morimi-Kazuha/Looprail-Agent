@@ -30,8 +30,8 @@ from pathlib import Path
 from typing import Optional
 
 from benchmarks.appworld.evolve.adapter import AppWorldConfig
-from pico.config.loader import load_config
-from pico.evolver.orchestrator.scoring import PrecheckFn
+from looprail.config.loader import load_config
+from looprail.evolver.orchestrator.scoring import PrecheckFn
 
 
 def _port_bound(port: int, timeout: float = 0.3) -> bool:
@@ -56,7 +56,7 @@ def _subject_endpoint(
     try:
         runtime = load_config(config_path)
     except ValueError:
-        return None, None, {}, f"subject config fails the Pico runtime schema: {config_path}"
+        return None, None, {}, f"subject config fails the Looprail runtime schema: {config_path}"
     model = runtime.agents.defaults.model
     provider = runtime.get_provider(model)
     api_base = runtime.get_api_base(model)

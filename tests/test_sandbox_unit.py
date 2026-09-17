@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pico.sandbox import (
+from looprail.sandbox import (
     DirectExecutor,
     ExecResult,
     SandboxConfig,
@@ -19,7 +19,7 @@ from pico.sandbox import (
     SandboxInitError,
     build_executor,
 )
-from pico.sandbox.boxlite_executor import BoxliteExecutor
+from looprail.sandbox.boxlite_executor import BoxliteExecutor
 
 # ---------------------------------------------------------------------------
 
@@ -140,7 +140,7 @@ class TestSandboxConfigValidators:
         pass either ``max_message_bytes`` or ``maxMessageBytes`` (and same for
         the rest of the snake_case fields). This locks down the loader contract
         so a future field rename can't silently drop snake_case support."""
-        from pico.sandbox.config import SandboxDebugConfig
+        from looprail.sandbox.config import SandboxDebugConfig
 
         snake = SandboxDebugConfig.model_validate(
             {
@@ -231,9 +231,9 @@ class TestDirectExecutor:
 
     async def test_host_env_not_inherited(self, monkeypatch):
         """A sensitive host env var must not leak to executed commands."""
-        monkeypatch.setenv("PICO_TEST_SECRET", "leak-me")
+        monkeypatch.setenv("LOOPRAIL_TEST_SECRET", "leak-me")
         e = DirectExecutor()
-        result = await e.exec("echo secret=[$PICO_TEST_SECRET]")
+        result = await e.exec("echo secret=[$LOOPRAIL_TEST_SECRET]")
         assert "leak-me" not in result.stdout
         assert "secret=[]" in result.stdout
 
@@ -264,7 +264,7 @@ class TestDirectExecutor:
 class TestExecToolWithMockExecutor:
     async def test_sandboxed_skips_deny_list(self, tmp_path):
         """Deny-list guard is skipped for sandboxed executors."""
-        from pico.agent.tools.shell import ExecTool
+        from looprail.agent.tools.shell import ExecTool
 
         executor = MockExecutor()
         tool = ExecTool(executor=executor, working_dir=str(tmp_path))
@@ -275,7 +275,7 @@ class TestExecToolWithMockExecutor:
 
     async def test_sandboxed_workspace_restriction_enforced(self, tmp_path):
         """Sandbox: workspace restriction still applied when restrict_to_workspace=True."""
-        from pico.agent.tools.shell import ExecTool
+        from looprail.agent.tools.shell import ExecTool
 
         executor = MockExecutor()
         tool = ExecTool(
@@ -289,7 +289,7 @@ class TestExecToolWithMockExecutor:
 
     @pytest.mark.parametrize("executor_type", [MockExecutor, DirectMockExecutor])
     async def test_workspace_restriction_rejects_external_working_dir(self, tmp_path, executor_type):
-        from pico.agent.tools.shell import ExecTool
+        from looprail.agent.tools.shell import ExecTool
 
         workspace = tmp_path / "workspace"
         outside = tmp_path / "outside"
@@ -309,7 +309,7 @@ class TestExecToolWithMockExecutor:
 
     async def test_non_sandboxed_deny_list_runs(self, tmp_path):
         """Non-sandboxed executor: deny-list guard is applied."""
-        from pico.agent.tools.shell import ExecTool
+        from looprail.agent.tools.shell import ExecTool
 
         executor = DirectMockExecutor()
         tool = ExecTool(executor=executor, working_dir=str(tmp_path))
@@ -319,7 +319,7 @@ class TestExecToolWithMockExecutor:
 
     async def test_path_append_sandboxed_injects_export(self, tmp_path):
         """path_append with sandboxed executor: wraps command with export PATH."""
-        from pico.agent.tools.shell import ExecTool
+        from looprail.agent.tools.shell import ExecTool
 
         executor = MockExecutor()
         tool = ExecTool(executor=executor, working_dir=str(tmp_path), path_append="/custom/bin")
@@ -331,7 +331,7 @@ class TestExecToolWithMockExecutor:
 
     async def test_path_append_non_sandboxed_uses_env(self, tmp_path):
         """path_append with non-sandboxed executor: env dict has extended PATH."""
-        from pico.agent.tools.shell import ExecTool
+        from looprail.agent.tools.shell import ExecTool
 
         executor = DirectMockExecutor()
         tool = ExecTool(executor=executor, working_dir=str(tmp_path), path_append="/custom/bin")
@@ -346,7 +346,7 @@ class TestExecToolWithMockExecutor:
 
     async def test_timeout_zero_passed_through(self, tmp_path):
         """timeout=0 is not replaced by the default timeout."""
-        from pico.agent.tools.shell import ExecTool
+        from looprail.agent.tools.shell import ExecTool
 
         executor = MockExecutor()
         tool = ExecTool(executor=executor, working_dir=str(tmp_path), timeout=60)
@@ -355,7 +355,7 @@ class TestExecToolWithMockExecutor:
 
     async def test_default_executor_is_direct(self):
         """ExecTool() with no executor arg uses DirectExecutor."""
-        from pico.agent.tools.shell import ExecTool
+        from looprail.agent.tools.shell import ExecTool
 
         tool = ExecTool()
         assert isinstance(tool._executor, DirectExecutor)
@@ -571,7 +571,7 @@ class TestBoxliteCleanupOrdering:
         executor._box = mock_box
         owned.add(mock_box.id)
 
-        from pico.sandbox import _runtime as rt_mod
+        from looprail.sandbox import _runtime as rt_mod
 
         fake_runtime = MagicMock()
         fake_runtime.remove = AsyncMock()
@@ -615,7 +615,7 @@ class TestBoxliteStartFailureCleanup:
         fake_runtime.create = AsyncMock(return_value=mock_box)
         fake_runtime.remove = AsyncMock()
 
-        from pico.sandbox import _runtime as rt_mod
+        from looprail.sandbox import _runtime as rt_mod
 
         monkeypatch.setattr(rt_mod, "get_boxlite_runtime", lambda: fake_runtime)
 
@@ -646,7 +646,7 @@ class TestBoxliteStartFailureCleanup:
         fake_runtime = MagicMock()
         fake_runtime.create = AsyncMock(side_effect=RuntimeError("create failed"))
 
-        from pico.sandbox import _runtime as rt_mod
+        from looprail.sandbox import _runtime as rt_mod
 
         monkeypatch.setattr(rt_mod, "get_boxlite_runtime", lambda: fake_runtime)
 
@@ -700,7 +700,7 @@ class TestBoxliteStartFailureCleanup:
         fake_runtime.create = AsyncMock(return_value=mock_box)
         fake_runtime.remove = AsyncMock()
 
-        from pico.sandbox import _runtime as rt_mod
+        from looprail.sandbox import _runtime as rt_mod
 
         monkeypatch.setattr(rt_mod, "get_boxlite_runtime", lambda: fake_runtime)
 
@@ -861,7 +861,7 @@ class FailingExecutor(SandboxExecutor):
 class TestAgentLoopExecutorLifecycle:
     async def test_start_executor_idempotent(self, tmp_path, mock_provider):
         """Calling _start_executor() twice only initialises once."""
-        from pico.agent.loop import AgentLoop
+        from looprail.agent.loop import AgentLoop
 
         loop = AgentLoop(provider=mock_provider, workspace=tmp_path)
 
@@ -873,7 +873,7 @@ class TestAgentLoopExecutorLifecycle:
 
     async def test_start_executor_failing_executor_leaves_stack_none(self, tmp_path, mock_provider):
         """SandboxInitError from start() propagates; _executor_stack stays None."""
-        from pico.agent.loop import AgentLoop
+        from looprail.agent.loop import AgentLoop
 
         loop = AgentLoop(provider=mock_provider, workspace=tmp_path)
         loop._executor = FailingExecutor()
@@ -884,7 +884,7 @@ class TestAgentLoopExecutorLifecycle:
 
     async def test_close_mcp_resets_flags(self, tmp_path, mock_provider):
         """close_mcp() resets _mcp_connected and _mcp_connecting."""
-        from pico.agent.loop import AgentLoop
+        from looprail.agent.loop import AgentLoop
 
         loop = AgentLoop(provider=mock_provider, workspace=tmp_path)
         loop._mcp_connected = True
@@ -895,7 +895,7 @@ class TestAgentLoopExecutorLifecycle:
 
     @staticmethod
     def _cli_req():
-        from pico.spine import ChatType, Origin, Source, TurnRequest
+        from looprail.spine import ChatType, Origin, Source, TurnRequest
 
         return TurnRequest(
             origin=Origin.USER,
@@ -906,7 +906,7 @@ class TestAgentLoopExecutorLifecycle:
 
     async def test_run_turn_closes_executor_on_unexpected_error(self, tmp_path, mock_provider):
         """run_turn() closes the executor when _connect_mcp raises a non-SandboxInitError."""
-        from pico.agent.loop import AgentLoop
+        from looprail.agent.loop import AgentLoop
 
         stopped = []
 
@@ -937,7 +937,7 @@ class TestAgentLoopExecutorLifecycle:
         the old string-returning path (which returned a "[Sandbox error]" string), the spine path
         re-raises — the scheduler turns it into a TurnFailed event, the intended
         spine error surface."""
-        from pico.agent.loop import AgentLoop
+        from looprail.agent.loop import AgentLoop
 
         stopped = []
 
@@ -980,8 +980,8 @@ class TestConnectMcpSandboxGuard:
         """Sandboxed executor without process-spawning raises SandboxInitError for stdio."""
         from contextlib import AsyncExitStack
 
-        from pico.agent.tools.mcp import connect_mcp_servers
-        from pico.agent.tools.registry import ToolRegistry
+        from looprail.agent.tools.mcp import connect_mcp_servers
+        from looprail.agent.tools.registry import ToolRegistry
 
         executor = MockExecutor()
         cfg = MagicMock()
@@ -995,8 +995,8 @@ class TestConnectMcpSandboxGuard:
         """executor=None falls through to the normal stdio path (no guard triggered)."""
         from contextlib import AsyncExitStack
 
-        from pico.agent.tools.mcp import connect_mcp_servers
-        from pico.agent.tools.registry import ToolRegistry
+        from looprail.agent.tools.mcp import connect_mcp_servers
+        from looprail.agent.tools.registry import ToolRegistry
 
         cfg = MagicMock()
         cfg.type = "stdio"
@@ -1016,8 +1016,8 @@ class TestConnectMcpSandboxGuard:
         """Sandboxed executor that supports spawning does not trigger the guard."""
         from contextlib import AsyncExitStack
 
-        from pico.agent.tools.mcp import connect_mcp_servers
-        from pico.agent.tools.registry import ToolRegistry
+        from looprail.agent.tools.mcp import connect_mcp_servers
+        from looprail.agent.tools.registry import ToolRegistry
 
         class SpawningExecutor(MockExecutor):
             @property
@@ -1046,8 +1046,8 @@ class TestConnectMcpSandboxGuard:
         """
         from contextlib import AsyncExitStack
 
-        from pico.agent.tools.mcp import connect_mcp_servers
-        from pico.agent.tools.registry import ToolRegistry
+        from looprail.agent.tools.mcp import connect_mcp_servers
+        from looprail.agent.tools.registry import ToolRegistry
 
         executor = MockExecutor()
 
@@ -1088,8 +1088,8 @@ class TestConnectMcpSandboxGuard:
 class TestSubagentSandboxLifecycle:
     async def test_run_subagent_starts_and_stops_executor(self, mock_provider, tmp_path):
         """_run_subagent starts the executor via async with and stops it on completion."""
-        from pico.agent.subagent import SubagentManager
-        from pico.agent.subagent.manager import SubagentOutcome, SubagentStatus
+        from looprail.agent.subagent import SubagentManager
+        from looprail.agent.subagent.manager import SubagentOutcome, SubagentStatus
 
         started = []
         stopped = []
@@ -1112,7 +1112,7 @@ class TestSubagentSandboxLifecycle:
         )
         manager.set_submit(lambda req: None)
 
-        import pico.agent.subagent.manager as subagent_mod
+        import looprail.agent.subagent.manager as subagent_mod
 
         original = subagent_mod.build_executor
 
@@ -1140,9 +1140,9 @@ class TestSubagentSandboxLifecycle:
         """With submit wired, result re-injection submits a SUBAGENT-origin turn
         (source=originating channel, conversation=originating session) and is
         fire-and-forget — never awaiting result()."""
-        from pico.agent.subagent import SubagentManager
-        from pico.agent.subagent.manager import SubagentStatus
-        from pico.spine import Origin
+        from looprail.agent.subagent import SubagentManager
+        from looprail.agent.subagent.manager import SubagentStatus
+        from looprail.spine import Origin
 
         captured = {}
 
@@ -1179,8 +1179,8 @@ def test_build_executor_warns_when_backend_none(monkeypatch, tmp_path):
     """Running unsandboxed must surface a loud warning (it's silent otherwise)."""
     from loguru import logger
 
-    import pico.sandbox as sandbox_mod
-    from pico.sandbox import SandboxConfig, build_executor
+    import looprail.sandbox as sandbox_mod
+    from looprail.sandbox import SandboxConfig, build_executor
 
     monkeypatch.setattr(sandbox_mod, "_warned_no_sandbox", False)
     msgs: list[str] = []

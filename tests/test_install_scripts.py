@@ -1,4 +1,4 @@
-"""Contract checks for the public Pico installers."""
+"""Contract checks for the public Looprail installers."""
 
 from pathlib import Path
 
@@ -12,34 +12,37 @@ def test_installer_uses_gitee_release_without_private_memory_repository(name: st
     source = (ROOT / name).read_text(encoding="utf-8")
 
     assert "gitee.com/api/v5/repos" in source
-    assert "PICO_GITEE_REPO" in source
+    assert "LOOPRAIL_GITEE_REPO" in source
     assert "releases/latest" in source
-    assert "PICO_WHEEL_URL" in source
-    assert "PICO_GITEE_TOKEN" in source
-    assert "PICO_NPM_REGISTRY" in source
-    assert "PICO_NODE_CHECKSUM_BASE" in source
-    assert "PICO_PYPI_INDEX" in source
+    assert "LOOPRAIL_WHEEL_URL" in source
+    assert "LOOPRAIL_GITEE_TOKEN" in source
+    assert "LOOPRAIL_NPM_REGISTRY" in source
+    assert "LOOPRAIL_NODE_CHECKSUM_BASE" in source
+    assert "LOOPRAIL_PYPI_INDEX" in source
+    assert "install_pico" not in source
+    assert "pico_harness-" not in source
+    assert "looprail-harness" not in source
     assert "github.com" not in source.lower()
     assert "myna" not in source.lower()
     assert "--with-executables-from" not in source
-    assert "pico onboard --skip-memory" in source
+    assert "looprail onboard --skip-memory" in source
 
 
 def test_posix_installer_downloads_private_wheel_before_uv_install() -> None:
     source = (ROOT / "install.sh").read_text(encoding="utf-8")
 
     assert "gitee_curl" in source
-    assert '-H "Authorization: Bearer $PICO_GITEE_TOKEN"' not in source
+    assert '-H "Authorization: Bearer $LOOPRAIL_GITEE_TOKEN"' not in source
     assert '"$wheel_url" -o "$wheel_path"' in source
-    assert 'uv tool install --force "pico-harness[channels] @ $wheel_source"' in source
+    assert 'uv tool install --force "looprail[channels] @ $wheel_source"' in source
 
 
 def test_powershell_installer_downloads_private_wheel_before_uv_install() -> None:
     source = (ROOT / "install.ps1").read_text(encoding="utf-8")
 
-    assert '"Authorization"] = "Bearer $env:PICO_GITEE_TOKEN"' in source
+    assert '"Authorization"] = "Bearer $env:LOOPRAIL_GITEE_TOKEN"' in source
     assert "Invoke-WebRequest $wheelUrl -Headers $headers -OutFile $wheelPath" in source
-    assert '"pico-harness[channels] @ $wheelSource"' in source
+    assert '"looprail[channels] @ $wheelSource"' in source
 
 
 @pytest.mark.parametrize("name", ["install.sh", "install.ps1"])

@@ -3,7 +3,7 @@ from typing import get_args
 
 import pytest
 
-from pico.spine import (
+from looprail.spine import (
     ChatType,
     Deliverable,
     Media,

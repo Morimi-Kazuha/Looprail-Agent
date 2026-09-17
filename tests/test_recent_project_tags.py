@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.memory_engine.consolidate.consolidator import MemoryStore
+from looprail.memory_engine.consolidate.consolidator import MemoryStore
 
 _NOW = datetime(2026, 5, 20, 21, 0)
 

@@ -8,12 +8,12 @@
  * 256 色或 16 色。
  *
  * 配置渠道：
- *   - `PICO_TUI_COLOR` = auto | truecolor | 256 | 16 | none（`--color`
+ *   - `LOOPRAIL_TUI_COLOR` = auto | truecolor | 256 | 16 | none（`--color`
  *     参数会转发到这里）；
- *   - `PICO_TUI_TRUECOLOR` = 1/true/...，是
- *     `PICO_TUI_COLOR=truecolor` 的旧版别名。
+ *   - `LOOPRAIL_TUI_TRUECOLOR` = 1/true/...，是
+ *     `LOOPRAIL_TUI_COLOR=truecolor` 的旧版别名。
  *
- * 优先级从高到低为 NO_COLOR、PICO_TUI_COLOR、旧版 PICO_TUI_TRUECOLOR、
+ * 优先级从高到低为 NO_COLOR、LOOPRAIL_TUI_COLOR、旧版 LOOPRAIL_TUI_TRUECOLOR、
  * Chalk 自动探测。根据产品约定，显式 `--color` 也不能覆盖 `NO_COLOR`。
  */
 
@@ -22,11 +22,11 @@ export type ColorTier = 0 | 1 | 2 | 3
 const TRUE_RE = /^(?:1|true|yes|on)$/i
 
 /**
- * 从 Pico 颜色环境变量解析请求的级别。返回强制级别；“auto”则返回 `null`，
+ * 从 Looprail 颜色环境变量解析请求的级别。返回强制级别；“auto”则返回 `null`，
  * 交由 Chalk 探测。
  */
 export function parseColorOverride(env: NodeJS.ProcessEnv = process.env): ColorTier | null {
-  const raw = (env.PICO_TUI_COLOR ?? '').trim().toLowerCase()
+  const raw = (env.LOOPRAIL_TUI_COLOR ?? '').trim().toLowerCase()
 
   switch (raw) {
     case 'none':
@@ -53,8 +53,8 @@ export function parseColorOverride(env: NodeJS.ProcessEnv = process.env): ColorT
       break
   }
 
-  // 兼容旧别名：PICO_TUI_TRUECOLOR=1 等价于 PICO_TUI_COLOR=truecolor。
-  if (TRUE_RE.test((env.PICO_TUI_TRUECOLOR ?? '').trim())) {
+  // 兼容旧别名：LOOPRAIL_TUI_TRUECOLOR=1 等价于 LOOPRAIL_TUI_COLOR=truecolor。
+  if (TRUE_RE.test((env.LOOPRAIL_TUI_TRUECOLOR ?? '').trim())) {
     return 3
   }
 

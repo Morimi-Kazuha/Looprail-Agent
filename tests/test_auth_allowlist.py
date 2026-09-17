@@ -15,14 +15,14 @@ from typing import Any
 
 import pytest
 
-from pico.auth import (
+from looprail.auth import (
     CapabilityToken,
     ManagedSettings,
     is_allowed,
     issue_token,
     verify_token,
 )
-from pico.auth.allowlist import reset_warning_state
+from looprail.auth.allowlist import reset_warning_state
 
 
 @pytest.fixture(autouse=True)
@@ -63,7 +63,7 @@ class TestAllowlistSemantics:
         assert is_allowed("telegram", 12345, [12345]) is True
 
     def test_warning_logged_once_for_empty_list(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="pico.auth.allowlist"):
+        with caplog.at_level(logging.WARNING, logger="looprail.auth.allowlist"):
             is_allowed("flaky_channel", "x", [])
             is_allowed("flaky_channel", "y", [])
             is_allowed("flaky_channel", "z", [])
@@ -73,7 +73,7 @@ class TestAllowlistSemantics:
         assert len(warnings) == 1
 
     def test_distinct_channels_each_warn_once(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="pico.auth.allowlist"):
+        with caplog.at_level(logging.WARNING, logger="looprail.auth.allowlist"):
             is_allowed("channel_a", "x", [])
             is_allowed("channel_b", "x", [])
             is_allowed("channel_a", "y", [])
@@ -100,7 +100,7 @@ class _StubChannel:
     def __init__(self, allow_from):
         self.config = _StubConfig(allow_from=allow_from)
 
-    from pico.channels.base import ChannelBase  # noqa: E402
+    from looprail.channels.base import ChannelBase  # noqa: E402
 
     is_allowed = ChannelBase.is_allowed
 
@@ -127,7 +127,7 @@ class TestChannelBaseDelegation:
         class _BareChannel:
             name = "bare"
             config = _NoFieldConfig()
-            from pico.channels.base import ChannelBase
+            from looprail.channels.base import ChannelBase
 
             is_allowed = ChannelBase.is_allowed
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Pico on ClawBench as one persistent streaming session.
+"""Run Looprail on ClawBench as one persistent streaming session.
 
 This runner intentionally lives under benchmarks/ and imports the runtime
 package, not the other way around. It expects a local checkout of
@@ -80,7 +80,7 @@ class UsageTrackingProvider:
         return getattr(self._inner, name)
 
 
-class PicoSession:
+class LooprailSession:
     def __init__(
         self,
         *,
@@ -97,11 +97,11 @@ class PicoSession:
         curator_model: str | None,
         restrict_to_workspace: bool,
     ) -> None:
-        from pico.agent.loop import AgentLoop
-        from pico.cli.commands import _make_provider
-        from pico.config.loader import load_config, set_config_path
-        from pico.config.pico import ContextConfig
-        from pico.session.manager import SessionManager
+        from looprail.agent.loop import AgentLoop
+        from looprail.cli.commands import _make_provider
+        from looprail.config.loader import load_config, set_config_path
+        from looprail.config.looprail import ContextConfig
+        from looprail.session.manager import SessionManager
 
         workspace.mkdir(parents=True, exist_ok=True)
         if config_path is not None:
@@ -151,7 +151,7 @@ class PicoSession:
             channels_config=self.config.channels,
             context_config=context_config,
             # 基准是非交互式批量运行，因此禁用 Bug2 的逐轮 shadow-git 检查点；既没有可
-            # 注入恢复信息的渠道，也不希望任务工作区出现 ``.pico/shadow.git``。
+            # 注入恢复信息的渠道，也不希望任务工作区出现 ``.looprail/shadow.git``。
             interactive=False,
         )
 
@@ -162,7 +162,7 @@ class PicoSession:
     async def run(self, message: str, *, task_id: str) -> tuple[str, dict[str, Any]]:
         before = dict(self.previous_totals)
         before_calls = self.previous_call_count
-        from pico.spine import ChatType, Origin, Source, Text, TurnRequest
+        from looprail.spine import ChatType, Origin, Source, Text, TurnRequest
 
         _parts: list[str] = []
 
@@ -351,7 +351,7 @@ def grade_task(task_dir: Path, workspace: Path) -> dict[str, Any]:
 async def run_one_task(
     *,
     args: argparse.Namespace,
-    pico: PicoSession,
+    looprail: LooprailSession,
     task: Any,
     task_dir: Path,
     index: int,
@@ -374,7 +374,7 @@ async def run_one_task(
     error = None
     try:
         final_text, token_stats = await asyncio.wait_for(
-            pico.run(prepared.prompt, task_id=task.id),
+            looprail.run(prepared.prompt, task_id=task.id),
             timeout=args.timeout or task.timeout,
         )
     except Exception as exc:
@@ -403,7 +403,7 @@ async def run_one_task(
         "track": task.track,
         "task_dir": str(task_dir),
         "workspace": str(prepared.workspace),
-        "pico_error": error,
+        "looprail_error": error,
         "wall_time_s": round(time.monotonic() - started, 2),
         "tokens_input": int(delta.get("prompt_tokens", 0)),
         "tokens_output": int(delta.get("completion_tokens", 0)),
@@ -470,7 +470,7 @@ def write_markdown(
     passed = sum(1 for r in results if r.get("passed"))
     avg_score = sum(float(r.get("score", 0.0)) for r in results) / max(total, 1)
     lines = [
-        "# ClawBench Pico Streaming Results",
+        "# ClawBench Looprail Streaming Results",
         "",
         f"- Date: {now_iso()}",
         "- Runner: `benchmarks/clawbench/stream.py`",
@@ -509,7 +509,7 @@ def write_markdown(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Pico against ClawBench sequentially with one persistent session.")
+    parser = argparse.ArgumentParser(description="Run Looprail against ClawBench sequentially with one persistent session.")
     parser.add_argument("--clawbench-root", default="")
     parser.add_argument("--tasks-root", default="")
     parser.add_argument("--task", action="append", default=[])
@@ -517,11 +517,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--level", default="")
     parser.add_argument("--track", default="")
     parser.add_argument("--limit", type=int, default=0)
-    parser.add_argument("--session-id", default="clawbench-stream-pico")
+    parser.add_argument("--session-id", default="clawbench-stream-looprail")
     parser.add_argument("--trace-dir", default=str(DEFAULT_TRACE_DIR))
-    parser.add_argument("--config", default="", help="Pico config path")
-    parser.add_argument("--model", default=os.environ.get("PICO_BENCH_MODEL", ""))
-    parser.add_argument("--provider", default=os.environ.get("PICO_BENCH_PROVIDER", ""))
+    parser.add_argument("--config", default="", help="Looprail config path")
+    parser.add_argument("--model", default=os.environ.get("LOOPRAIL_BENCH_MODEL", ""))
+    parser.add_argument("--provider", default=os.environ.get("LOOPRAIL_BENCH_PROVIDER", ""))
     parser.add_argument("--api-key", default=os.environ.get("OPENROUTER_API_KEY", ""))
     parser.add_argument("--api-base", default=os.environ.get("OPENROUTER_API_BASE", ""))
     parser.add_argument("--context-window", type=int, default=0)
@@ -553,7 +553,7 @@ async def amain() -> int:
     transcripts_dir.mkdir(parents=True, exist_ok=True)
 
     config_path = Path(args.config).expanduser().resolve() if args.config else None
-    pico = PicoSession(
+    looprail = LooprailSession(
         workspace=run_dir,
         session_id=args.session_id,
         model=args.model or None,
@@ -579,7 +579,7 @@ async def amain() -> int:
             )
             result = await run_one_task(
                 args=args,
-                pico=pico,
+                looprail=looprail,
                 task=task,
                 task_dir=task_dirs[task.id],
                 index=index,
@@ -595,15 +595,15 @@ async def amain() -> int:
             (run_dir / "partial_results.json").write_text(
                 json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8"
             )
-            write_markdown(results_md, results, args, pico.model, summary_path)
+            write_markdown(results_md, results, args, looprail.model, summary_path)
     finally:
-        await pico.close()
+        await looprail.close()
 
-    summary_path = trace_dir / f"pico_clawbench_stream_{run_stamp}.json"
+    summary_path = trace_dir / f"looprail_clawbench_stream_{run_stamp}.json"
     summary = {
         "run_started_at": run_stamp,
         "runner": "benchmarks/clawbench/stream.py",
-        "model": pico.model,
+        "model": looprail.model,
         "session_id": args.session_id,
         "context_engine": args.context_engine,
         "curator_model": args.curator_model if args.context_engine == "curator" else None,
@@ -614,9 +614,9 @@ async def amain() -> int:
         "results": results,
     }
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    tokens_csv = trace_dir / f"pico_clawbench_stream_{run_stamp}.tokens.csv"
+    tokens_csv = trace_dir / f"looprail_clawbench_stream_{run_stamp}.tokens.csv"
     write_tokens_csv(tokens_csv, results)
-    write_markdown(results_md, results, args, pico.model, summary_path)
+    write_markdown(results_md, results, args, looprail.model, summary_path)
     print(f"summary: {summary_path}", flush=True)
     print(f"tokens_csv: {tokens_csv}", flush=True)
     print(f"results_md: {results_md}", flush=True)

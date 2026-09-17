@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from pico.config.schema import ModelEndpoint
-from pico.providers.base import ErrorClassification, LLMProvider, LLMResponse
-from pico.providers.per_model_provider import PerModelProvider
+from looprail.config.schema import ModelEndpoint
+from looprail.providers.base import ErrorClassification, LLMProvider, LLMResponse
+from looprail.providers.per_model_provider import PerModelProvider
 
 
 def _fallback():

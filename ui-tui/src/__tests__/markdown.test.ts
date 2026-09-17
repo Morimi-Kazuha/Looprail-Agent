@@ -55,7 +55,7 @@ describe('INLINE_RE emphasis', () => {
   })
 
   it('keeps intraword underscores literal', () => {
-    const path = '/home/me/.pico/cache/screenshots/browser_screenshot_ecc1c3feab.png'
+    const path = '/home/me/.looprail/cache/screenshots/browser_screenshot_ecc1c3feab.png'
 
     expect(matches(path)).toEqual([])
     expect(matches('snake_case_var and MY_CONST')).toEqual([])
@@ -166,8 +166,8 @@ describe('INLINE_RE inline math', () => {
 describe('protocol sentinels', () => {
   it('captures MEDIA: paths with surrounding quotes or backticks', () => {
     expect('MEDIA:/tmp/a.png'.match(MEDIA_LINE_RE)?.[1]).toBe('/tmp/a.png')
-    expect('  MEDIA: /home/me/.pico/cache/screenshots/browser_screenshot_ecc.png  '.match(MEDIA_LINE_RE)?.[1]).toBe(
-      '/home/me/.pico/cache/screenshots/browser_screenshot_ecc.png'
+    expect('  MEDIA: /home/me/.looprail/cache/screenshots/browser_screenshot_ecc.png  '.match(MEDIA_LINE_RE)?.[1]).toBe(
+      '/home/me/.looprail/cache/screenshots/browser_screenshot_ecc.png'
     )
     expect('`MEDIA:/tmp/a.png`'.match(MEDIA_LINE_RE)?.[1]).toBe('/tmp/a.png')
     expect('"MEDIA:C:\\files\\a.png"'.match(MEDIA_LINE_RE)?.[1]).toBe('C:\\files\\a.png')

@@ -21,11 +21,11 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.agent.loop.checkpoint import CheckpointService
-from pico.agent.loop.recovery import RecoveryLimits
-from pico.config.pico import CheckpointConfig, RuntimeConfig
-from pico.providers.base import LLMProvider, LLMResponse
+from looprail.agent.loop import AgentLoop
+from looprail.agent.loop.checkpoint import CheckpointService
+from looprail.agent.loop.recovery import RecoveryLimits
+from looprail.config.looprail import CheckpointConfig, RuntimeConfig
+from looprail.providers.base import LLMProvider, LLMResponse
 
 
 @pytest.fixture
@@ -120,7 +120,7 @@ async def test_d1_binary_file(workspace):
 
 async def test_d2_workspace_does_not_exist():
     """A bogus workspace path must degrade — no crash, no half-built shadow."""
-    bogus = Path(tempfile.gettempdir()) / "pico_nonexistent_xyz"
+    bogus = Path(tempfile.gettempdir()) / "looprail_nonexistent_xyz"
     if bogus.exists():
         shutil.rmtree(bogus)
     svc = CheckpointService(bogus)
@@ -132,7 +132,7 @@ async def test_d2_workspace_does_not_exist():
 async def test_d2_shadow_path_blocked_by_a_regular_file(workspace):
     """If something pre-existing sits at the shadow git-dir path as a file
     (not a directory), init must fail gracefully — checkpoint is best-effort."""
-    blocker = workspace / ".pico"
+    blocker = workspace / ".looprail"
     blocker.write_text("not a dir", encoding="utf-8")
     svc = CheckpointService(workspace)
     cid, changed = await svc.commit_turn("t1")
@@ -142,7 +142,7 @@ async def test_d2_shadow_path_blocked_by_a_regular_file(workspace):
 
 async def test_d2_corrupted_shadow_repo(workspace):
     """A pre-existing but corrupted shadow .git → commit_turn doesn't raise."""
-    gd = workspace / ".pico" / "shadow.git"
+    gd = workspace / ".looprail" / "shadow.git"
     gd.mkdir(parents=True)
     (gd / "HEAD").write_text("garbage\n", encoding="utf-8")
 
@@ -224,7 +224,7 @@ def test_d3_repeated_stash_latest_wins(workspace):
     must replace the former — recovery prompt should reflect *current* state,
     not stale files."""
     agent = _agent_with_checkpoint(workspace)
-    from pico.agent.loop import TurnOutcome
+    from looprail.agent.loop import TurnOutcome
 
     out1 = TurnOutcome(status="interrupted", checkpoint_id="old", edited_files=["stale.py"])
     out2 = TurnOutcome(status="interrupted", checkpoint_id="new", edited_files=["fresh.py"])
@@ -303,7 +303,7 @@ async def test_d5_perf_1k_files_commit(workspace, capsys):
 async def test_d2_loop_unaffected_when_shadow_blocked(workspace):
     """Tying D2 back to the loop: if shadow is unusable (blocked by a file),
     the loop still returns cleanly — the safety net never breaks the turn."""
-    (workspace / ".pico").write_text("blocker", encoding="utf-8")
+    (workspace / ".looprail").write_text("blocker", encoding="utf-8")
     agent = _agent_with_checkpoint(workspace)
     final, _u, _m, outcome = await agent._run_agent_loop(
         [{"role": "user", "content": "go"}],
@@ -436,15 +436,15 @@ async def test_d7_respects_user_gitignore_in_workspace(workspace):
 
 
 async def test_d7_notice_txt_written_next_to_shadow(workspace):
-    """S4 discoverability: a user noticing ``.pico/`` should be able to
+    """S4 discoverability: a user noticing ``.looprail/`` should be able to
     identify what it is without grepping our codebase."""
     svc = CheckpointService(workspace)
     (workspace / "x.py").write_text("ok\n", encoding="utf-8")
     await svc.commit_turn("t1")
-    notice = workspace / ".pico" / "NOTICE.txt"
+    notice = workspace / ".looprail" / "NOTICE.txt"
     assert notice.exists()
     text = notice.read_text()
-    assert "Pico" in text and "checkpoint" in text
+    assert "Looprail" in text and "checkpoint" in text
     assert "policy" in text
 
 
@@ -464,7 +464,7 @@ async def test_d7_gc_invoked_every_n_commits(workspace, monkeypatch):
     """S4-C heartbeat: every N successful commits the service fires
     ``git gc --auto``. We spy on ``_git`` to count invocations rather than
     pay for a real GC (which is cheap but still noisier than necessary)."""
-    import pico.agent.loop.checkpoint as cp_module
+    import looprail.agent.loop.checkpoint as cp_module
 
     monkeypatch.setattr(cp_module, "_GC_EVERY_N_COMMITS", 3)
     svc = CheckpointService(workspace)
@@ -495,7 +495,7 @@ async def test_d7_gc_invoked_every_n_commits(workspace, monkeypatch):
 
 async def test_d8_one_shot_mode_creates_no_shadow_dir(workspace):
     """S3 end-to-end: ``interactive=False`` + default policy means
-    ``pico run -m "..."`` leaves no ``.pico/`` artifact on disk —
+    ``looprail run -m "..."`` leaves no ``.looprail/`` artifact on disk —
     one-shot commands don't pay the shadow-git cost."""
     agent = _agent(workspace, policy="interactive", interactive=False)
     _f, _u, _m, outcome = await agent._run_agent_loop(
@@ -503,7 +503,7 @@ async def test_d8_one_shot_mode_creates_no_shadow_dir(workspace):
     )
     assert outcome.status == "completed"
     assert outcome.checkpoint_id is None
-    assert not (workspace / ".pico").exists()
+    assert not (workspace / ".looprail").exists()
 
 
 # =============================================================================
@@ -518,7 +518,7 @@ def test_d9_separate_state_keeps_shadow_git_outside_workspace(workspace, tmp_pat
     svc = CheckpointService(workspace, state=state)
 
     assert svc._git_dir == state.resolve() / "shadow.git"
-    assert not (workspace / ".pico").exists()
+    assert not (workspace / ".looprail").exists()
 
 
 def test_d9_parent_escape_rejected(workspace):
@@ -622,7 +622,7 @@ async def test_d10_git_subprocess_times_out_and_kills_proc(workspace, monkeypatc
     ``asyncio.create_subprocess_exec`` to return a fake proc whose
     ``communicate`` never returns, plus shrinking the timeout so the test
     runs in milliseconds. The hanging proc must also be killed (no zombie)."""
-    import pico.agent.loop.checkpoint as cp_module
+    import looprail.agent.loop.checkpoint as cp_module
 
     monkeypatch.setattr(cp_module, "_GIT_TIMEOUT_SECONDS", 0.05)
 
@@ -661,7 +661,7 @@ async def test_d10_commit_turn_degrades_on_git_hang(workspace, monkeypatch):
     """End-to-end: if any git call hangs, ``commit_turn`` returns
     ``(None, [])`` and does not raise — preserving the "never break a turn"
     contract that the rest of the safety net relies on."""
-    import pico.agent.loop.checkpoint as cp_module
+    import looprail.agent.loop.checkpoint as cp_module
 
     monkeypatch.setattr(cp_module, "_GIT_TIMEOUT_SECONDS", 0.05)
 

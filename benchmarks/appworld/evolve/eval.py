@@ -17,17 +17,17 @@ from difflib import unified_diff
 from pathlib import Path
 
 from benchmarks.appworld.evolve import adapter as aw_adapter
-from pico.evolver.candidate_manifest import (
+from looprail.evolver.candidate_manifest import (
     CandidateLabel,
     CandidateManifest,
     ManifestGateError,
     assert_manifest_gate,
     manifest_for_patch,
 )
-from pico.evolver.judge.schema import PatchWhere, PatchWhy
-from pico.evolver.tree import git_ops
-from pico.evolver.tree.git_ops import GitOpError
-from pico.evolver.tree.node import AppliedPatch, PatchComponent, SourceEvidence
+from looprail.evolver.judge.schema import PatchWhere, PatchWhy
+from looprail.evolver.tree import git_ops
+from looprail.evolver.tree.git_ops import GitOpError
+from looprail.evolver.tree.node import AppliedPatch, PatchComponent, SourceEvidence
 
 
 class CandidateFrozenError(ManifestGateError):
@@ -125,7 +125,7 @@ def _patch_where(label: CandidateLabel, paths: list[str]) -> PatchWhere:
     if label is CandidateLabel.skill:
         return PatchWhere.skill
     if label is CandidateLabel.prompt:
-        if all(path.startswith("pico/templates/") for path in paths):
+        if all(path.startswith("looprail/templates/") for path in paths):
             return PatchWhere.system_prompt_template
         return PatchWhere.task_wrapper_prompt
     if label in {CandidateLabel.model_profile, CandidateLabel.route}:
@@ -140,9 +140,9 @@ def _patch_where(label: CandidateLabel, paths: list[str]) -> PatchWhere:
 
 
 def _candidate_label(paths: list[str]) -> CandidateLabel:
-    if paths and all(path.startswith("pico/memory_engine/skills/") for path in paths):
+    if paths and all(path.startswith("looprail/memory_engine/skills/") for path in paths):
         return CandidateLabel.skill
-    if paths and all(path.startswith("pico/templates/") for path in paths):
+    if paths and all(path.startswith("looprail/templates/") for path in paths):
         return CandidateLabel.prompt
     return CandidateLabel.runtime
 

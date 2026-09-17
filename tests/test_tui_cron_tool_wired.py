@@ -38,11 +38,11 @@ def patched_tui_build_deps(monkeypatch: pytest.MonkeyPatch, tmp_path):
     config.tools.sandbox = MagicMock()
     config.channels = MagicMock()
     monkeypatch.setattr(
-        "pico.cli._helpers.load_runtime_config",
+        "looprail.cli._helpers.load_runtime_config",
         lambda _a, _b: config,
     )
     monkeypatch.setattr(
-        "pico.cli._helpers.make_provider",
+        "looprail.cli._helpers.make_provider",
         lambda _c: MagicMock(),
     )
 
@@ -50,18 +50,18 @@ def patched_tui_build_deps(monkeypatch: pytest.MonkeyPatch, tmp_path):
     ec_config.memory.backend = None
     ec_config.skill_forge = MagicMock()
     monkeypatch.setattr(
-        "pico.config.pico.load_pico_config",
+        "looprail.config.looprail.load_looprail_config",
         lambda: ec_config,
     )
 
     monkeypatch.setattr(
-        "pico.session.manager.SessionManager",
+        "looprail.session.manager.SessionManager",
         lambda _wp: MagicMock(),
     )
     cron_dir = tmp_path / "cron"
     cron_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(
-        "pico.config.paths.get_cron_dir",
+        "looprail.config.paths.get_cron_dir",
         lambda: cron_dir,
     )
 
@@ -72,7 +72,7 @@ def patched_tui_build_deps(monkeypatch: pytest.MonkeyPatch, tmp_path):
             self.tools = MagicMock()
             self.configure_personalization = MagicMock()
 
-    monkeypatch.setattr("pico.agent.loop.AgentLoop", _AgentLoopSpy)
+    monkeypatch.setattr("looprail.agent.loop.AgentLoop", _AgentLoopSpy)
 
     class _CronServiceSpy:
         instances: list[Any] = []
@@ -89,7 +89,7 @@ def patched_tui_build_deps(monkeypatch: pytest.MonkeyPatch, tmp_path):
 
     _CronServiceSpy.instances = []
     monkeypatch.setattr(
-        "pico.proactive_engine.schedulers.cron.service.CronService",
+        "looprail.proactive_engine.schedulers.cron.service.CronService",
         _CronServiceSpy,
     )
 
@@ -107,7 +107,7 @@ def test_tui_agent_loop_receives_cron_service(patched_tui_build_deps) -> None:
     ``AgentLoop(cron_service=...)`` so that ``CronTool`` auto-registers
     per ``agent/loop/main.py:314-321``.
     """
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli.tui_commands import _build_tui_agent_loop
 
     _build_tui_agent_loop()
 
@@ -127,7 +127,7 @@ def test_tui_cron_service_allowed_channels_is_tui(patched_tui_build_deps) -> Non
     """TUI process's ``CronService`` SHALL be scoped to ``allowed_channels={"tui"}``
     so it only claims TUI-channel cron jobs and does not race gateway IM crons.
     """
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli.tui_commands import _build_tui_agent_loop
 
     _build_tui_agent_loop()
 
@@ -147,7 +147,7 @@ def test_tui_cron_on_job_wired_in_run_not_build(patched_tui_build_deps) -> None:
     scheduler exists (a reminder submits a CRON turn through it and its
     reply is fanned out as cron.delivered). ``_build_tui_agent_loop`` only builds
     the cron service — it must NOT set on_job (the scheduler doesn't exist yet)."""
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli.tui_commands import _build_tui_agent_loop
 
     _build_tui_agent_loop()
 

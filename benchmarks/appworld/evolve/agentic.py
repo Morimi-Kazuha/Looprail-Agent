@@ -30,16 +30,16 @@ from benchmarks.appworld.evolve.diagnose import (
     APPWORLD_BENCH_INTRO,
     APPWORLD_DIAGNOSIS_RULES,
 )
-from pico.evolver.orchestrator.nodes.taxonomy import (
+from looprail.evolver.orchestrator.nodes.taxonomy import (
     TaxonomySpec,
     add_failure_mode,
     coerce_mode,
     empty_failure_map,
     strip_code_fence,
 )
-from pico.evolver.orchestrator.providers.claude_agentic import run_agentic_session
-from pico.evolver.tree import git_ops
-from pico.evolver.tree.node import HarnessNode
+from looprail.evolver.orchestrator.providers.claude_agentic import run_agentic_session
+from looprail.evolver.tree import git_ops
+from looprail.evolver.tree.node import HarnessNode
 
 
 def _task_states(runs_root: Path, exp: str, k: int) -> dict[str, dict]:
@@ -97,8 +97,8 @@ def build_analysis_workspace(
         "",
         "## Where to look deeper",
         "- raw results: runs/<task>_k<n>.json (evaluation.failures = oracle)",
-        f"- transcripts: sessions/appworld/<task>_{exp}_k<n>.jsonl (Pico layout) or att/<task>_{exp}_k<n>/sessions/",
-        "- harness source (the code a fix would patch): harness/benchmarks/appworld/, harness/pico/agent/",
+        f"- transcripts: sessions/appworld/<task>_{exp}_k<n>.jsonl (Looprail layout) or att/<task>_{exp}_k<n>/sessions/",
+        "- harness source (the code a fix would patch): harness/benchmarks/appworld/, harness/looprail/agent/",
     ]
     (ws / "ledger_digest.md").write_text("\n".join(lines))
 

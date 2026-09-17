@@ -1,10 +1,30 @@
-# 安全问题报告
+# Security
 
-请不要在公开 Issue、Pull Request、群聊或日志中披露漏洞细节、利用方式、Token、密码、
-私钥、内部地址或个人数据。
+Looprail can inspect repositories, run local tools, modify files, and connect
+to external Providers or message channels. Treat configuration, credentials,
+workspaces, and generated evidence as sensitive.
 
-发现潜在安全问题时，请先通过 Gitee 私信联系仓库所有者 `htxoffical`，只说明你希望
-私下报告 Pico 安全问题，不要在第一条消息中发送漏洞细节。维护者会提供后续的私密
-沟通方式。
+## Safe handling
 
-普通安装、配置、兼容性和功能问题不属于安全漏洞，请使用公开 Issue 模板提交。
+- Do not commit API keys, tokens, passwords, App Secrets, private keys,
+  personal data, or signed URLs.
+- Do not paste secrets into issues, pull requests, chat transcripts, screenshots,
+  or raw Runtime traces.
+- Review workspace, shell, Provider, channel, and sandbox settings before
+  allowing a live task to run.
+- Redact credentials and machine-specific paths from diagnostic output.
+
+## Reporting a vulnerability
+
+Please do not publish exploit details in a public issue. If the repository host
+provides a private security-reporting channel, use it. Otherwise, contact the
+project maintainers through a private channel associated with the repository
+and ask for a secure reporting route before sending vulnerability details.
+
+Include only the minimum information needed to establish a private discussion.
+Once a private channel is available, provide the affected version or commit,
+reproduction steps, impact, and any suggested mitigation. Do not include live
+credentials or unrelated private data.
+
+For ordinary installation, configuration, compatibility, or feature questions,
+use the repository's public issue tracker instead.

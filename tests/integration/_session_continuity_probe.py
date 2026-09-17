@@ -4,8 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
-from pico.session.export import default_export_path, verify_export, write_portable_export
-from pico.session.manager import SessionManager
+from looprail.session.export import default_export_path, verify_export, write_portable_export
+from looprail.session.manager import SessionManager
 
 
 def _contents(session) -> list[str]:

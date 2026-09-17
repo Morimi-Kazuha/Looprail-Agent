@@ -4,7 +4,7 @@
 // Regenerate via: cd ui-tui && npm run gen:rpc
 // Lint (drift check) via: cd ui-tui && npm run lint:rpc
 //
-// Pico method-scoped types + components/schemas + JSON-RPC 2.0 envelopes.
+// Looprail method-scoped types + components/schemas + JSON-RPC 2.0 envelopes.
 
 /* eslint-disable */
 /* tslint:disable */
@@ -12,12 +12,12 @@
 /**
  * Any valid JSON value.
  *
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "JsonValue".
  */
 export type JsonValue = string | number | boolean | {} | unknown[] | null;
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnEvent".
  */
 export type TurnEvent =
@@ -33,14 +33,14 @@ export type TurnEvent =
   | SubagentDeliveredEvent;
 
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ClarifyRespondResult".
  */
 export interface ClarifyRespondResult {
   ok: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ConfigGetResult".
  */
 export interface ConfigGetResult {
@@ -49,7 +49,7 @@ export interface ConfigGetResult {
   };
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ConfigSetResult".
  */
 export interface ConfigSetResult {
@@ -58,14 +58,14 @@ export interface ConfigSetResult {
   value?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ConfirmRespondResult".
  */
 export interface ConfirmRespondResult {
   ok: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "CronDeliveredEvent".
  */
 export interface CronDeliveredEvent {
@@ -73,7 +73,7 @@ export interface CronDeliveredEvent {
   payload: CronDeliveredPayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "CronDeliveredPayload".
  */
 export interface CronDeliveredPayload {
@@ -83,7 +83,7 @@ export interface CronDeliveredPayload {
   fired_at: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ErrorEvent".
  */
 export interface ErrorEvent {
@@ -91,7 +91,7 @@ export interface ErrorEvent {
   payload: ErrorEventPayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ErrorEventPayload".
  */
 export interface ErrorEventPayload {
@@ -103,7 +103,7 @@ export interface ErrorEventPayload {
   turn_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ImageAttachResult".
  */
 export interface ImageAttachResult {
@@ -111,7 +111,7 @@ export interface ImageAttachResult {
   remainder: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "MessageCompleteEvent".
  */
 export interface MessageCompleteEvent {
@@ -119,7 +119,7 @@ export interface MessageCompleteEvent {
   payload: MessageCompletePayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "MessageCompletePayload".
  */
 export interface MessageCompletePayload {
@@ -130,7 +130,7 @@ export interface MessageCompletePayload {
 /**
  * Token / cost usage reported at the end of a turn.
  *
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "UsageSnapshot".
  */
 export interface UsageSnapshot {
@@ -143,7 +143,7 @@ export interface UsageSnapshot {
   context_percent?: number;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "MessageStartEvent".
  */
 export interface MessageStartEvent {
@@ -151,7 +151,7 @@ export interface MessageStartEvent {
   payload: MessageStartPayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "MessageStartPayload".
  */
 export interface MessageStartPayload {
@@ -159,7 +159,7 @@ export interface MessageStartPayload {
   turn_id: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelAddModelResult".
  */
 export interface ModelAddModelResult {
@@ -168,7 +168,7 @@ export interface ModelAddModelResult {
 /**
  * One provider row in the ``/model`` picker.
  *
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelOptionProvider".
  */
 export interface ModelOptionProvider {
@@ -184,14 +184,14 @@ export interface ModelOptionProvider {
   warning: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelDisconnectResult".
  */
 export interface ModelDisconnectResult {
   disconnected: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelOptionsResult".
  */
 export interface ModelOptionsResult {
@@ -200,21 +200,21 @@ export interface ModelOptionsResult {
   providers: ModelOptionProvider[];
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelRemoveModelResult".
  */
 export interface ModelRemoveModelResult {
   provider: ModelOptionProvider;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelSaveKeyResult".
  */
 export interface ModelSaveKeyResult {
   provider: ModelOptionProvider;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionBranchResult".
  */
 export interface SessionBranchResult {
@@ -223,7 +223,7 @@ export interface SessionBranchResult {
   message_count?: number;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionClearResult".
  */
 export interface SessionClearResult {
@@ -237,14 +237,14 @@ export interface SessionClearResult {
   cleared: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionCloseResult".
  */
 export interface SessionCloseResult {
   ok: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionCreateResult".
  */
 export interface SessionCreateResult {
@@ -252,9 +252,9 @@ export interface SessionCreateResult {
   info: SessionInfo;
 }
 /**
- * The init bundle rendered by the Pico TUI Session panel.
+ * The init bundle rendered by the Looprail TUI Session panel.
  *
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionInfo".
  */
 export interface SessionInfo {
@@ -279,7 +279,7 @@ export interface SessionInfo {
   }[];
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionDeleteResult".
  */
 export interface SessionDeleteResult {
@@ -290,7 +290,7 @@ export interface SessionDeleteResult {
   deleted?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionExportResult".
  */
 export interface SessionExportResult {
@@ -308,7 +308,7 @@ export interface SessionExportResult {
 /**
  * One row in the session picker (gatewayTypes.ts:130 SessionListItem).
  *
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionListItem".
  */
 export interface SessionListItem {
@@ -326,7 +326,7 @@ export interface SessionListItem {
   title: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionListResult".
  */
 export interface SessionListResult {
@@ -335,7 +335,7 @@ export interface SessionListResult {
 /**
  * A transcript message returned by ``session.resume``.
  *
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionMessage".
  */
 export interface SessionMessage {
@@ -347,7 +347,7 @@ export interface SessionMessage {
 /**
  * Response shape per gatewayTypes.ts:147 SessionMostRecentResponse.
  *
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionMostRecentResult".
  */
 export interface SessionMostRecentResult {
@@ -357,7 +357,7 @@ export interface SessionMostRecentResult {
   title?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionResumeResult".
  */
 export interface SessionResumeResult {
@@ -371,7 +371,7 @@ export interface SessionResumeResult {
  * pending=True means the title is held in memory for a lazy (never-saved)
  * session and lands with the session's first save.
  *
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionTitleResult".
  */
 export interface SessionTitleResult {
@@ -380,7 +380,7 @@ export interface SessionTitleResult {
   pending: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionUndoResult".
  */
 export interface SessionUndoResult {
@@ -390,14 +390,14 @@ export interface SessionUndoResult {
   removed: number;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SetupStatusResult".
  */
 export interface SetupStatusResult {
   provider_configured: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SubagentDeliveredEvent".
  */
 export interface SubagentDeliveredEvent {
@@ -405,14 +405,14 @@ export interface SubagentDeliveredEvent {
   payload: SubagentDeliveredPayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SubagentDeliveredPayload".
  */
 export interface SubagentDeliveredPayload {
   text: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SystemHelloResult".
  */
 export interface SystemHelloResult {
@@ -421,7 +421,7 @@ export interface SystemHelloResult {
   session: SystemHelloSession;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SystemHelloSession".
  */
 export interface SystemHelloSession {
@@ -429,7 +429,7 @@ export interface SystemHelloSession {
   default_session_key: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SystemPingResult".
  */
 export interface SystemPingResult {
@@ -437,7 +437,7 @@ export interface SystemPingResult {
   server_time_ms: number;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SystemVersionResult".
  */
 export interface SystemVersionResult {
@@ -446,17 +446,17 @@ export interface SystemVersionResult {
    * OpenRPC info.version mirrored back to client.
    */
   schema_version: string;
-  pico_version: string;
+  looprail_version: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TerminalResizeResult".
  */
 export interface TerminalResizeResult {
   ok: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ThinkingDeltaEvent".
  */
 export interface ThinkingDeltaEvent {
@@ -464,14 +464,14 @@ export interface ThinkingDeltaEvent {
   payload: ThinkingDeltaPayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ThinkingDeltaPayload".
  */
 export interface ThinkingDeltaPayload {
   text: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TokenDeltaEvent".
  */
 export interface TokenDeltaEvent {
@@ -479,14 +479,14 @@ export interface TokenDeltaEvent {
   payload: TokenDeltaPayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TokenDeltaPayload".
  */
 export interface TokenDeltaPayload {
   text: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ToolCompleteEvent".
  */
 export interface ToolCompleteEvent {
@@ -494,7 +494,7 @@ export interface ToolCompleteEvent {
   payload: ToolCompletePayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ToolCompletePayload".
  */
 export interface ToolCompletePayload {
@@ -504,7 +504,7 @@ export interface ToolCompletePayload {
   truncated: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ToolProgressEvent".
  */
 export interface ToolProgressEvent {
@@ -512,7 +512,7 @@ export interface ToolProgressEvent {
   payload: ToolProgressPayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ToolProgressPayload".
  */
 export interface ToolProgressPayload {
@@ -520,7 +520,7 @@ export interface ToolProgressPayload {
   preview: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ToolStartEvent".
  */
 export interface ToolStartEvent {
@@ -528,7 +528,7 @@ export interface ToolStartEvent {
   payload: ToolStartPayload;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ToolStartPayload".
  */
 export interface ToolStartPayload {
@@ -539,14 +539,14 @@ export interface ToolStartPayload {
   };
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnCancelResult".
  */
 export interface TurnCancelResult {
   cancelled: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnSendResult".
  */
 export interface TurnSendResult {
@@ -554,49 +554,49 @@ export interface TurnSendResult {
   accepted: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnSubscribeResult".
  */
 export interface TurnSubscribeResult {
   subscription_id: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnUnsubscribeResult".
  */
 export interface TurnUnsubscribeResult {
   unsubscribed: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionListParams".
  */
 export interface SessionListParams {
   limit?: number;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionCreateParams".
  */
 export interface SessionCreateParams {
   cols?: number;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionCloseParams".
  */
 export interface SessionCloseParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionResumeParams".
  */
 export interface SessionResumeParams {
   session_id: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionDeleteParams".
  */
 export interface SessionDeleteParams {
@@ -606,12 +606,12 @@ export interface SessionDeleteParams {
   session_id: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionMostRecentParams".
  */
 export interface SessionMostRecentParams {}
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionTitleParams".
  */
 export interface SessionTitleParams {
@@ -622,7 +622,7 @@ export interface SessionTitleParams {
   title?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionClearParams".
  */
 export interface SessionClearParams {
@@ -632,7 +632,7 @@ export interface SessionClearParams {
   session_id: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionUndoParams".
  */
 export interface SessionUndoParams {
@@ -646,7 +646,7 @@ export interface SessionUndoParams {
   n?: number;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionBranchParams".
  */
 export interface SessionBranchParams {
@@ -654,14 +654,14 @@ export interface SessionBranchParams {
   name?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SessionExportParams".
  */
 export interface SessionExportParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnSendParams".
  */
 export interface TurnSendParams {
@@ -673,28 +673,28 @@ export interface TurnSendParams {
   sender_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnSubscribeParams".
  */
 export interface TurnSubscribeParams {
   session_key: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnUnsubscribeParams".
  */
 export interface TurnUnsubscribeParams {
   subscription_id: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TurnCancelParams".
  */
 export interface TurnCancelParams {
   session_key: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ImageAttachParams".
  */
 export interface ImageAttachParams {
@@ -702,14 +702,14 @@ export interface ImageAttachParams {
   path: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelOptionsParams".
  */
 export interface ModelOptionsParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelSaveKeyParams".
  */
 export interface ModelSaveKeyParams {
@@ -719,7 +719,7 @@ export interface ModelSaveKeyParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelDisconnectParams".
  */
 export interface ModelDisconnectParams {
@@ -727,7 +727,7 @@ export interface ModelDisconnectParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelAddModelParams".
  */
 export interface ModelAddModelParams {
@@ -736,7 +736,7 @@ export interface ModelAddModelParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ModelRemoveModelParams".
  */
 export interface ModelRemoveModelParams {
@@ -745,14 +745,14 @@ export interface ModelRemoveModelParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ConfigGetParams".
  */
 export interface ConfigGetParams {
   keys?: string[];
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ConfigSetParams".
  */
 export interface ConfigSetParams {
@@ -762,7 +762,7 @@ export interface ConfigSetParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SystemHelloParams".
  */
 export interface SystemHelloParams {
@@ -770,22 +770,22 @@ export interface SystemHelloParams {
   client_capabilities?: string[];
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SystemPingParams".
  */
 export interface SystemPingParams {}
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SystemVersionParams".
  */
 export interface SystemVersionParams {}
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "SetupStatusParams".
  */
 export interface SetupStatusParams {}
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "TerminalResizeParams".
  */
 export interface TerminalResizeParams {
@@ -794,7 +794,7 @@ export interface TerminalResizeParams {
   session_id?: string;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ConfirmRespondParams".
  */
 export interface ConfirmRespondParams {
@@ -802,7 +802,7 @@ export interface ConfirmRespondParams {
   answer: boolean;
 }
 /**
- * This interface was referenced by `PicoRpcRoot`'s JSON-Schema
+ * This interface was referenced by `LooprailRpcRoot`'s JSON-Schema
  * via the `definition` "ClarifyRespondParams".
  */
 export interface ClarifyRespondParams {

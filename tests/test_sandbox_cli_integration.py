@@ -19,8 +19,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli.sandbox_commands import sandbox_app
-from pico.sandbox.debug_server import SandboxDebugServer
+from looprail.cli.sandbox_commands import sandbox_app
+from looprail.sandbox.debug_server import SandboxDebugServer
 
 runner = CliRunner()
 
@@ -76,7 +76,7 @@ async def _invoke(args, socket_path):
     """Run CLI in executor so the test event loop can service the server."""
 
     def _run():
-        with patch("pico.cli.sandbox_commands._get_socket_path", return_value=socket_path):
+        with patch("looprail.cli.sandbox_commands._get_socket_path", return_value=socket_path):
             return runner.invoke(sandbox_app, args)
 
     return await asyncio.get_event_loop().run_in_executor(None, _run)
@@ -85,7 +85,7 @@ async def _invoke(args, socket_path):
 async def _invoke_shell(args, socket_path):
     """Run shell command in executor with TTY functions patched.
 
-    Patches pico.cli.sandbox_commands.sys (not the global sys) so CliRunner's
+    Patches looprail.cli.sandbox_commands.sys (not the global sys) so CliRunner's
     stdin replacement cannot override our mock.  TTY/signal calls are stubbed to
     avoid errors when running outside a real terminal or from a non-main thread.
 
@@ -104,8 +104,8 @@ async def _invoke_shell(args, socket_path):
     def _run():
         try:
             with (
-                patch("pico.cli.sandbox_commands._get_socket_path", return_value=socket_path),
-                patch("pico.cli.sandbox_commands.sys", mock_sys),
+                patch("looprail.cli.sandbox_commands._get_socket_path", return_value=socket_path),
+                patch("looprail.cli.sandbox_commands.sys", mock_sys),
                 patch("tty.setraw"),
                 patch("termios.tcgetattr", return_value=[]),
                 patch("termios.tcsetattr"),

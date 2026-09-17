@@ -1,7 +1,7 @@
 {
-  "name": "pico-repo",
+  "name": "looprail-repo",
   "private": true,
-  "description": "Repository-level tooling for Pico.",
+  "description": "Repository-level tooling for Looprail.",
   "license": "Apache-2.0",
   "scripts": {
     "commitlint": "commitlint --config commitlint.config.cjs"

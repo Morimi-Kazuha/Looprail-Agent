@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from pico.memory_engine.skill_forge.rewriter import (
+from looprail.memory_engine.skill_forge.rewriter import (
     QueryRewriter,
     RewriteResult,
 )

@@ -1,4 +1,4 @@
-"""Unit tests for the gate arithmetic (pico.evolver.orchestrator.gates).
+"""Unit tests for the gate arithmetic (looprail.evolver.orchestrator.gates).
 
 These protect the promotion decision itself: paired z statistics, the Fisher
 exact test, the three-shield pipeline's narrowing rules, and the two concrete
@@ -13,29 +13,29 @@ import math
 
 import pytest
 
-from pico.evolver.orchestrator.archive import GsmeArchive
-from pico.evolver.orchestrator.gates.fisher import (
+from looprail.evolver.orchestrator.archive import GsmeArchive
+from looprail.evolver.orchestrator.gates.fisher import (
     fisher_one_sided,
     focused_counts,
     train_mean,
 )
-from pico.evolver.orchestrator.gates.paired import paired_lift
-from pico.evolver.orchestrator.gates.pipeline import run_gates
-from pico.evolver.orchestrator.gates.policy import Baseline, CandidateOutcome, DecisionContext
-from pico.evolver.orchestrator.gates.strategies import (
+from looprail.evolver.orchestrator.gates.paired import paired_lift
+from looprail.evolver.orchestrator.gates.pipeline import run_gates
+from looprail.evolver.orchestrator.gates.policy import Baseline, CandidateOutcome, DecisionContext
+from looprail.evolver.orchestrator.gates.strategies import (
     FocusedFisherGate,
     PairedTwoSigmaGate,
     confirm_job_name,
 )
-from pico.evolver.orchestrator.loop import RoundResult
-from pico.evolver.orchestrator.scoring import (
+from looprail.evolver.orchestrator.loop import RoundResult
+from looprail.evolver.orchestrator.scoring import (
     EvaluationVerdict,
     MeasurementFailure,
     TaskEval,
 )
-from pico.evolver.orchestrator.state.journal import RoundJournal
-from pico.evolver.scheduler.anchor_selection import AnchorSelection
-from pico.evolver.tree.node import HarnessNode, NodeStatus
+from looprail.evolver.orchestrator.state.journal import RoundJournal
+from looprail.evolver.scheduler.anchor_selection import AnchorSelection
+from looprail.evolver.tree.node import HarnessNode, NodeStatus
 
 
 def _te(
@@ -504,7 +504,7 @@ class TestPairedTwoSigmaGate:
 class TestVerdictPersistence:
     class _Candidate:
         why = "failure"
-        files = {"pico/example.py": b"x"}
+        files = {"looprail/example.py": b"x"}
         deletions: list[str] = []
         summary = ""
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from pico.providers.base import ErrorClassification, LLMProvider
+from looprail.providers.base import ErrorClassification, LLMProvider
 
 
 class _StatusError(Exception):

@@ -27,7 +27,7 @@ const buildUiState = (): UiState => ({
   // 避免用户面对无响应界面等待 1 到 4 分钟；可通过 /thinking 切换。
   showReasoning: true,
   sid: null,
-  status: 'starting pico…',
+  status: 'starting looprail…',
   statusBar: 'top',
   streaming: true,
   theme: DEFAULT_THEME,

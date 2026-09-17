@@ -46,7 +46,7 @@ _EXTERNAL_ENV_PREFIXES = (
     "OLLAMA_",
     "OPENAI_",
     "OPENROUTER_",
-    "PICO_",
+    "LOOPRAIL_",
     "SERPER_",
     "SSH_",
     "ZAI_",
@@ -86,7 +86,7 @@ def _isolate_retained_home(
         yield
         return
 
-    from pico.config import loader
+    from looprail.config import loader
 
     for name in tuple(os.environ):
         if _is_external_environment(name):
@@ -104,20 +104,20 @@ def _isolate_retained_home(
 
 @pytest.fixture(autouse=True)
 def _restore_loguru_enabled_state():
-    """Undo any ``loguru.logger.disable("pico")`` left over from a
+    """Undo any ``loguru.logger.disable("looprail")`` left over from a
     prior test.
 
-    ``pico/cli/agent_commands.py`` toggles ``logger.disable("pico")``
+    ``looprail/cli/agent_commands.py`` toggles ``logger.disable("looprail")``
     based on a ``--no-logs`` flag. The disable is process-global on
     loguru's singleton logger, so once a CliRunner-based test exercises
     that branch the flag persists for the rest of the pytest session,
-    silently dropping every ``pico.*`` log emission and breaking
+    silently dropping every ``looprail.*`` log emission and breaking
     any later test that asserts on loguru output via a sink.
     """
     from loguru import logger
 
     yield
-    logger.enable("pico")
+    logger.enable("looprail")
 
 
 @pytest.fixture(autouse=True)
@@ -128,9 +128,9 @@ def _no_openrouter_network(tmp_path):
     any LiteLLM-miss model, so an un-mocked test would hit the network. Default
     to an empty catalog; tests that exercise the catalog restore the real fetch
     and mock the transport. The disk cache path is also redirected to a temp
-    file so the real ~/.pico/cache/ is never read or written.
+    file so the real ~/.looprail/cache/ is never read or written.
     """
-    from pico.token_wise import model_catalog_cache, pricing
+    from looprail.token_wise import model_catalog_cache, pricing
 
     original_fetch = pricing._fetch_openrouter_models
     original_path = model_catalog_cache._CACHE_PATH

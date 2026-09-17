@@ -1,4 +1,4 @@
-// FPS 计数浮层（PICO_TUI_FPS=1），禁用时没有额外开销。
+// FPS 计数浮层（LOOPRAIL_TUI_FPS=1），禁用时没有额外开销。
 
 import { Text } from '@hermes/ink'
 import { useStore } from '@nanostores/react'

@@ -1,8 +1,8 @@
-// Pico TUI RPC——生产用 JSON-RPC 2.0 客户端。
+// Looprail TUI RPC——生产用 JSON-RPC 2.0 客户端。
 //
 // 传输使用跨平台 TCP 回环，因为 Windows 没有可用 AF_UNIX。Python 父进程监听
 // 127.0.0.1:<临时端口>；Node 子进程通过 `net.createConnection({host, port})` 连接，首行发送
-// PICO_RPC_TOKEN（父进程在分发前校验），随后传输 JSON 帧。旧配置仍接受 Unix 套接字路径。
+// LOOPRAIL_RPC_TOKEN（父进程在分发前校验），随后传输 JSON 帧。旧配置仍接受 Unix 套接字路径。
 // 不采用裸文件描述符继承 pass_fds=(3,4)，因为 Node 无法可靠包装继承的管道文件描述符。
 //
 // 帧格式为换行分隔的 UTF-8 JSON（规范第 2.5 节）。每帧为 `JSON.stringify(obj) + '\n'`，
@@ -31,7 +31,7 @@ type Pending = {
 }
 
 export interface RpcClientOptions {
-  /** RPC 目标："host:port"（TCP 回环）或 Unix 套接字路径，默认读取 `PICO_RPC_SOCKET`。 */
+  /** RPC 目标："host:port"（TCP 回环）或 Unix 套接字路径，默认读取 `LOOPRAIL_RPC_SOCKET`。 */
   socketPath?: string
   /** 用于非致命协议异常的可选日志器，默认写入 stderr。 */
   warn?: (msg: string) => void
@@ -58,9 +58,9 @@ export class RpcClient {
   private readonly connectPromise: Promise<void>
 
   constructor(opts: RpcClientOptions = {}) {
-    const target = opts.socketPath ?? process.env.PICO_RPC_SOCKET
+    const target = opts.socketPath ?? process.env.LOOPRAIL_RPC_SOCKET
     if (!target) {
-      throw new Error('RpcClient: no RPC target supplied; pass `socketPath` or set ' + 'PICO_RPC_SOCKET env var.')
+      throw new Error('RpcClient: no RPC target supplied; pass `socketPath` or set ' + 'LOOPRAIL_RPC_SOCKET env var.')
     }
     this.warn = opts.warn ?? (m => process.stderr.write(`[rpc-client] ${m}\n`))
     this.onNotification = opts.onNotification
@@ -76,7 +76,7 @@ export class RpcClient {
     this.socket.setEncoding('utf-8')
 
     // 父进程在所有帧前校验首行共享密钥；任何本地进程都能访问回环端口，因此需要该门控。
-    const authToken = process.env.PICO_RPC_TOKEN
+    const authToken = process.env.LOOPRAIL_RPC_TOKEN
 
     this.connectPromise = new Promise<void>((resolve, reject) => {
       const onConnect = () => {

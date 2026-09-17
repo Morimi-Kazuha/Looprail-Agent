@@ -32,7 +32,7 @@ function InlineLoader({ label, t }: { label: string; t: Theme }) {
   )
 }
 
-const STARTUP_MESSAGES = ['starting pico…', 'building agent loop…', 'loading tools & skills…']
+const STARTUP_MESSAGES = ['starting looprail…', 'building agent loop…', 'loading tools & skills…']
 const STARTUP_LABEL_MS = 900
 
 // 后端构建智能体循环期间、session.info 握手填充 SessionPanel 前，在介绍行显示的占位符。
@@ -67,7 +67,7 @@ export function ArtLines({ lines }: { lines: [string, string][] }) {
   )
 }
 
-// 与 ArtLines 类似，但每行是行内渲染的 `[颜色, 片段]` 对数组，用于横向渐变图案（Pico 主视觉）。
+// 与 ArtLines 类似，但每行是行内渲染的 `[颜色, 片段]` 对数组，用于横向渐变图案（Looprail 主视觉）。
 export function ArtRows({ rows }: { rows: [string, string][][] }) {
   return (
     <>

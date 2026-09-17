@@ -1,9 +1,15 @@
-# Public evaluation notes
+# Looprail evaluation
 
-This directory retains only benchmark notes that support externally reviewable Pico claims:
+LooprailBench is the repository's deterministic evaluation infrastructure. The
+pages in this directory explain selected workloads, metrics, evidence
+boundaries, and offline reproduction commands. They are technical notes, not
+service-level guarantees.
 
-- [Runtime scheduler experiments](runtime-scheduler-experiments.md)
-- [CallEfficiency cost experiment](tokenwise-cost.md)
-- [Tracing overhead](tracing-overhead.md)
+- [Runtime scheduler evaluation](runtime-scheduler-experiments.md)
+- [CallEfficiency cost evaluation](tokenwise-cost.md)
+- [Tracing overhead evaluation](tracing-overhead.md)
 
-Raw run artifacts, credentials, private environment details, candidate indices, and internal planning documents are intentionally excluded. Each result applies only to the frozen workload and evidence boundary described in its own file.
+Generated evidence, credentials, raw traces, private environment details, and
+local campaign outputs stay outside the public source tree. Results apply only
+to the workload, configuration, and evidence boundary described on the
+corresponding page.

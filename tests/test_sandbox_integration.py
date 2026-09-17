@@ -63,7 +63,7 @@ def pre_pull_images():
 
 @pytest.fixture
 async def executor(tmp_path):
-    from pico.sandbox.boxlite_executor import BoxliteExecutor
+    from looprail.sandbox.boxlite_executor import BoxliteExecutor
 
     async with BoxliteExecutor(
         image="ubuntu:22.04",
@@ -98,7 +98,7 @@ class TestBoxliteExecutorIntegration:
         assert "from host" in result.stdout
 
     async def test_lifecycle_context_manager(self, tmp_path):
-        from pico.sandbox.boxlite_executor import BoxliteExecutor
+        from looprail.sandbox.boxlite_executor import BoxliteExecutor
 
         async with BoxliteExecutor(
             image="ubuntu:22.04",
@@ -113,7 +113,7 @@ class TestBoxliteExecutorIntegration:
 @pytest.fixture
 async def node_executor(tmp_path):
     """Executor using a Node.js image — required for npx-based MCP server tests."""
-    from pico.sandbox.boxlite_executor import BoxliteExecutor
+    from looprail.sandbox.boxlite_executor import BoxliteExecutor
 
     async with BoxliteExecutor(
         image="node:20-slim",

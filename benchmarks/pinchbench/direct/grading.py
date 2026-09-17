@@ -1,8 +1,8 @@
 """
-PinchBench Grading Engine - adapted for Pico.
+PinchBench Grading Engine - adapted for Looprail.
 
 Supports automated (Python code), LLM judge, and hybrid grading.
-LLM judge uses Pico's own provider (OpenRouter) instead of OpenClaw.
+LLM judge uses Looprail's own provider (OpenRouter) instead of OpenClaw.
 """
 
 from __future__ import annotations

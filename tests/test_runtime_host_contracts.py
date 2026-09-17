@@ -8,21 +8,21 @@ from typing import Any
 
 import pytest
 
-from pico.agent.tools.base import Tool
-from pico.channels.contract import Capabilities, Channel
-from pico.channels.intake import Intake
-from pico.cli._gateway_spine import build_gateway
-from pico.cli._repl_spine import build_repl
-from pico.cli._runtime_assembly import assemble_runtime
-from pico.config.pico import PicoConfig
-from pico.config.schema import Config
-from pico.providers.base import LLMResponse, StreamDelta, ToolCallRequest
-from pico.spine import ChatType, Origin, Source, TurnRequest
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.methods import turn as turn_methods
-from pico.tui_rpc.methods.turn import register_turn_methods
-from pico.tui_rpc.spine import build_tui
-from pico.tui_rpc.subscriptions import SubscriptionEmitter
+from looprail.agent.tools.base import Tool
+from looprail.channels.contract import Capabilities, Channel
+from looprail.channels.intake import Intake
+from looprail.cli._gateway_spine import build_gateway
+from looprail.cli._repl_spine import build_repl
+from looprail.cli._runtime_assembly import assemble_runtime
+from looprail.config.looprail import LooprailConfig
+from looprail.config.schema import Config
+from looprail.providers.base import LLMResponse, StreamDelta, ToolCallRequest
+from looprail.spine import ChatType, Origin, Source, TurnRequest
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.methods import turn as turn_methods
+from looprail.tui_rpc.methods.turn import register_turn_methods
+from looprail.tui_rpc.spine import build_tui
+from looprail.tui_rpc.subscriptions import SubscriptionEmitter
 
 
 class _ProbePluginTool(Tool):
@@ -309,17 +309,17 @@ async def test_protected_task_runs_through_cli_tui_and_gateway(
         mcp_connections.append(set(servers))
         registry.register(_ProbeMcpTool())
 
-    monkeypatch.setattr("pico.agent.tools.mcp.connect_mcp_servers", _connect_mcp)
+    monkeypatch.setattr("looprail.agent.tools.mcp.connect_mcp_servers", _connect_mcp)
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_registry",
+        "looprail.cli._plugin_stack.build_plugin_registry",
         lambda _config: object(),
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.maybe_build_memory_backend",
+        "looprail.cli._plugin_stack.maybe_build_memory_backend",
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_tools",
+        "looprail.cli._plugin_stack.build_plugin_tools",
         lambda *args, **kwargs: [_ProbePluginTool()],
     )
 
@@ -343,22 +343,22 @@ async def test_protected_task_runs_through_cli_tui_and_gateway(
     for host in ("cli", "tui", "gateway"):
         workspace = tmp_path / host
         workspace.mkdir()
-        (workspace / "sentinel.txt").write_text("PICO_HOST_SENTINEL", encoding="utf-8")
+        (workspace / "sentinel.txt").write_text("LOOPRAIL_HOST_SENTINEL", encoding="utf-8")
         provider = _ScriptedProvider()
         config = Config()
         config.agents.defaults.workspace = str(workspace)
         config.agents.defaults.model = "probe/model"
         config.tools.restrict_to_workspace = True
         config.tools.mcp_servers = {"docs": object()}
-        pico_config = PicoConfig(base=config)
-        pico_config.skill_forge.enabled = False
-        pico_config.skill_forge.router.enabled = False
-        pico_config.skill_forge.rewrite_enabled = False
-        pico_config.skill_forge.llm_gate_enabled = False
-        pico_config.runtime.checkpoint.policy = "never"
+        looprail_config = LooprailConfig(base=config)
+        looprail_config.skill_forge.enabled = False
+        looprail_config.skill_forge.router.enabled = False
+        looprail_config.skill_forge.rewrite_enabled = False
+        looprail_config.skill_forge.llm_gate_enabled = False
+        looprail_config.runtime.checkpoint.policy = "never"
         runtime = assemble_runtime(
             config,
-            pico_config,
+            looprail_config,
             provider=provider,
             cron_service=None,
             interactive=host != "cli",

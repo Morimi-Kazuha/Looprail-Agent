@@ -17,13 +17,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.agent.loop.main import _MAX_ITER_STATIC_FALLBACK, _MAX_ITER_SYNTHESIS_PROMPT
-from pico.call_efficiency import CallEfficiency
-from pico.config.pico import CheckpointConfig, RuntimeConfig
-from pico.providers.base import LLMProvider, LLMResponse, ToolCallRequest
-from pico.spine.message import ChatType, Source
-from pico.spine.turn import Origin, TurnRequest
+from looprail.agent.loop import AgentLoop
+from looprail.agent.loop.main import _MAX_ITER_STATIC_FALLBACK, _MAX_ITER_SYNTHESIS_PROMPT
+from looprail.call_efficiency import CallEfficiency
+from looprail.config.looprail import CheckpointConfig, RuntimeConfig
+from looprail.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from looprail.spine.message import ChatType, Source
+from looprail.spine.turn import Origin, TurnRequest
 
 
 @pytest.fixture

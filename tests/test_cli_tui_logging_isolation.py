@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.cli._log_file import redirect_loguru_to_file  # noqa: E402
+from looprail.cli._log_file import redirect_loguru_to_file  # noqa: E402
 
 _KNOWN_TTY_LEAKING_LOGGERS = ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy")
 
@@ -42,14 +42,14 @@ def _isolate_logging(tmp_path, monkeypatch):
 
     Without this, ``redirect_loguru_to_file`` would: (a) leave the root
     InterceptHandler installed for subsequent tests, masking their logging;
-    (b) write to the real ``~/.pico/logs/tui.log``;
+    (b) write to the real ``~/.looprail/logs/tui.log``;
     (c) leave LiteLLM loggers stripped for the rest of the session, breaking
     the precondition of later parametrized cases.
     """
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.delenv("PICO_CLI_DEBUG", raising=False)
+    monkeypatch.delenv("LOOPRAIL_CLI_DEBUG", raising=False)
 
-    monkeypatch.setattr("pico.config.loader._current_config_path", None)
+    monkeypatch.setattr("looprail.config.loader._current_config_path", None)
 
     root = logging.getLogger()
     saved_root_handlers = list(root.handlers)
@@ -111,7 +111,7 @@ def test_propagation_to_root_intact_after_redirect(_isolate_logging):
 
     This guards a FUTURE regression: a maintainer might "optimize" the fix by
     flipping ``propagate=False`` on these loggers to short-circuit root, which
-    would silently drop the records from `~/.pico/logs/tui.log`. The fix
+    would silently drop the records from `~/.looprail/logs/tui.log`. The fix
     as shipped does not modify propagate, so this test is green; if it ever
     goes red, the proposed change must be rejected.
     """

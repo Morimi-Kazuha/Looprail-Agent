@@ -1,4 +1,4 @@
-"""Head-to-head: Hermes ``system_and_3`` vs Pico ``CacheOptimizer``.
+"""Head-to-head: Hermes ``system_and_3`` vs Looprail ``CacheOptimizer``.
 
 Three real-world-representative scenarios driven through
 ``AgentLoop.run_turn``:
@@ -18,10 +18,10 @@ Three real-world-representative scenarios driven through
 
 Variants per scenario:
     V1  baseline         — no cache_control
-    V2  Pico current — tools(bp1) + system(bp2) + before-user(bp3) + mid(bp4)
+    V2  Looprail current — tools(bp1) + system(bp2) + before-user(bp3) + mid(bp4)
     V3  Hermes faithful  — system(bp1) + last-3-messages(bp2–4)
 
-Report: ``pico/token_wise/EXPERIMENT_REPORT_CACHE_STRATEGIES.md``
+Report: ``looprail/token_wise/EXPERIMENT_REPORT_CACHE_STRATEGIES.md``
 
 Skipped when ``OPENROUTER_API_KEY`` is missing.
 """
@@ -38,15 +38,15 @@ from typing import Any
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.agent.tools.base import Tool
-from pico.providers.litellm_provider import LiteLLMProvider
-from pico.token_wise.cache_optimizer import CacheOptimizer
-from pico.token_wise.registry import StrategyRegistry
-from pico.token_wise.system_and_tail_cache import SystemAndTailCacheStrategy
-from pico.token_wise.usage_tracker import UsageTracker
+from looprail.agent.loop import AgentLoop
+from looprail.agent.tools.base import Tool
+from looprail.providers.litellm_provider import LiteLLMProvider
+from looprail.token_wise.cache_optimizer import CacheOptimizer
+from looprail.token_wise.registry import StrategyRegistry
+from looprail.token_wise.system_and_tail_cache import SystemAndTailCacheStrategy
+from looprail.token_wise.usage_tracker import UsageTracker
 
-REPORT_PATH = Path(__file__).resolve().parent.parent / "pico" / "token_wise" / "EXPERIMENT_REPORT_CACHE_STRATEGIES.md"
+REPORT_PATH = Path(__file__).resolve().parent.parent / "looprail" / "token_wise" / "EXPERIMENT_REPORT_CACHE_STRATEGIES.md"
 MODEL = "anthropic/claude-sonnet-4-5"
 COST_GUARD_USD = 2.00
 _OPENROUTER_PIN = {"provider": {"order": ["Anthropic"], "allow_fallbacks": False}}
@@ -73,7 +73,7 @@ def api_key() -> str:
 
 def _medium_soul() -> str:
     return (
-        "# Soul\n\nI am Pico, a careful assistant.\n\n"
+        "# Soul\n\nI am Looprail, a careful assistant.\n\n"
         "## Working principles\n\n"
         "- Be precise about what you know vs what you assume.\n"
         "- Prefer direct answers over hedged ones.\n"
@@ -87,7 +87,7 @@ def _medium_soul() -> str:
 
 def _tool_chain_soul() -> str:
     return (
-        "# Soul\n\nI am Pico, a tool-using assistant.\n\n"
+        "# Soul\n\nI am Looprail, a tool-using assistant.\n\n"
         "## Tool-chain protocol\n\n"
         "When the user says 'investigate item_XX':\n"
         "1. Call tool_alpha with item_id=item_XX\n"
@@ -101,7 +101,7 @@ def _tool_chain_soul() -> str:
 
 def _single_tool_soul() -> str:
     return (
-        "# Soul\n\nI am Pico, a tool-using assistant.\n\n"
+        "# Soul\n\nI am Looprail, a tool-using assistant.\n\n"
         "## Tool protocol\n\n"
         "When the user gives an item id, immediately call data_lookup with "
         "that id. After receiving the result, reply with one short sentence "
@@ -256,7 +256,7 @@ class ScenarioResult:
 async def _run_user_turn(loop, content: str, *, session_key: str, chat_id: str) -> None:
     """Run one USER turn through run_turn for its side-effects: the experiment
     measures usage via the tracker, not the reply, so the output is swallowed."""
-    from pico.spine import ChatType, Origin, Source, TurnRequest
+    from looprail.spine import ChatType, Origin, Source, TurnRequest
 
     async def _swallow(_ev) -> None:
         return None
@@ -363,7 +363,7 @@ async def _run_variant(
 
 def _write_report(scenarios: list[ScenarioResult]) -> str:
     lines: list[str] = []
-    lines.append("# Hermes ``system_and_3`` vs Pico ``CacheOptimizer`` — Head-to-Head\n")
+    lines.append("# Hermes ``system_and_3`` vs Looprail ``CacheOptimizer`` — Head-to-Head\n")
     lines.append(
         "_Both strategies faithfully reproduced and benchmarked through the real ``AgentLoop.run_turn`` code path._\n"
     )
@@ -374,7 +374,7 @@ def _write_report(scenarios: list[ScenarioResult]) -> str:
     lines.append("| | Breakpoint 1 | Breakpoint 2 | Breakpoint 3 | Breakpoint 4 |")
     lines.append("|:---|:---|:---|:---|:---|")
     lines.append("| **V1 baseline** | — | — | — | — |")
-    lines.append("| **V2 Pico v2** | tools[-1] (if tools) | system tail | rolling msg[-2] | rolling msg[-1] |")
+    lines.append("| **V2 Looprail v2** | tools[-1] (if tools) | system tail | rolling msg[-2] | rolling msg[-1] |")
     lines.append("| **V3 Hermes** | system[0] | non_sys[-3] | non_sys[-2] | non_sys[-1] |")
     lines.append("")
 
@@ -430,7 +430,7 @@ def _write_report(scenarios: list[ScenarioResult]) -> str:
             if v2.total_cost > 0:
                 vs = (1 - v3.total_cost / v2.total_cost) * 100
                 winner = v3.name if vs > 0 else v2.name
-                lines.append(f"- **Winner: {winner}** (Pico vs Hermes: {vs:+.1f}%)\n")
+                lines.append(f"- **Winner: {winner}** (Looprail vs Hermes: {vs:+.1f}%)\n")
 
     lines.append("\n---\n\n## Overall verdict\n")
     lines.append("| Scenario | Winner | Margin |")
@@ -440,7 +440,7 @@ def _write_report(scenarios: list[ScenarioResult]) -> str:
             v2, v3 = sc.variants[1], sc.variants[2]
             if v2.total_cost > 0:
                 margin = (1 - v3.total_cost / v2.total_cost) * 100
-                winner = "Hermes" if margin > 1 else "Pico" if margin < -1 else "Tie"
+                winner = "Hermes" if margin > 1 else "Looprail" if margin < -1 else "Tie"
                 lines.append(f"| {sc.name} | {winner} | {abs(margin):.1f}% |")
 
     lines.append("\n---\n\n## Raw JSON\n")
@@ -493,7 +493,7 @@ def _write_report(scenarios: list[ScenarioResult]) -> str:
 
 
 @pytest.mark.asyncio
-async def test_hermes_vs_pico(api_key: str, tmp_path: Path):
+async def test_hermes_vs_looprail(api_key: str, tmp_path: Path):
     cost: dict[str, float] = {}
     scenarios: list[ScenarioResult] = []
 
@@ -506,7 +506,7 @@ async def test_hermes_vs_pico(api_key: str, tmp_path: Path):
     s1_variants = []
     for vname, strategy_label, cache_strat, disable_auto in [
         ("V1_baseline", "none", None, True),
-        ("V2_pico", "tools+sys+rolling_tail", CacheOptimizer(max_breakpoints=4), True),
+        ("V2_looprail", "tools+sys+rolling_tail", CacheOptimizer(max_breakpoints=4), True),
         ("V3_hermes", "sys+last_3", SystemAndTailCacheStrategy(), True),
     ]:
         v = await _run_variant(
@@ -548,7 +548,7 @@ async def test_hermes_vs_pico(api_key: str, tmp_path: Path):
     s2_variants = []
     for vname, strategy_label, cache_strat, disable_auto in [
         ("V1_baseline", "none", None, True),
-        ("V2_pico", "tools+sys+rolling_tail", CacheOptimizer(max_breakpoints=4), True),
+        ("V2_looprail", "tools+sys+rolling_tail", CacheOptimizer(max_breakpoints=4), True),
         ("V3_hermes", "sys+last_3", SystemAndTailCacheStrategy(), True),
     ]:
         v = await _run_variant(
@@ -587,7 +587,7 @@ async def test_hermes_vs_pico(api_key: str, tmp_path: Path):
     s3_variants = []
     for vname, strategy_label, cache_strat, disable_auto in [
         ("V1_baseline", "none", None, True),
-        ("V2_pico", "tools+sys+rolling_tail", CacheOptimizer(max_breakpoints=4), True),
+        ("V2_looprail", "tools+sys+rolling_tail", CacheOptimizer(max_breakpoints=4), True),
         ("V3_hermes", "sys+last_3", SystemAndTailCacheStrategy(), True),
     ]:
         v = await _run_variant(
@@ -629,5 +629,5 @@ async def test_hermes_vs_pico(api_key: str, tmp_path: Path):
 
         v1, v2, v3 = sc.variants
         assert v1.total_cache_read == 0, f"{sc.name}: baseline has cache reads"
-        assert v2.total_cost < v1.total_cost, f"{sc.name}: Pico not cheaper than baseline"
+        assert v2.total_cost < v1.total_cost, f"{sc.name}: Looprail not cheaper than baseline"
         assert v3.total_cost < v1.total_cost, f"{sc.name}: Hermes not cheaper than baseline"

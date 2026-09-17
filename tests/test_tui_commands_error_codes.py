@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from pico.cli.tui_commands import _build_tui_agent_loop
-from pico.config.pico import MemoryConfig, PicoConfig
-from pico.tui_rpc.errors import InternalError, RpcError
+from looprail.cli.tui_commands import _build_tui_agent_loop
+from looprail.config.looprail import LooprailConfig, MemoryConfig
+from looprail.tui_rpc.errors import InternalError, RpcError
 
 # ---------------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ def _patch_agent_loop_to_raise(monkeypatch: pytest.MonkeyPatch, exc: BaseExcepti
     """Replace ``AgentLoop`` constructor so that calling it raises ``exc``.
 
     ``_build_tui_agent_loop`` imports ``AgentLoop`` lazily from
-    ``pico.agent.loop`` inside the function body, so we patch the module
+    ``looprail.agent.loop`` inside the function body, so we patch the module
     attribute (not a copy in tui_commands).
     """
 
@@ -32,19 +32,19 @@ def _patch_agent_loop_to_raise(monkeypatch: pytest.MonkeyPatch, exc: BaseExcepti
         def __init__(self, *args, **kwargs):
             raise exc
 
-    monkeypatch.setattr("pico.cli._helpers.make_lazy_provider", lambda config: object())
+    monkeypatch.setattr("looprail.cli._helpers.make_lazy_provider", lambda config: object())
     monkeypatch.setattr(
-        "pico.config.pico.load_pico_config",
-        lambda: PicoConfig(memory=MemoryConfig(backend=None)),
+        "looprail.config.looprail.load_looprail_config",
+        lambda: LooprailConfig(memory=MemoryConfig(backend=None)),
     )
-    monkeypatch.setattr("pico.agent.loop.AgentLoop", _Boom)
+    monkeypatch.setattr("looprail.agent.loop.AgentLoop", _Boom)
 
 
 def test_typeerror_in_build_raises_internal_error_minus_32603(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     """AgentLoop ctor raising TypeError (kwargs drift) → InternalError(-32603).
 
     Reason data field = "tui_init_crash"; exception_type echoed; log_path
-    points to ~/.pico/logs/tui.log so the UI can hint the user.
+    points to ~/.looprail/logs/tui.log so the UI can hint the user.
     """
     monkeypatch.chdir(tmp_path)
     _patch_agent_loop_to_raise(
@@ -69,7 +69,7 @@ def test_attributeerror_in_build_raises_internal_error_minus_32603(monkeypatch: 
     monkeypatch.chdir(tmp_path)
     _patch_agent_loop_to_raise(
         monkeypatch,
-        AttributeError("'PicoConfig' object has no attribute 'foo'"),
+        AttributeError("'LooprailConfig' object has no attribute 'foo'"),
     )
 
     with pytest.raises(InternalError) as excinfo:

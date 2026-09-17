@@ -2,7 +2,7 @@
 """
 PinchBench Benchmark Runner - bot-mode variant.
 
-Runs a full Pico bot (AgentLoop run_turn) for each task,
+Runs a full Looprail bot (AgentLoop run_turn) for each task,
 submitting prompts as USER turns through the spine.
 
 Usage:
@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
-# 将项目根目录加入路径，以便导入 Pico 运行时。
+# 将项目根目录加入路径，以便导入 Looprail 运行时。
 # 路径：benchmarks/pinchbench/bot_runner/benchmark.py
 SCRIPT_DIR = Path(__file__).parent
 BENCHMARK_ROOT = SCRIPT_DIR.parent  # pinchbench/ 目录。
@@ -49,7 +49,7 @@ logger = logging.getLogger("benchmark.bot")
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="PinchBench for Pico (bot mode)")
+    parser = argparse.ArgumentParser(description="PinchBench for Looprail (bot mode)")
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
@@ -129,7 +129,7 @@ async def run_benchmark(args: argparse.Namespace) -> None:
         return
 
     logger.info("=" * 70)
-    logger.info("  PinchBench for Pico (BOT MODE)")
+    logger.info("  PinchBench for Looprail (BOT MODE)")
     logger.info("  Model: %s", args.model)
     logger.info("  Tasks: %d / %d", len(tasks_to_run), len(all_tasks))
     logger.info("  Runs per task: %d", args.runs)
@@ -139,7 +139,7 @@ async def run_benchmark(args: argparse.Namespace) -> None:
         logger.info("  [%s] %s (%s, %s, %ds)", t.task_id, t.name, t.category, t.grading_type, t.timeout_seconds)
 
     model_slug = _slugify(args.model)
-    run_root = Path("/tmp/pinchbench-pico-bot")
+    run_root = Path("/tmp/pinchbench-looprail-bot")
     run_id = _next_run_id(run_root)
 
     results: List[Dict[str, Any]] = []

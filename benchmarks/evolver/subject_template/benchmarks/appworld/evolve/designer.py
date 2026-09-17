@@ -17,8 +17,8 @@ from typing import Callable
 
 from benchmarks.appworld.evolve.adapter import MODULE_PATH
 from benchmarks.appworld.evolve.tasks import PUBLIC_SURFACE, WHY_DEFINITIONS, task_for
-from pico.evolver.orchestrator.nodes.semantic import SemanticNode
-from pico.evolver.tree import git_ops
+from looprail.evolver.orchestrator.nodes.semantic import SemanticNode
+from looprail.evolver.tree import git_ops
 
 MAX_MODULE_BYTES = 32768
 

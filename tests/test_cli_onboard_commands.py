@@ -1,4 +1,4 @@
-"""CLI tests for ``pico onboard`` - the four-step first-use wizard.
+"""CLI tests for ``looprail onboard`` - the four-step first-use wizard.
 
 Most tests exercise ``--non-interactive`` so we can drive the wizard
 deterministically without a real TTY. Interactive paths are covered by
@@ -7,8 +7,8 @@ stubbing the per-step helper functions directly (``_select_provider``,
 patching :mod:`questionary` internals.
 
 Network is mocked at the ops-library boundary
-(``pico.config.update_providers.test_provider``) and at the first-Turn
-boundary (``pico.cli.onboard_commands.run_first_turn``).
+(``looprail.config.update_providers.test_provider``) and at the first-Turn
+boundary (``looprail.cli.onboard_commands.run_first_turn``).
 """
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from pico.cli import onboard_commands
-from pico.cli.commands import app
-from pico.config.loader import set_config_path
+from looprail.cli import onboard_commands
+from looprail.cli.commands import app
+from looprail.config.loader import set_config_path
 
 runner = CliRunner()
 
@@ -83,18 +83,18 @@ def tmp_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Redirect config_path + workspace_path under tmp_path; stub template sync.
 
     ``_bootstrap_empty_config`` uses lazy imports, so we patch the *source*
-    modules (``pico.config.paths`` / ``pico.utils.helpers``) rather
+    modules (``looprail.config.paths`` / ``looprail.utils.helpers``) rather
     than the consumer.
     """
     cfg = tmp_path / "config.json"
     workspace = tmp_path / "workspace"
     set_config_path(cfg)
     monkeypatch.setattr(
-        "pico.config.paths.get_workspace_path",
+        "looprail.config.paths.get_workspace_path",
         lambda: workspace,
     )
     monkeypatch.setattr(
-        "pico.utils.helpers.sync_workspace_templates",
+        "looprail.utils.helpers.sync_workspace_templates",
         lambda _: None,
     )
     yield cfg
@@ -120,7 +120,7 @@ def stub_verify(monkeypatch: pytest.MonkeyPatch):
             "elapsed_ms": 12,
         }
 
-    monkeypatch.setattr("pico.config.update_providers.test_provider", _ok)
+    monkeypatch.setattr("looprail.config.update_providers.test_provider", _ok)
     return _ok
 
 
@@ -137,7 +137,7 @@ def stub_step3(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_onboard_help_lists_all_flags() -> None:
-    """``pico onboard --help`` exposes the full flag surface."""
+    """``looprail onboard --help`` exposes the full flag surface."""
     r = runner.invoke(app, ["onboard", "--help"])
     assert r.exit_code == 0, r.stdout
     out = r.stdout
@@ -174,7 +174,7 @@ def test_onboard_non_interactive_minimum_flags(tmp_env: Path, stub_verify, stub_
         ],
     )
     assert r.exit_code == 0, r.stdout
-    assert "Welcome to the Pico setup wizard" in r.stdout
+    assert "Welcome to the Looprail setup wizard" in r.stdout
     assert "Connected" in r.stdout
     assert "Setup complete" in r.stdout
 
@@ -366,7 +366,7 @@ def test_onboard_provider_test_failure_warns_but_continues(
             "error": "401 Unauthorized",
         }
 
-    monkeypatch.setattr("pico.config.update_providers.test_provider", _fail)
+    monkeypatch.setattr("looprail.config.update_providers.test_provider", _fail)
 
     r = runner.invoke(
         app,
@@ -454,7 +454,7 @@ def test_step1_writes_via_ops_lib(tmp_env: Path, monkeypatch: pytest.MonkeyPatch
         calls.append((name, dict(fields)))
         return {}
 
-    monkeypatch.setattr("pico.config.update_providers.set_provider_fields", _spy)
+    monkeypatch.setattr("looprail.config.update_providers.set_provider_fields", _spy)
     monkeypatch.setattr(onboard_commands, "_prepare_myna", lambda **_: True)
     monkeypatch.setattr(onboard_commands, "run_first_turn", lambda: ("hi", 1, 0.1))
 
@@ -479,10 +479,10 @@ def test_step1_writes_via_ops_lib(tmp_env: Path, monkeypatch: pytest.MonkeyPatch
 
 
 def test_styles_module_loads() -> None:
-    """``_styles.py`` import must not crash and must export ``PICO_STYLE``."""
-    from pico.cli._styles import PICO_STYLE  # noqa: F401
+    """``_styles.py`` import must not crash and must export ``LOOPRAIL_STYLE``."""
+    from looprail.cli._styles import LOOPRAIL_STYLE  # noqa: F401
 
-    assert PICO_STYLE is not None
+    assert LOOPRAIL_STYLE is not None
 
 
 def test_run_first_turn_uses_public_run_command(
@@ -505,7 +505,7 @@ def test_run_first_turn_uses_public_run_command(
     text, tokens, elapsed = onboard_commands.run_first_turn()
 
     command, kwargs = calls[0]
-    assert command[:4] == [onboard_commands.sys.executable, "-m", "pico.cli.commands", "run"]
+    assert command[:4] == [onboard_commands.sys.executable, "-m", "looprail.cli.commands", "run"]
     assert command[4:6] == ["-m", onboard_commands.DEFAULT_PROBE_MESSAGE]
     assert command[-2:] == ["--config", str(tmp_env)]
     assert kwargs["timeout"] == 120
@@ -571,7 +571,7 @@ def test_step1_picker_uses_catalog_when_available(tmp_env: Path, monkeypatch: py
             "elapsed_ms": 9,
         }
 
-    monkeypatch.setattr("pico.config.update_providers.test_provider", _ok_with_catalog)
+    monkeypatch.setattr("looprail.config.update_providers.test_provider", _ok_with_catalog)
     monkeypatch.setattr(onboard_commands, "_check_tty_or_die", lambda non_interactive: None)
     monkeypatch.setattr(onboard_commands, "_pick_language", lambda: None)
     monkeypatch.setattr(onboard_commands, "_select_provider", lambda: "anthropic")
@@ -613,7 +613,7 @@ def test_step1_picker_uses_catalog_when_available(tmp_env: Path, monkeypatch: py
 
 def test_format_model_for_provider_prefix_rules() -> None:
     """Provider's ``litellm_prefix`` is applied unless model_id already has one."""
-    from pico.providers.registry import find_by_name
+    from looprail.providers.registry import find_by_name
 
     openrouter = find_by_name("openrouter")
     deepseek = find_by_name("deepseek")
@@ -637,7 +637,7 @@ def test_format_model_for_provider_prefix_rules() -> None:
 
 def test_model_routes_to_provider_heuristic() -> None:
     """Mirror of ``Config._match_provider``: prefix match wins, else keyword."""
-    from pico.providers.registry import find_by_name
+    from looprail.providers.registry import find_by_name
 
     openrouter = find_by_name("openrouter")
     anthropic = find_by_name("anthropic")
@@ -658,7 +658,7 @@ def test_model_routes_to_provider_heuristic() -> None:
 
 def test_registry_default_models_present() -> None:
     """Each curated provider must carry a ``default_model`` in its ``ProviderSpec``."""
-    from pico.providers.registry import find_by_name
+    from looprail.providers.registry import find_by_name
 
     for name in (
         "openrouter",
@@ -676,8 +676,8 @@ def test_registry_default_models_present() -> None:
 
 def _seed_provider(provider: str = "openai", key: str = "sk-seed", model: str = "openai/gpt-4o-mini") -> None:
     """Write a minimal populated config via the ops layer."""
-    from pico.config.update import set_default_model
-    from pico.config.update_providers import set_provider_fields
+    from looprail.config.update import set_default_model
+    from looprail.config.update_providers import set_provider_fields
 
     set_provider_fields(provider, {"api_key": key})
     set_default_model(model)
@@ -685,8 +685,8 @@ def _seed_provider(provider: str = "openai", key: str = "sk-seed", model: str = 
 
 def test_is_config_populated_requires_provider_and_model(tmp_env: Path) -> None:
     """Gate criterion: provider key + default model are BOTH required."""
-    from pico.config.update import set_default_model
-    from pico.config.update_providers import set_provider_fields
+    from looprail.config.update import set_default_model
+    from looprail.config.update_providers import set_provider_fields
 
     assert onboard_commands._is_config_populated() is False
     set_provider_fields("openai", {"api_key": "sk-x"})
@@ -716,8 +716,8 @@ def test_ensure_configured_runs_wizard_when_missing(tmp_env: Path, monkeypatch: 
 
 
 def test_run_gate_triggers_when_missing(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``pico run`` (interactive, TTY, missing config) enters the wizard."""
-    from pico.cli import agent_commands
+    """``looprail run`` (interactive, TTY, missing config) enters the wizard."""
+    from looprail.cli import agent_commands
 
     monkeypatch.setattr(agent_commands, "_stdout_isatty", lambda: True)
     gate_called: list[bool] = []
@@ -734,8 +734,8 @@ def test_run_gate_triggers_when_missing(tmp_env: Path, monkeypatch: pytest.Monke
 
 
 def test_run_gate_skips_when_populated(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``pico run`` with complete config does not enter the wizard."""
-    from pico.cli import agent_commands
+    """``looprail run`` with complete config does not enter the wizard."""
+    from looprail.cli import agent_commands
 
     _seed_provider()
     monkeypatch.setattr(agent_commands, "_stdout_isatty", lambda: True)
@@ -749,16 +749,16 @@ def test_run_gate_skips_when_populated(tmp_env: Path, monkeypatch: pytest.Monkey
     def _boom(*a, **kw):
         raise typer.Exit(0)
 
-    monkeypatch.setattr("pico.cli._helpers.load_runtime_config", _boom)
+    monkeypatch.setattr("looprail.cli._helpers.load_runtime_config", _boom)
     runner.invoke(app, ["run"])
 
     assert gate_called == []
 
 
 def test_run_gate_skips_oneshot_message(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``pico run -m '...'`` (one-shot) must not enter the wizard even on a
+    """``looprail run -m '...'`` (one-shot) must not enter the wizard even on a
     TTY with missing config — scripted use fails loudly later instead."""
-    from pico.cli import agent_commands
+    from looprail.cli import agent_commands
 
     monkeypatch.setattr(agent_commands, "_stdout_isatty", lambda: True)
     gate_called: list[bool] = []
@@ -768,7 +768,7 @@ def test_run_gate_skips_oneshot_message(tmp_env: Path, monkeypatch: pytest.Monke
         lambda **_: gate_called.append(True),
     )
     monkeypatch.setattr(
-        "pico.cli._helpers.load_runtime_config",
+        "looprail.cli._helpers.load_runtime_config",
         lambda *a, **kw: (_ for _ in ()).throw(typer.Exit(0)),
     )
     runner.invoke(app, ["run", "-m", "hi"])
@@ -776,8 +776,8 @@ def test_run_gate_skips_oneshot_message(tmp_env: Path, monkeypatch: pytest.Monke
 
 
 def test_run_gate_skips_non_tty(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Non-TTY (piped) ``pico run`` must not enter the wizard."""
-    from pico.cli import agent_commands
+    """Non-TTY (piped) ``looprail run`` must not enter the wizard."""
+    from looprail.cli import agent_commands
 
     monkeypatch.setattr(agent_commands, "_stdout_isatty", lambda: False)
     gate_called: list[bool] = []
@@ -787,7 +787,7 @@ def test_run_gate_skips_non_tty(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) 
         lambda **_: gate_called.append(True),
     )
     monkeypatch.setattr(
-        "pico.cli._helpers.load_runtime_config",
+        "looprail.cli._helpers.load_runtime_config",
         lambda *a, **kw: (_ for _ in ()).throw(typer.Exit(0)),
     )
     runner.invoke(app, ["run"])
@@ -795,8 +795,8 @@ def test_run_gate_skips_non_tty(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_tui_gate_triggers_when_missing(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bare ``pico`` enters onboarding before launching the native TUI."""
-    from pico.cli import tui_commands
+    """Bare ``looprail`` enters onboarding before launching the native TUI."""
+    from looprail.cli import tui_commands
 
     monkeypatch.setattr(tui_commands, "_stdout_isatty", lambda: True)
     gate_called: list[bool] = []
@@ -812,8 +812,8 @@ def test_tui_gate_triggers_when_missing(tmp_env: Path, monkeypatch: pytest.Monke
 
 
 def test_tui_gate_skips_check_flag(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``pico --check`` bypasses onboarding."""
-    from pico.cli import tui_commands
+    """``looprail --check`` bypasses onboarding."""
+    from looprail.cli import tui_commands
 
     monkeypatch.setattr(tui_commands, "_stdout_isatty", lambda: True)
     gate_called: list[bool] = []
@@ -869,7 +869,7 @@ def test_sandbox_boxlite_probe_failure_falls_back(tmp_env: Path, monkeypatch: py
 
 def test_sandbox_keep_current_first_option(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """An already-configured sandbox offers a 'keep current' first choice."""
-    from pico.config.update import set_sandbox_backend
+    from looprail.config.update import set_sandbox_backend
 
     set_sandbox_backend("boxlite")
     captured: dict[str, list] = {}
@@ -903,12 +903,12 @@ def test_memory_skip_sets_backend_null(
     )
     data = json.loads(tmp_env.read_text())
     assert data["memory"]["backend"] is None
-    from pico.config.pico import load_pico_config
+    from looprail.config.looprail import load_looprail_config
 
-    assert load_pico_config().memory.backend is None
+    assert load_looprail_config().memory.backend is None
 
 
-def test_memory_step_selects_myna_without_pico_side_overrides(
+def test_memory_step_selects_myna_without_looprail_side_overrides(
     tmp_env: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -927,9 +927,9 @@ def test_memory_step_selects_myna_without_pico_side_overrides(
     assert data["memory"]["backend"] == "myna"
     assert "myna" not in data.get("plugins", {}).get("config", {})
     assert "myna-memory" not in data.get("plugins", {}).get("config", {})
-    from pico.config.pico import load_pico_config
+    from looprail.config.looprail import load_looprail_config
 
-    assert load_pico_config().memory.backend == "myna"
+    assert load_looprail_config().memory.backend == "myna"
 
 
 def _install_fake_myna_descriptor(monkeypatch: pytest.MonkeyPatch, descriptor: Any) -> None:
@@ -937,11 +937,11 @@ def _install_fake_myna_descriptor(monkeypatch: pytest.MonkeyPatch, descriptor: A
     package.__path__ = []  # type: ignore[attr-defined]
     integrations = types.ModuleType("myna.integrations")
     integrations.__path__ = []  # type: ignore[attr-defined]
-    pico = types.ModuleType("myna.integrations.pico")
-    pico.descriptor = lambda: descriptor  # type: ignore[attr-defined]
+    looprail = types.ModuleType("myna.integrations.pico")
+    looprail.descriptor = lambda: descriptor  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "myna", package)
     monkeypatch.setitem(sys.modules, "myna.integrations", integrations)
-    monkeypatch.setitem(sys.modules, "myna.integrations.pico", pico)
+    monkeypatch.setitem(sys.modules, "myna.integrations.pico", looprail)
 
 
 def test_prepare_myna_applies_consent_bound_repository_setup(
@@ -950,7 +950,7 @@ def test_prepare_myna_applies_consent_bound_repository_setup(
     onboard_commands._bootstrap_empty_config()
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.inspect_memory_backend",
+        "looprail.cli._plugin_stack.inspect_memory_backend",
         lambda config: SimpleNamespace(state="available", error=None),
     )
     applied: list[str] = []
@@ -976,7 +976,7 @@ def test_prepare_myna_applies_consent_bound_repository_setup(
 def test_prepare_myna_fails_closed_when_plugin_is_missing(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     onboard_commands._bootstrap_empty_config()
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.inspect_memory_backend",
+        "looprail.cli._plugin_stack.inspect_memory_backend",
         lambda config: SimpleNamespace(state="error", error="plugin unavailable"),
     )
 
@@ -1037,7 +1037,7 @@ def test_add_one_channel_announces_maturity_before_credentials(
 
 def test_provider_remove_clears_key(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Removing a provider clears its api_key (disable, not hard-delete)."""
-    from pico.config.update_providers import set_provider_fields
+    from looprail.config.update_providers import set_provider_fields
 
     set_provider_fields("openai", {"api_key": "sk-a"})
     set_provider_fields("anthropic", {"api_key": "sk-b"})
@@ -1164,7 +1164,7 @@ def test_switch_provider_returns_to_picker_keeps_steps(
             }
         return {"ok": True, "status": "valid", "models_count": 0, "model_ids": [], "elapsed_ms": 1}
 
-    monkeypatch.setattr("pico.config.update_providers.test_provider", _verify)
+    monkeypatch.setattr("looprail.config.update_providers.test_provider", _verify)
     monkeypatch.setattr(onboard_commands, "_check_tty_or_die", lambda non_interactive: None)
     monkeypatch.setattr(onboard_commands, "_pick_language", lambda: None)
 
@@ -1235,9 +1235,9 @@ def test_skip_memory_disables_backend_effective(tmp_env: Path, stub_verify, stub
         ],
     )
     assert r.exit_code == 0, r.stdout
-    from pico.config.pico import load_pico_config
+    from looprail.config.looprail import load_looprail_config
 
-    assert load_pico_config().memory.backend is None
+    assert load_looprail_config().memory.backend is None
 
 
 def test_fresh_bootstrap_defaults_memory_backend_myna(
@@ -1245,9 +1245,9 @@ def test_fresh_bootstrap_defaults_memory_backend_myna(
 ) -> None:
     """A fresh config selects the installed Myna contribution."""
     onboard_commands._bootstrap_empty_config()
-    from pico.config.pico import load_pico_config
+    from looprail.config.looprail import load_looprail_config
 
-    assert load_pico_config().memory.backend == "myna"
+    assert load_looprail_config().memory.backend == "myna"
 
 
 def test_fresh_bootstrap_seeds_extension_blocks(tmp_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1340,7 +1340,7 @@ def test_total_steps_is_four() -> None:
 
 def test_load_raw_config_raises_on_malformed(tmp_env: Path) -> None:
 
-    from pico.config.loader import ConfigReadError
+    from looprail.config.loader import ConfigReadError
 
     tmp_env.write_text("{  // comment => invalid JSON\n}", encoding="utf-8")
     with pytest.raises(ConfigReadError):

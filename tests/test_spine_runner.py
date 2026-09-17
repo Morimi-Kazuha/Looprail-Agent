@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from pico.spine import (
+from looprail.spine import (
     ChatType,
     Emit,
     Origin,
@@ -102,6 +102,6 @@ async def test_runner_emitting_nothing_is_a_legal_turn():
 
 
 def test_emit_is_a_callable_type_alias():
-    from pico.spine.runner import Emit as EmitAlias
+    from looprail.spine.runner import Emit as EmitAlias
 
     assert EmitAlias is Emit

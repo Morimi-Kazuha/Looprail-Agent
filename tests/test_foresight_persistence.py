@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.memory_engine.consolidate.consolidator import (
+from looprail.memory_engine.consolidate.consolidator import (
     _FORESIGHT_BULLET_RE,
     _FORESIGHT_HEADING,
     MemoryStore,
@@ -23,7 +23,7 @@ from pico.memory_engine.consolidate.consolidator import (
     _format_foresight_bullet,
     _splice_h2_section_at_end,
 )
-from pico.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from looprail.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 # ---------------------------------------------------------------------------
 
@@ -259,7 +259,7 @@ def test_foresight_section_lands_at_end_after_refresh_runs(tmp_path: Path):
 
     store.append_foresight([_FS_A])
 
-    from pico.memory_engine.consolidate.consolidator import _splice_h2_section
+    from looprail.memory_engine.consolidate.consolidator import _splice_h2_section
 
     after_refresh = _splice_h2_section(
         store.read_long_term(),

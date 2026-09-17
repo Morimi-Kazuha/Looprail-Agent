@@ -1,4 +1,4 @@
-"""``pico plugins`` reports the installed Myna Plugin without starting it."""
+"""``looprail plugins`` reports the installed Myna Plugin without starting it."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from pico.plugin import (
+from looprail.plugin import (
     Contributes,
     DiscoveredPlugin,
     MemoryBackendContribution,
@@ -30,7 +30,7 @@ def _installed_myna(monkeypatch: pytest.MonkeyPatch):
         manifest=PluginManifest(
             id="myna-memory",
             version="0.1.1rc3",
-            pico=">=0.1,<0.2",
+            looprail=">=0.1,<0.2",
             enabled_by_default=True,
             contributes=Contributes(
                 memory_backends=[
@@ -44,7 +44,7 @@ def _installed_myna(monkeypatch: pytest.MonkeyPatch):
         source=Source.ENTRY_POINTS,
         location=None,
     )
-    monkeypatch.setattr("pico.plugin.discover.PluginDiscovery.discover", lambda _self: [discovered])
+    monkeypatch.setattr("looprail.plugin.discover.PluginDiscovery.discover", lambda _self: [discovered])
 
 
 def _make_runner_args(tmp_path: Path, config: dict[str, Any]) -> list[str]:
@@ -54,7 +54,7 @@ def _make_runner_args(tmp_path: Path, config: dict[str, Any]) -> list[str]:
 
 
 def _invoke(args: list[str], tmp_path: Path):
-    from pico.cli.commands import app
+    from looprail.cli.commands import app
 
     fake_home = tmp_path / "home"
     fake_home.mkdir(parents=True, exist_ok=True)

@@ -45,7 +45,7 @@ const HELP_ROWS: [string, string][] = [
   ['/retry', 'retry the last user message'],
   ['/branch [title]', 'fork the current Session'],
   ['/export [id]', 'export a Session transcript'],
-  ['/quit', 'exit Pico']
+  ['/quit', 'exit Looprail']
 ]
 
 export const coreCommands: SlashCommand[] = [
@@ -56,7 +56,7 @@ export const coreCommands: SlashCommand[] = [
   },
   {
     aliases: ['exit', 'q'],
-    help: 'exit pico',
+    help: 'exit looprail',
     name: 'quit',
     run: (_arg, ctx) => ctx.session.die()
   },
@@ -226,7 +226,7 @@ export const coreCommands: SlashCommand[] = [
       }
 
       const body = items
-        .map((message, index) => `[${message.role === 'user' ? 'You' : 'Pico'} #${index + 1}]\n${message.text}`)
+        .map((message, index) => `[${message.role === 'user' ? 'You' : 'Looprail'} #${index + 1}]\n${message.text}`)
         .join('\n\n')
       ctx.transcript.page(body, 'History')
     }

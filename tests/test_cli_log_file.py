@@ -1,6 +1,6 @@
 """Unit tests for the shared loguru→file redirect helper.
 
-Covers parameterization (filename / file_level / terminal_level / PICO_CLI_DEBUG)
+Covers parameterization (filename / file_level / terminal_level / LOOPRAIL_CLI_DEBUG)
 and the stdlib-logging interception. The third-party TTY-handler stripping
 has its own real-litellm regression guard in
 ``test_cli_tui_logging_isolation.py``.
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from pico.cli._log_file import redirect_loguru_to_file
-from pico.config.loader import set_config_path
+from looprail.cli._log_file import redirect_loguru_to_file
+from looprail.config.loader import set_config_path
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def tmp_logs(tmp_path: Path, monkeypatch):
     regression guard).
     """
     set_config_path(tmp_path / "config.json")
-    monkeypatch.delenv("PICO_CLI_DEBUG", raising=False)
+    monkeypatch.delenv("LOOPRAIL_CLI_DEBUG", raising=False)
 
     root = logging.getLogger()
     saved_handlers = list(root.handlers)
@@ -120,7 +120,7 @@ def test_record_filter_none_keeps_all(tmp_logs: Path) -> None:
 def test_env_debug_mirrors_to_stderr(tmp_logs: Path, capsys, monkeypatch) -> None:
     from loguru import logger
 
-    monkeypatch.setenv("PICO_CLI_DEBUG", "1")
+    monkeypatch.setenv("LOOPRAIL_CLI_DEBUG", "1")
     redirect_loguru_to_file("gateway.log", terminal_level=None)
     logger.debug("debug-mirror-marker")
     assert "debug-mirror-marker" in capsys.readouterr().err
@@ -189,7 +189,7 @@ def test_strip_tty_stream_handlers_removes_root_stdout_handler(tmp_logs: Path) -
     installed on the ROOT logger (not just on named loggers)."""
     import sys
 
-    from pico.cli._log_file import _strip_tty_stream_handlers
+    from looprail.cli._log_file import _strip_tty_stream_handlers
 
     root = logging.getLogger()
     stdout_handler = logging.StreamHandler(sys.stdout)
@@ -205,7 +205,7 @@ def test_strip_tty_stream_handlers_removes_root_stdout_handler(tmp_logs: Path) -
 def test_strip_tty_stream_handlers_keeps_root_non_tty_handler(tmp_logs: Path) -> None:
     """_strip_tty_stream_handlers() must NOT remove a non-TTY handler (e.g. a
     MemoryHandler) from the ROOT logger."""
-    from pico.cli._log_file import _strip_tty_stream_handlers
+    from looprail.cli._log_file import _strip_tty_stream_handlers
 
     root = logging.getLogger()
     mem_handler = logging.handlers.MemoryHandler(capacity=10)
@@ -234,7 +234,7 @@ def test_redirect_terminal_fds_captures_print_and_raw_fd_write(tmp_path, capfd) 
     """
     import os
 
-    from pico.cli._log_file import redirect_terminal_fds_to_file
+    from looprail.cli._log_file import redirect_terminal_fds_to_file
 
     target = tmp_path / "capture.log"
 
@@ -255,7 +255,7 @@ def test_redirect_terminal_fds_restores_fd1_after_exit(tmp_path, capfd) -> None:
     redirect file."""
     import os
 
-    from pico.cli._log_file import redirect_terminal_fds_to_file
+    from looprail.cli._log_file import redirect_terminal_fds_to_file
 
     target = tmp_path / "capture.log"
     marker_after = b"marker-after-restore\n"
@@ -274,7 +274,7 @@ def test_redirect_terminal_fds_restores_on_exception(tmp_path, capfd) -> None:
     """fd1/fd2 must be restored even when an exception is raised inside the CM."""
     import os
 
-    from pico.cli._log_file import redirect_terminal_fds_to_file
+    from looprail.cli._log_file import redirect_terminal_fds_to_file
 
     target = tmp_path / "capture.log"
     marker_after = b"marker-after-exception\n"

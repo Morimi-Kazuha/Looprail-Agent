@@ -1,4 +1,4 @@
-"""CLI tests for ``pico provider``.
+"""CLI tests for ``looprail provider``.
 
 The ``provider login <name>`` command dispatches to registered OAuth handlers
 (``openai-codex`` and ``github-copilot``). Real OAuth flow requires browser
@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
-from pico.config.loader import set_config_path
+from looprail.cli.commands import app
+from looprail.config.loader import set_config_path
 
 runner = CliRunner()
 
@@ -28,14 +28,14 @@ def tmp_config(tmp_path: Path) -> Path:
 
 
 def test_provider_help_works() -> None:
-    """``pico provider --help`` lists the subcommands."""
+    """``looprail provider --help`` lists the subcommands."""
     r = runner.invoke(app, ["provider", "--help"])
     assert r.exit_code == 0
     assert "login" in r.stdout
 
 
 def test_provider_login_help_lists_argument() -> None:
-    """``pico provider login --help`` surfaces the PROVIDER argument."""
+    """``looprail provider login --help`` surfaces the PROVIDER argument."""
     r = runner.invoke(app, ["provider", "login", "--help"])
     assert r.exit_code == 0
     assert "PROVIDER" in r.stdout
@@ -308,7 +308,7 @@ def test_test_command_success_renders_models_count(
     tmp_config: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.config import update_providers
+    from looprail.config import update_providers
 
     def fake_probe(name: str, *, timeout_s: int = 10) -> dict:
         assert name == "openrouter"
@@ -333,7 +333,7 @@ def test_test_command_failure_renders_hint(
     tmp_config: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.config import update_providers
+    from looprail.config import update_providers
 
     def fake_probe(name: str, *, timeout_s: int = 10) -> dict:
         return {

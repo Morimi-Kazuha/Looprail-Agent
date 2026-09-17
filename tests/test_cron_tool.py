@@ -1,4 +1,4 @@
-"""Unit tests for CronTool argument handling (pico/proactive_engine/schedulers/cron/tool.py).
+"""Unit tests for CronTool argument handling (looprail/proactive_engine/schedulers/cron/tool.py).
 
 Focus: ``tz`` is only meaningful for a cron-expression schedule. For an
 every/at schedule the tool ignores it (rather than erroring) so the agent does
@@ -10,7 +10,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from pico.proactive_engine.schedulers.cron.tool import CronTool
+from looprail.proactive_engine.schedulers.cron.tool import CronTool
 
 
 def _tool() -> tuple[CronTool, MagicMock]:

@@ -3,8 +3,8 @@ from dataclasses import replace
 
 import pytest
 
-from pico.agent.tools.message import MessageTool
-from pico.spine import (
+from looprail.agent.tools.message import MessageTool
+from looprail.spine import (
     ChatType,
     MediaOut,
     Notice,
@@ -21,9 +21,9 @@ from pico.spine import (
     TurnRunner,
     Usage,
 )
-from pico.spine.delivery import Outlet, SupportsStreaming
-from pico.spine.message import Media
-from pico.tui_rpc.spine import (
+from looprail.spine.delivery import Outlet, SupportsStreaming
+from looprail.spine.message import Media
+from looprail.tui_rpc.spine import (
     TuiOutlet,
     TuiTurnRunner,
     build_tui,
@@ -364,9 +364,9 @@ async def test_build_tui_honors_configured_pool_sizes():
 
 @pytest.mark.parametrize("system_state", ["pending", "running"])
 async def test_turn_send_rejects_instead_of_queueing_behind_system_turn(system_state):
-    from pico.tui_rpc.errors import TurnInProgressError
-    from pico.tui_rpc.methods import turn as turn_module
-    from pico.tui_rpc.methods.turn import turn_send
+    from looprail.tui_rpc.errors import TurnInProgressError
+    from looprail.tui_rpc.methods import turn as turn_module
+    from looprail.tui_rpc.methods.turn import turn_send
 
     system_started = asyncio.Event()
     release_system = asyncio.Event()
@@ -426,8 +426,8 @@ async def test_turn_send_rejects_instead_of_queueing_behind_system_turn(system_s
 
 
 async def test_turn_send_acks_before_runtime_ready_but_runner_waits():
-    from pico.tui_rpc.methods import turn as turn_module
-    from pico.tui_rpc.methods.turn import turn_send
+    from looprail.tui_rpc.methods import turn as turn_module
+    from looprail.tui_rpc.methods.turn import turn_send
 
     ready = asyncio.Event()
     readiness_entered = asyncio.Event()
@@ -484,9 +484,9 @@ async def test_turn_send_acks_before_runtime_ready_but_runner_waits():
 
 
 async def test_runtime_start_failure_emits_typed_error_without_running_loop():
-    from pico.tui_rpc.errors import InternalError
-    from pico.tui_rpc.methods import turn as turn_module
-    from pico.tui_rpc.methods.turn import turn_send
+    from looprail.tui_rpc.errors import InternalError
+    from looprail.tui_rpc.methods import turn as turn_module
+    from looprail.tui_rpc.methods.turn import turn_send
 
     class _Loop:
         tools = {}
@@ -580,8 +580,8 @@ async def test_runtime_readiness_also_blocks_cron_turns():
 
 @pytest.mark.parametrize("system_fails", [False, True])
 async def test_preceding_subagent_cannot_emit_settle_or_clear_queued_user_turn(system_fails):
-    from pico.tui_rpc.methods import turn as turn_module
-    from pico.tui_rpc.methods.turn import turn_send
+    from looprail.tui_rpc.methods import turn as turn_module
+    from looprail.tui_rpc.methods.turn import turn_send
 
     system_started = asyncio.Event()
     release_system = asyncio.Event()

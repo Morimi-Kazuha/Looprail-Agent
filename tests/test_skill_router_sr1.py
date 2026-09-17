@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pico.memory_engine.skill_forge import (
+from looprail.memory_engine.skill_forge import (
     LocalSkillCatalog,
     LocalSkillSource,
     RouterHit,
@@ -105,8 +105,8 @@ class TestLocalSkillSource:
     @pytest.fixture
     def pool_and_registry(self, tmp_path: Path):
         """A real LocalPool + SkillRegistry with two on-disk SKILL.md."""
-        from pico.memory_engine.skill_local.local_pool import LocalPool
-        from pico.memory_engine.skill_local.registry import SkillRegistry
+        from looprail.memory_engine.skill_local.local_pool import LocalPool
+        from looprail.memory_engine.skill_local.registry import SkillRegistry
 
         ws = tmp_path / "ws"
         (ws / "skills").mkdir(parents=True)
@@ -167,7 +167,7 @@ class TestLocalSkillSource:
     async def test_missing_from_registry_skipped(self, tmp_path: Path) -> None:
         """Race: BM25 returns a hit whose meta has vanished. Source
         skips rather than emit half-populated."""
-        from pico.memory_engine.skill_local.types import ScoredSkill
+        from looprail.memory_engine.skill_local.types import ScoredSkill
 
         fake_pool = MagicMock()
         fake_pool.search.return_value = [
@@ -195,7 +195,7 @@ class TestLocalSkillSource:
         assert spy == [3]
 
     async def test_min_score_filters_low_ranked_skills(self) -> None:
-        from pico.memory_engine.skill_local.types import ScoredSkill
+        from looprail.memory_engine.skill_local.types import ScoredSkill
 
         pool = MagicMock()
         pool.search.return_value = [

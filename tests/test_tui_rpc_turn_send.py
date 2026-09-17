@@ -6,7 +6,7 @@ These tests drive the handler with a fake Scheduler + emitter (the spine path
 itself is covered in ``test_tui_rpc_spine.py``).
 
 Spec source:
-- ``pico/tui_rpc/models.py`` ``TurnSendParams`` / ``TurnSendResult``
+- ``looprail/tui_rpc/models.py`` ``TurnSendParams`` / ``TurnSendResult``
 """
 
 from __future__ import annotations
@@ -15,10 +15,10 @@ from unittest.mock import patch
 
 import pytest
 
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.errors import ModelNotAvailableError, RpcError, TurnInProgressError
-from pico.tui_rpc.methods.image import image_attach, pending_images
-from pico.tui_rpc.methods.turn import register_turn_methods, turn_send
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.errors import ModelNotAvailableError, RpcError, TurnInProgressError
+from looprail.tui_rpc.methods.image import image_attach, pending_images
+from looprail.tui_rpc.methods.turn import register_turn_methods, turn_send
 
 
 class FakeHandle:
@@ -63,7 +63,7 @@ class FakeEmitter:
 
 @pytest.fixture(autouse=True)
 def _clear_active_turns():
-    from pico.tui_rpc.methods import turn as _turn_mod
+    from looprail.tui_rpc.methods import turn as _turn_mod
 
     _turn_mod._active_turns.clear()
     _turn_mod._active_request_keys.clear()
@@ -144,7 +144,7 @@ async def test_turn_send_generates_unique_turn_ids() -> None:
 
 
 async def test_turn_send_binds_active_slot_after_submit() -> None:
-    from pico.tui_rpc.methods import turn as turn_mod
+    from looprail.tui_rpc.methods import turn as turn_mod
 
     scheduler = FakeScheduler()
     await turn_send({"session_key": "tui:default", "content": "hi"}, scheduler=scheduler, turn_ids={})
@@ -180,7 +180,7 @@ async def test_turn_send_rejects_scheduler_lane_work_with_minus_32003() -> None:
 
 async def test_turn_send_rejects_unknown_model_with_minus_32008() -> None:
     with patch(
-        "pico.tui_rpc.methods.turn._resolve_model",
+        "looprail.tui_rpc.methods.turn._resolve_model",
         side_effect=ModelNotAvailableError("no provider configured"),
     ):
         with pytest.raises(ModelNotAvailableError) as excinfo:
@@ -222,8 +222,8 @@ async def test_turn_send_without_scheduler_reports_discarded_attachment(tmp_path
 
 async def test_turn_send_when_submit_rejected_surfaces_turn_failed() -> None:
 
-    from pico.spine.scheduler import SchedulerDrainingError
-    from pico.tui_rpc.methods import turn as turn_mod
+    from looprail.spine.scheduler import SchedulerDrainingError
+    from looprail.tui_rpc.methods import turn as turn_mod
 
     emitter = FakeEmitter()
     turn_ids: dict[int, str] = {}

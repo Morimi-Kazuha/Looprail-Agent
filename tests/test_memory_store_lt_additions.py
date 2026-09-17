@@ -16,7 +16,7 @@ the consolidator tests; this file only covers the LT-1 additions.
 
 The :class:`LongTermFacade` Protocol that originally accompanied this
 work was deleted after the architecture decision that ``consolidate/``
-stays in Pico core — there is no cross-package boundary for a Protocol
+stays in Looprail core — there is no cross-package boundary for a Protocol
 to mediate, so :class:`MemoryStore` is consumed by direct import
 everywhere it's needed.
 """
@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.memory_engine.consolidate.consolidator import MemoryStore
+from looprail.memory_engine.consolidate.consolidator import MemoryStore
 
 # ---------------------------------------------------------------------------
 

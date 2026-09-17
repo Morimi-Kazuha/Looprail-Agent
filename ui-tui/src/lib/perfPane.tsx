@@ -9,9 +9,9 @@
 //   logFrameEvent（ink.onFrame）→ yoga、renderer、diff、optimize、write
 //                                 各阶段，以及 yoga 计数器和滚动快速路径
 //
-// 两者均由 PICO_DEV_PERF=1 启用，并输出 JSON Lines（默认 ~/.pico/perf.log，
-// 可用 PICO_DEV_PERF_LOG 覆盖）。通过 { src: 'react' | 'frame' } 标记供 jq
-// 使用。PICO_DEV_PERF_MS 默认为 2，会跳过低于阈值的空闲帧；设为 0 可全部捕获。
+// 两者均由 LOOPRAIL_DEV_PERF=1 启用，并输出 JSON Lines（默认 ~/.looprail/perf.log，
+// 可用 LOOPRAIL_DEV_PERF_LOG 覆盖）。通过 { src: 'react' | 'frame' } 标记供 jq
+// 使用。LOOPRAIL_DEV_PERF_MS 默认为 2，会跳过低于阈值的空闲帧；设为 0 可全部捕获。
 //
 // 未启用时没有额外成本：PerfPane 直接返回子节点，logFrameEvent 为 undefined，
 // 因而 Ink 不承担计时开销。
@@ -23,11 +23,11 @@ import { appendFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { Profiler, type ProfilerOnRenderCallback, type ReactNode } from 'react'
 
-import { getPicoHome } from '../config/paths.js'
+import { getLooprailHome } from '../config/paths.js'
 
-const ENABLED = /^(?:1|true|yes|on)$/i.test((process.env.PICO_DEV_PERF ?? '').trim())
-const THRESHOLD_MS = Number(process.env.PICO_DEV_PERF_MS ?? '2') || 0
-const LOG_PATH = process.env.PICO_DEV_PERF_LOG?.trim() || join(getPicoHome(), 'perf.log')
+const ENABLED = /^(?:1|true|yes|on)$/i.test((process.env.LOOPRAIL_DEV_PERF ?? '').trim())
+const THRESHOLD_MS = Number(process.env.LOOPRAIL_DEV_PERF_MS ?? '2') || 0
+const LOG_PATH = process.env.LOOPRAIL_DEV_PERF_LOG?.trim() || join(getLooprailHome(), 'perf.log')
 
 let logReady = false
 

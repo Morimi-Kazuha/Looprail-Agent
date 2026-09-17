@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pico.agent.tools import (
+from looprail.agent.tools import (
     Tool,
     ToolCapability,
     ToolEffect,
@@ -13,9 +13,9 @@ from pico.agent.tools import (
     ToolInvocation,
     ToolRegistry,
 )
-from pico.agent.tools.file_search import FindTool, GrepTool
-from pico.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
-from pico.agent.tools.web import WebFetchTool, WebSearchTool
+from looprail.agent.tools.file_search import FindTool, GrepTool
+from looprail.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
+from looprail.agent.tools.web import WebFetchTool, WebSearchTool
 
 
 class _ConcurrencyProbe(Tool):

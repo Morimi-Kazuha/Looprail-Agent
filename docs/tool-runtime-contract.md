@@ -1,25 +1,25 @@
 # Tool Runtime Contract
 
-`pico/agent/tools/registry.py` is the single model-tool execution boundary used
-by the supported `pico run` path. Phase 2 formalizes and tests the existing
-contract; it does not add a second runtime or executor.
+`looprail/agent/tools/registry.py` is the model-tool execution boundary used by
+the supported `looprail run` path. This page describes the existing contract;
+it does not add a second runtime or executor.
 
 ```text
 Provider ToolCall
-  -> AgentLoop builds ToolInvocation
-  -> ToolRegistry resolves and validates
-  -> ToolRegistry classifies the declared effect
-  -> EffectJournal records PREPARED/RUNNING when enabled
-  -> ToolRegistry executes with the tool/registry timeout
-  -> ToolRegistry normalizes result or exception
-  -> EffectJournal records the terminal state
-  -> AgentLoop receives ToolExecution/ToolResult observation
+  → AgentLoop builds ToolInvocation
+  → ToolRegistry resolves and validates
+  → ToolRegistry classifies the declared effect
+  → EffectJournal records PREPARED/RUNNING when enabled
+  → ToolRegistry executes with the tool/registry timeout
+  → ToolRegistry normalizes the result or exception
+  → EffectJournal records the terminal state
+  → AgentLoop receives the ToolExecution/ToolResult observation
 ```
 
 ## Authority
 
 - The model proposes a tool name, arguments, and next action.
-- `AgentLoop` owns the provider/tool-call loop and delegates model-requested
+- `AgentLoop` owns the Provider/tool-call loop and delegates model-requested
   execution to the Registry.
 - `ToolRegistry` owns lookup, schema-driven casting and validation, timeout,
   cancellation handling, result/error normalization, effect records, and the
@@ -30,7 +30,7 @@ Provider ToolCall
 
 Unknown names and invalid arguments fail before tool code runs. Unknown names
 do not create an effect record. Invalid arguments do not create an effect
-record. Existing string result compatibility is retained through `ToolResult`,
+record. Existing string-result compatibility is retained through `ToolResult`,
 which is a `str` with a separate `failed` flag.
 
 ## Effect and failure semantics
@@ -52,7 +52,7 @@ The Registry returns compatible normalized text for timeout, exception, and
 tool-declared error results. It does not expose raw Python tracebacks to the
 model. Structured or otherwise non-string return values cross the current
 string `ToolResult` boundary via `str(value)`; large-output truncation remains
-owned by the individual tool/executor or Context boundary.
+owned by the individual tool, executor, or Context boundary.
 
 ## Shell and filesystem boundaries
 
@@ -60,7 +60,8 @@ owned by the individual tool/executor or Context boundary.
 `SandboxExecutor`. The default `DirectExecutor` is host execution with no VM
 isolation; deny-list, allow-list, working-directory, and best-effort path
 guards do not constitute a complete shell parser or sandbox. Non-zero exit
-codes remain explicit failed results with stdout/stderr and exit-code receipt.
+codes remain explicit failed results with stdout, stderr, and an exit-code
+receipt.
 
 Filesystem tools resolve paths and validate the resolved path against their
 configured allowed directory. Traversal, absolute escape, and symlink escape

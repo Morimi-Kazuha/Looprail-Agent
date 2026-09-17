@@ -7,11 +7,11 @@ from typing import Any
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.memory_engine.backend import Memory
-from pico.providers.base import LLMProvider, LLMResponse
-from pico.spine.message import ChatType, Source
-from pico.spine.turn import Origin, TurnRequest
+from looprail.agent.loop import AgentLoop
+from looprail.memory_engine.backend import Memory
+from looprail.providers.base import LLMProvider, LLMResponse
+from looprail.spine.message import ChatType, Source
+from looprail.spine.turn import Origin, TurnRequest
 
 _USER_MEMO = "MEMO_user_prefers_terse_answers"
 

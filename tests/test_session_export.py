@@ -5,14 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from pico.session.export import (
+from looprail.session.export import (
     default_export_path,
     render_transcript,
     verify_export,
     write_portable_export,
     write_transcript,
 )
-from pico.session.manager import Session
+from looprail.session.manager import Session
 
 
 def _session(key: str = "tui:20260622_120000_abcdef", **kw) -> Session:
@@ -111,7 +111,7 @@ def test_empty_session_renders_header_only():
 def test_default_export_path_is_workspace_relative(tmp_path: Path):
     p = default_export_path(tmp_path, "tui:20260622_120000_abcdef")
     assert p.parent == tmp_path / "exports"
-    assert p.name.endswith(".pico-session.json")
+    assert p.name.endswith(".looprail-session.json")
 
     assert ":" not in p.name
 

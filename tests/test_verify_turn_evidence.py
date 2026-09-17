@@ -317,7 +317,7 @@ def test_the_scenario_delivery_contract_is_enforced():
 
 
 def test_channel_outcome_vocabulary_matches_the_runtime():
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     assert set(CHANNEL_OUTCOMES) == set(semconv.CHANNEL_OUTCOMES)
     assert set(SPINE_OUTCOMES) == set(semconv.SPINE_OUTCOMES)
@@ -348,7 +348,7 @@ def _scenario_check(status="passed"):
 def test_the_report_passes_only_when_every_check_passes():
     report = build_report(_scenario_check(), _detectors(), [])
     assert report["status"] == "passed"
-    assert report["schema"] == "pico.turn.evidence.v1"
+    assert report["schema"] == "looprail.turn.evidence.v1"
     assert report["gate"] == "V-TE0"
     assert report["rerun"] == "make verify-turn-evidence"
     assert report["findings"] == []
@@ -392,7 +392,7 @@ def test_usage_loader_accepts_legacy_and_call_efficiency_ledgers(tmp_path):
     telemetry.mkdir()
     legacy = {"trace_id": "legacy", "turn_span_id": "turn-1"}
     current = {
-        "schema": "pico.call-efficiency.call.v1",
+        "schema": "looprail.call-efficiency.call.v1",
         "trace_id": "current",
         "turn_span_id": "turn-2",
     }
@@ -409,7 +409,7 @@ def test_call_efficiency_health_fails_when_ledger_reports_loss(tmp_path):
     (tmp_path / "call-efficiency-ledger-health.json").write_text(
         json.dumps(
             {
-                "schema": "pico.call-efficiency.ledger-health.v1",
+                "schema": "looprail.call-efficiency.ledger-health.v1",
                 "status": "degraded",
                 "accepted_records": 2,
                 "persisted_records": 1,
@@ -430,10 +430,10 @@ def test_call_efficiency_health_fails_when_ledger_reports_loss(tmp_path):
     [
         "not-json",
         json.dumps({"schema": "wrong", "status": "healthy", "lost_records": 0}),
-        json.dumps({"schema": "pico.call-efficiency.ledger-health.v1", "status": "healthy"}),
+        json.dumps({"schema": "looprail.call-efficiency.ledger-health.v1", "status": "healthy"}),
         json.dumps(
             {
-                "schema": "pico.call-efficiency.ledger-health.v1",
+                "schema": "looprail.call-efficiency.ledger-health.v1",
                 "status": "healthy",
                 "accepted_records": 2,
                 "persisted_records": 1,
@@ -442,7 +442,7 @@ def test_call_efficiency_health_fails_when_ledger_reports_loss(tmp_path):
         ),
         json.dumps(
             {
-                "schema": "pico.call-efficiency.ledger-health.v1",
+                "schema": "looprail.call-efficiency.ledger-health.v1",
                 "status": "healthy",
                 "accepted_records": True,
                 "persisted_records": 1,
@@ -464,7 +464,7 @@ def test_call_efficiency_health_accepts_consistent_terminal_counts(tmp_path):
     (tmp_path / "call-efficiency-ledger-health.json").write_text(
         json.dumps(
             {
-                "schema": "pico.call-efficiency.ledger-health.v1",
+                "schema": "looprail.call-efficiency.ledger-health.v1",
                 "status": "healthy",
                 "accepted_records": 2,
                 "persisted_records": 2,

@@ -1,9 +1,9 @@
 """Tests for ``turn.subscribe`` + ``turn.unsubscribe`` real handlers
 (turn-streaming).
 
-Relevant models live in ``pico/tui_rpc/models.py``
+Relevant models live in ``looprail/tui_rpc/models.py``
 (``TurnSubscribe*`` / ``TurnUnsubscribe*``); the handlers live in
-``pico.tui_rpc.methods.turn`` + ``pico.tui_rpc.subscriptions``.
+``looprail.tui_rpc.methods.turn`` + ``looprail.tui_rpc.subscriptions``.
 """
 
 from __future__ import annotations
@@ -12,13 +12,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.methods.turn import (
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.methods.turn import (
     register_turn_methods,
     turn_subscribe,
     turn_unsubscribe,
 )
-from pico.tui_rpc.subscriptions import SubscriptionEmitter
+from looprail.tui_rpc.subscriptions import SubscriptionEmitter
 
 
 @pytest.fixture

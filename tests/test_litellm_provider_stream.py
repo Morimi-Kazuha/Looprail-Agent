@@ -7,7 +7,7 @@ Covers:
 - signature parity with chat() (messages/tools/model/max_tokens/temperature/
   reasoning_effort/tool_choice all accepted; stream=True forwarded to acompletion)
 
-Mocks patch `pico.providers.litellm_provider.acompletion` because the
+Mocks patch `looprail.providers.litellm_provider.acompletion` because the
 provider module imports `from litellm import acompletion` at top level, so
 patching `litellm.acompletion` after import would not be picked up.
 """
@@ -21,9 +21,9 @@ from typing import Any
 import pytest
 from litellm.types.utils import Usage
 
-from pico.call_efficiency import CallEfficiency
-from pico.providers.base import LLMResponse, StreamDelta
-from pico.providers.litellm_provider import LiteLLMProvider
+from looprail.call_efficiency import CallEfficiency
+from looprail.providers.base import LLMResponse, StreamDelta
+from looprail.providers.litellm_provider import LiteLLMProvider
 
 
 @dataclass
@@ -73,7 +73,7 @@ async def test_chat_stream_yields_stream_deltas_in_order(monkeypatch: pytest.Mon
         return _fake_stream(chunks)
 
     monkeypatch.setattr(
-        "pico.providers.litellm_provider.acompletion",
+        "looprail.providers.litellm_provider.acompletion",
         fake_acompletion,
     )
 
@@ -103,7 +103,7 @@ async def test_chat_stream_default_payload_has_no_provider_cache_markers(
         captured.update(kwargs)
         return _fake_stream([_chunk("ok")])
 
-    monkeypatch.setattr("pico.providers.litellm_provider.acompletion", fake_acompletion)
+    monkeypatch.setattr("looprail.providers.litellm_provider.acompletion", fake_acompletion)
     provider = LiteLLMProvider(api_key="test", default_model="anthropic/claude-sonnet-4-5")
     messages = [{"role": "system", "content": "stable"}]
     tools = [{"type": "function", "function": {"name": "read"}}]
@@ -230,7 +230,7 @@ async def test_chat_stream_skips_none_content_chunks(monkeypatch: pytest.MonkeyP
         return _fake_stream(chunks)
 
     monkeypatch.setattr(
-        "pico.providers.litellm_provider.acompletion",
+        "looprail.providers.litellm_provider.acompletion",
         fake_acompletion,
     )
 
@@ -255,7 +255,7 @@ async def test_chat_stream_signature_parity_with_chat(monkeypatch: pytest.Monkey
         return _fake_stream([_chunk("ok")])
 
     monkeypatch.setattr(
-        "pico.providers.litellm_provider.acompletion",
+        "looprail.providers.litellm_provider.acompletion",
         fake_acompletion,
     )
 
@@ -295,7 +295,7 @@ async def test_deepseek_replays_reasoning_field_for_assistant_tool_calls(
         return _fake_stream([_chunk("ok")])
 
     monkeypatch.setattr(
-        "pico.providers.litellm_provider.acompletion",
+        "looprail.providers.litellm_provider.acompletion",
         fake_acompletion,
     )
 
@@ -332,7 +332,7 @@ async def test_openai_does_not_receive_deepseek_reasoning_replay_field(
         return _fake_stream([_chunk("ok")])
 
     monkeypatch.setattr(
-        "pico.providers.litellm_provider.acompletion",
+        "looprail.providers.litellm_provider.acompletion",
         fake_acompletion,
     )
 

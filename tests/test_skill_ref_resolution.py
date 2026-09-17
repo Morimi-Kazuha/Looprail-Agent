@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from pico.memory_engine.skill_forge import LocalSkillCatalog
-from pico.memory_engine.skill_local.types import SkillMeta
+from looprail.memory_engine.skill_forge import LocalSkillCatalog
+from looprail.memory_engine.skill_local.types import SkillMeta
 
 
 @pytest.fixture
@@ -189,8 +189,8 @@ def test_empty_body_skipped(svc, skill_dir):
 async def test_skill_read_loads_registered_skill_outside_agent_workspace(
     tmp_path: Path,
 ) -> None:
-    from pico.agent.tools.skill import SkillReadTool
-    from pico.config.pico import SkillForgeConfig
+    from looprail.agent.tools.skill import SkillReadTool
+    from looprail.config.looprail import SkillForgeConfig
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()

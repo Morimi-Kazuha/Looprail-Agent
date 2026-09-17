@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from typer.testing import CliRunner
 
-from pico.cli.sandbox_commands import sandbox_app
+from looprail.cli.sandbox_commands import sandbox_app
 
 runner = CliRunner()
 
@@ -58,7 +58,7 @@ def _mock_transport(recv_response: dict):
 class TestListCommand:
     def test_missing_socket_exits_1(self, tmp_path: Path) -> None:
         missing = tmp_path / "missing.sock"
-        with patch("pico.cli.sandbox_commands._get_socket_path", return_value=missing):
+        with patch("looprail.cli.sandbox_commands._get_socket_path", return_value=missing):
             result = runner.invoke(sandbox_app, ["list"])
         assert result.exit_code == 1
         output = result.output.lower()
@@ -66,7 +66,7 @@ class TestListCommand:
 
     def test_ls_alias_exits_same_as_list(self, tmp_path: Path) -> None:
         missing = tmp_path / "missing.sock"
-        with patch("pico.cli.sandbox_commands._get_socket_path", return_value=missing):
+        with patch("looprail.cli.sandbox_commands._get_socket_path", return_value=missing):
             r_list = runner.invoke(sandbox_app, ["list"])
             r_ls = runner.invoke(sandbox_app, ["ls"])
         assert r_list.exit_code == r_ls.exit_code
@@ -76,11 +76,11 @@ class TestListCommand:
         path.touch()
         mock_connect, mock_send, mock_recv, mock_close = _mock_transport({"type": "vm_list", "vms": []})
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", mock_send),
-            patch("pico.cli.sandbox_commands._recv", mock_recv),
-            patch("pico.cli.sandbox_commands._close", mock_close),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", mock_send),
+            patch("looprail.cli.sandbox_commands._recv", mock_recv),
+            patch("looprail.cli.sandbox_commands._close", mock_close),
         ):
             result = runner.invoke(sandbox_app, ["list"])
         assert result.exit_code == 0
@@ -93,11 +93,11 @@ class TestListCommand:
             {"type": "error", "message": "runtime unavailable"}
         )
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", mock_send),
-            patch("pico.cli.sandbox_commands._recv", mock_recv),
-            patch("pico.cli.sandbox_commands._close", mock_close),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", mock_send),
+            patch("looprail.cli.sandbox_commands._recv", mock_recv),
+            patch("looprail.cli.sandbox_commands._close", mock_close),
         ):
             result = runner.invoke(sandbox_app, ["list"])
         assert result.exit_code == 1
@@ -112,11 +112,11 @@ class TestListCommand:
         ]
         mock_connect, mock_send, mock_recv, mock_close = _mock_transport({"type": "vm_list", "vms": vms})
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", mock_send),
-            patch("pico.cli.sandbox_commands._recv", mock_recv),
-            patch("pico.cli.sandbox_commands._close", mock_close),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", mock_send),
+            patch("looprail.cli.sandbox_commands._recv", mock_recv),
+            patch("looprail.cli.sandbox_commands._close", mock_close),
         ):
             result = runner.invoke(sandbox_app, ["list"])
         assert result.exit_code == 0
@@ -129,11 +129,11 @@ class TestListCommand:
         path.touch()
         mock_connect, mock_send, mock_recv, mock_close = _mock_transport({"type": "vm_list", "vms": []})
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", mock_send),
-            patch("pico.cli.sandbox_commands._recv", mock_recv),
-            patch("pico.cli.sandbox_commands._close", mock_close),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", mock_send),
+            patch("looprail.cli.sandbox_commands._recv", mock_recv),
+            patch("looprail.cli.sandbox_commands._close", mock_close),
         ):
             runner.invoke(sandbox_app, ["list"])
         mock_send.assert_called_once()
@@ -150,14 +150,14 @@ class TestExecCommand:
     def test_no_command_exits_1(self, tmp_path: Path) -> None:
         path = tmp_path / "debug.sock"
         path.touch()
-        with patch("pico.cli.sandbox_commands._get_socket_path", return_value=path):
+        with patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path):
             result = runner.invoke(sandbox_app, ["exec"])
         assert result.exit_code == 1
         assert "required" in result.output.lower() or "command" in result.output.lower()
 
     def test_missing_socket_exits_1(self, tmp_path: Path) -> None:
         missing = tmp_path / "missing.sock"
-        with patch("pico.cli.sandbox_commands._get_socket_path", return_value=missing):
+        with patch("looprail.cli.sandbox_commands._get_socket_path", return_value=missing):
             result = runner.invoke(sandbox_app, ["exec", "ls"])
         assert result.exit_code == 1
 
@@ -166,11 +166,11 @@ class TestExecCommand:
         path.touch()
         mock_connect, mock_send, mock_recv, mock_close = _mock_transport({"type": "error", "message": "VM not found"})
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", mock_send),
-            patch("pico.cli.sandbox_commands._recv", mock_recv),
-            patch("pico.cli.sandbox_commands._close", mock_close),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", mock_send),
+            patch("looprail.cli.sandbox_commands._recv", mock_recv),
+            patch("looprail.cli.sandbox_commands._close", mock_close),
         ):
             result = runner.invoke(sandbox_app, ["exec", "ls"])
         assert result.exit_code == 1
@@ -189,11 +189,11 @@ class TestExecCommand:
         mock_connect = AsyncMock(return_value=(mock_reader, mock_writer))
 
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", AsyncMock()) as mock_send,
-            patch("pico.cli.sandbox_commands._recv", recv_mock),
-            patch("pico.cli.sandbox_commands._close"),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", AsyncMock()) as mock_send,
+            patch("looprail.cli.sandbox_commands._recv", recv_mock),
+            patch("looprail.cli.sandbox_commands._close"),
         ):
             runner.invoke(sandbox_app, ["exec", "--vm", "my-vm", "ls", "-la"])
 
@@ -208,11 +208,11 @@ class TestExecCommand:
         path.touch()
         mock_connect, mock_send, mock_recv, mock_close = _mock_transport({"type": "exit", "code": 42})
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", mock_send),
-            patch("pico.cli.sandbox_commands._recv", mock_recv),
-            patch("pico.cli.sandbox_commands._close", mock_close),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", mock_send),
+            patch("looprail.cli.sandbox_commands._recv", mock_recv),
+            patch("looprail.cli.sandbox_commands._close", mock_close),
         ):
             result = runner.invoke(sandbox_app, ["exec", "false"])
         assert result.exit_code == 42
@@ -226,7 +226,7 @@ class TestExecCommand:
 class TestShellCommand:
     def test_missing_socket_exits_1(self, tmp_path: Path) -> None:
         missing = tmp_path / "missing.sock"
-        with patch("pico.cli.sandbox_commands._get_socket_path", return_value=missing):
+        with patch("looprail.cli.sandbox_commands._get_socket_path", return_value=missing):
             result = runner.invoke(sandbox_app, ["shell"])
         assert result.exit_code == 1
 
@@ -236,11 +236,11 @@ class TestShellCommand:
         path.touch()
         mock_connect, mock_send, mock_recv, mock_close = _mock_transport({"type": "error", "message": "VM not found"})
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", mock_send),
-            patch("pico.cli.sandbox_commands._recv", mock_recv),
-            patch("pico.cli.sandbox_commands._close", mock_close),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", mock_send),
+            patch("looprail.cli.sandbox_commands._recv", mock_recv),
+            patch("looprail.cli.sandbox_commands._close", mock_close),
         ):
             result = runner.invoke(sandbox_app, ["shell"])
         assert result.exit_code == 1
@@ -259,11 +259,11 @@ class TestShellCommand:
         mock_connect = AsyncMock(return_value=(mock_reader, mock_writer))
 
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", AsyncMock()) as mock_send,
-            patch("pico.cli.sandbox_commands._recv", recv_mock),
-            patch("pico.cli.sandbox_commands._close"),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", AsyncMock()) as mock_send,
+            patch("looprail.cli.sandbox_commands._recv", recv_mock),
+            patch("looprail.cli.sandbox_commands._close"),
         ):
             runner.invoke(sandbox_app, ["shell", "--vm", "my-vm", "--shell", "/bin/bash"])
 
@@ -280,11 +280,11 @@ class TestShellCommand:
         mock_connect = AsyncMock(return_value=(AsyncMock(), MagicMock()))
 
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
-            patch("pico.cli.sandbox_commands._connect", mock_connect),
-            patch("pico.cli.sandbox_commands._send", AsyncMock()) as mock_send,
-            patch("pico.cli.sandbox_commands._recv", recv_mock),
-            patch("pico.cli.sandbox_commands._close"),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._connect", mock_connect),
+            patch("looprail.cli.sandbox_commands._send", AsyncMock()) as mock_send,
+            patch("looprail.cli.sandbox_commands._recv", recv_mock),
+            patch("looprail.cli.sandbox_commands._close"),
         ):
             runner.invoke(sandbox_app, ["shell"])
 
@@ -300,28 +300,28 @@ class TestShellCommand:
 
 class TestGetSocketPath:
     def test_reads_configured_socket_path(self, tmp_path: Path) -> None:
-        from pico.cli.sandbox_commands import _get_socket_path
-        from pico.config.schema import Config
-        from pico.sandbox.config import SandboxDebugConfig
+        from looprail.cli.sandbox_commands import _get_socket_path
+        from looprail.config.schema import Config
+        from looprail.sandbox.config import SandboxDebugConfig
 
         cfg = Config()
         cfg.tools.sandbox.debug = SandboxDebugConfig(enabled=True, socket="custom/path.sock")
         with (
-            patch("pico.config.loader.load_config", return_value=cfg),
-            patch("pico.config.paths.get_data_dir", return_value=tmp_path),
+            patch("looprail.config.loader.load_config", return_value=cfg),
+            patch("looprail.config.paths.get_data_dir", return_value=tmp_path),
         ):
             result = _get_socket_path()
         assert result == tmp_path / "custom" / "path.sock"
 
     def test_falls_back_to_default_when_config_missing(self, tmp_path: Path) -> None:
-        from pico.cli.sandbox_commands import _get_socket_path
+        from looprail.cli.sandbox_commands import _get_socket_path
 
         with (
             patch(
-                "pico.config.loader.load_config",
+                "looprail.config.loader.load_config",
                 side_effect=FileNotFoundError("no config file"),
             ),
-            patch("pico.config.paths.get_data_dir", return_value=tmp_path),
+            patch("looprail.config.paths.get_data_dir", return_value=tmp_path),
         ):
             result = _get_socket_path()
         assert result == tmp_path / "sandbox" / "debug.sock"
@@ -332,15 +332,15 @@ class TestGetSocketPath:
         default socket path."""
         import logging
 
-        from pico.cli.sandbox_commands import _get_socket_path
+        from looprail.cli.sandbox_commands import _get_socket_path
 
         with (
             patch(
-                "pico.config.loader.load_config",
+                "looprail.config.loader.load_config",
                 side_effect=ValueError("malformed yaml at line 7"),
             ),
-            patch("pico.config.paths.get_data_dir", return_value=tmp_path),
-            caplog.at_level(logging.WARNING, logger="pico.cli.sandbox_commands"),
+            patch("looprail.config.paths.get_data_dir", return_value=tmp_path),
+            caplog.at_level(logging.WARNING, logger="looprail.cli.sandbox_commands"),
         ):
             result = _get_socket_path()
 
@@ -366,13 +366,13 @@ class TestRecvRobustness:
         mock_writer = MagicMock()
 
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
             patch(
-                "pico.cli.sandbox_commands._connect",
+                "looprail.cli.sandbox_commands._connect",
                 AsyncMock(return_value=(mock_reader, mock_writer)),
             ),
-            patch("pico.cli.sandbox_commands._send", AsyncMock()),
-            patch("pico.cli.sandbox_commands._close"),
+            patch("looprail.cli.sandbox_commands._send", AsyncMock()),
+            patch("looprail.cli.sandbox_commands._close"),
         ):
             result = runner.invoke(sandbox_app, ["list"])
 
@@ -388,13 +388,13 @@ class TestRecvRobustness:
         mock_writer = MagicMock()
 
         with (
-            patch("pico.cli.sandbox_commands._get_socket_path", return_value=path),
+            patch("looprail.cli.sandbox_commands._get_socket_path", return_value=path),
             patch(
-                "pico.cli.sandbox_commands._connect",
+                "looprail.cli.sandbox_commands._connect",
                 AsyncMock(return_value=(mock_reader, mock_writer)),
             ),
-            patch("pico.cli.sandbox_commands._send", AsyncMock()),
-            patch("pico.cli.sandbox_commands._close"),
+            patch("looprail.cli.sandbox_commands._send", AsyncMock()),
+            patch("looprail.cli.sandbox_commands._close"),
         ):
             result = runner.invoke(sandbox_app, ["list"])
 

@@ -1,4 +1,4 @@
-"""CLI tests for ``pico skills``.
+"""CLI tests for ``looprail skills``.
 
 Two subcommands are covered with mocked ``SkillService`` so the tests
 stay self-contained.
@@ -12,8 +12,8 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
-from pico.config.loader import set_config_path
+from looprail.cli.commands import app
+from looprail.config.loader import set_config_path
 
 runner = CliRunner()
 
@@ -43,12 +43,12 @@ def test_skill_commands_use_current_project_state(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.cli.skill_commands import _build_skill_service
+    from looprail.cli.skill_commands import _build_skill_service
 
     project = tmp_path / "project"
     project.mkdir()
-    product_home = tmp_path / "pico-home"
-    monkeypatch.setenv("PICO_HOME", str(product_home))
+    product_home = tmp_path / "looprail-home"
+    monkeypatch.setenv("LOOPRAIL_HOME", str(product_home))
     monkeypatch.chdir(project)
 
     service = _build_skill_service()
@@ -79,7 +79,7 @@ def test_skill_list_renders_table(tmp_config: Path, monkeypatch: pytest.MonkeyPa
     fake_svc = SimpleNamespace(
         gather_all_skills=lambda: [_make_meta("alpha"), _make_meta("beta", source="workspace")],
     )
-    monkeypatch.setattr("pico.cli.skill_commands._build_skill_service", lambda: fake_svc)
+    monkeypatch.setattr("looprail.cli.skill_commands._build_skill_service", lambda: fake_svc)
 
     r = runner.invoke(app, ["skills", "list"])
     assert r.exit_code == 0
@@ -91,7 +91,7 @@ def test_skill_list_renders_table(tmp_config: Path, monkeypatch: pytest.MonkeyPa
 def test_skill_list_empty_message(tmp_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Empty registry prints the ``No skills found`` notice."""
     fake_svc = SimpleNamespace(gather_all_skills=lambda: [])
-    monkeypatch.setattr("pico.cli.skill_commands._build_skill_service", lambda: fake_svc)
+    monkeypatch.setattr("looprail.cli.skill_commands._build_skill_service", lambda: fake_svc)
 
     r = runner.invoke(app, ["skills", "list"])
     assert r.exit_code == 0
@@ -106,7 +106,7 @@ def test_skill_list_filters_by_source(tmp_config: Path, monkeypatch: pytest.Monk
             _make_meta("beta", source="workspace"),
         ],
     )
-    monkeypatch.setattr("pico.cli.skill_commands._build_skill_service", lambda: fake_svc)
+    monkeypatch.setattr("looprail.cli.skill_commands._build_skill_service", lambda: fake_svc)
 
     r = runner.invoke(app, ["skills", "list", "--source", "workspace"])
     assert r.exit_code == 0
@@ -120,7 +120,7 @@ def test_skill_get_known_skill(tmp_config: Path, monkeypatch: pytest.MonkeyPatch
         get_skill_metadata=lambda _: {"name": "alpha", "source": "builtin"},
         load_skill=lambda _: "# SKILL.md body",
     )
-    monkeypatch.setattr("pico.cli.skill_commands._build_skill_service", lambda: fake_svc)
+    monkeypatch.setattr("looprail.cli.skill_commands._build_skill_service", lambda: fake_svc)
 
     r = runner.invoke(app, ["skills", "get", "alpha"])
     assert r.exit_code == 0
@@ -133,7 +133,7 @@ def test_skill_get_unknown_skill_exits_1(tmp_config: Path, monkeypatch: pytest.M
         get_skill_metadata=lambda _: None,
         load_skill=lambda _: None,
     )
-    monkeypatch.setattr("pico.cli.skill_commands._build_skill_service", lambda: fake_svc)
+    monkeypatch.setattr("looprail.cli.skill_commands._build_skill_service", lambda: fake_svc)
 
     r = runner.invoke(app, ["skills", "get", "ghost-skill"])
     assert r.exit_code == 1
@@ -146,7 +146,7 @@ def test_skill_get_with_body_renders_markdown(tmp_config: Path, monkeypatch: pyt
         get_skill_metadata=lambda _: {"source": "builtin"},
         load_skill=lambda _: "# Title\nbody text",
     )
-    monkeypatch.setattr("pico.cli.skill_commands._build_skill_service", lambda: fake_svc)
+    monkeypatch.setattr("looprail.cli.skill_commands._build_skill_service", lambda: fake_svc)
 
     r = runner.invoke(app, ["skills", "get", "alpha", "--with-body"])
     assert r.exit_code == 0

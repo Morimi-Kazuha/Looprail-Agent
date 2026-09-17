@@ -10,7 +10,7 @@ import type { ModelOptionProvider, ModelOptionsResponse } from '../gatewayTypes.
 import type { Theme } from '../theme.js'
 import type { TuiRpcClient } from '../tuiRpcClient.js'
 
-import { getPicoHomeLabel } from '../config/paths.js'
+import { getLooprailHomeLabel } from '../config/paths.js'
 import { providerDisplayNames } from '../domain/providers.js'
 import { asRpcResult, rpcErrorMessage } from '../lib/rpc.js'
 import { OverlayHint, useOverlayKeys, windowItems } from './overlayControls.js'
@@ -298,7 +298,7 @@ export function ModelPicker({ gw, onCancel, onSelect, sessionId, t }: ModelPicke
                         authenticated: false,
                         models: [],
                         total_models: 0,
-                        warning: p.key_env ? `paste ${p.key_env} to activate` : 'run `pico model` to configure'
+                        warning: p.key_env ? `paste ${p.key_env} to activate` : 'run `looprail model` to configure'
                       }
                     : p
                 )
@@ -358,7 +358,7 @@ export function ModelPicker({ gw, onCancel, onSelect, sessionId, t }: ModelPicke
             setKeyError('')
           }
 
-          // OAuth 或其他认证类型无需处理，警告信息会提示用户运行 pico model。
+          // OAuth 或其他认证类型无需处理，警告信息会提示用户运行 looprail model。
           return
         }
 
@@ -471,7 +471,7 @@ export function ModelPicker({ gw, onCancel, onSelect, sessionId, t }: ModelPicke
         </Text>
 
         <Text color={t.color.muted} wrap="truncate-end">
-          Saved to {getPicoHomeLabel()}/.env{showBase ? ' · Tab switches field' : ''}
+          Saved to {getLooprailHomeLabel()}/.env{showBase ? ' · Tab switches field' : ''}
         </Text>
 
         <Text color={t.color.muted} wrap="truncate-end">

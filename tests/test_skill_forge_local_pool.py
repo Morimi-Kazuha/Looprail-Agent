@@ -5,9 +5,9 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from pico.memory_engine.skill_local.local_pool import LocalPool
-from pico.memory_engine.skill_local.registry import SkillRegistry
-from pico.memory_engine.skill_local.types import SkillMeta
+from looprail.memory_engine.skill_local.local_pool import LocalPool
+from looprail.memory_engine.skill_local.registry import SkillRegistry
+from looprail.memory_engine.skill_local.types import SkillMeta
 
 
 def _meta(

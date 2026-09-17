@@ -8,7 +8,7 @@ import { SLASH_COMMANDS } from '../app/slash/registry.js'
 import { slashCompletions, useCompletion } from '../hooks/useCompletion.js'
 
 const REGISTRY: SlashCommand[] = [
-  { aliases: ['exit', 'q'], help: 'exit pico', name: 'quit', run: vi.fn() },
+  { aliases: ['exit', 'q'], help: 'exit looprail', name: 'quit', run: vi.fn() },
   { help: 'show runtime status', name: 'status', run: vi.fn() },
   { name: 'sessions', run: vi.fn() }
 ]

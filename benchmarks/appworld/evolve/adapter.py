@@ -7,7 +7,7 @@ much faster than SWE-bench, which makes a full evolution round tractable.
 
 The scorer is the batch orchestrator ``benchmarks.appworld.batch`` (in
 the appworld worktree; talks to appworld over HTTP — two venvs, appworld pins
-pydantic v1, Pico v2). CLI (from the real ``batch.py``)::
+pydantic v1, Looprail v2). CLI (from the real ``batch.py``)::
 
     python -m benchmarks.appworld.batch \
         --split train --n 90 --k 3 --conc 8 \
@@ -42,18 +42,18 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from pico.evolver.analysis.stability_bucket import (
+from looprail.evolver.analysis.stability_bucket import (
     TaskStability,
     _bucket_for,
 )
-from pico.evolver.orchestrator.scoring import (
+from looprail.evolver.orchestrator.scoring import (
     EvalBackend,
     TaskEval,
     prefer_rerun_measurement,
     with_infra_rerun,
 )
-from pico.evolver.scheduler.anchor_selection import simple_anchor
-from pico.evolver.tree.node import HarnessNode
+from looprail.evolver.scheduler.anchor_selection import simple_anchor
+from looprail.evolver.tree.node import HarnessNode
 
 ActivationOf = Callable[[HarnessNode], Any]
 
@@ -71,11 +71,11 @@ _TRIAL_SUFFIX_RE = re.compile(r"_k\d+\.json$")
 class AppWorldConfig:
     """Locate and parameterise the AppWorld batch scorer."""
 
-    appworld_root: Path  # Pico 检出或工作树，包含批量模块。
+    appworld_root: Path  # Looprail 检出或工作树，包含批量模块。
     data_root: Path  # AppWorld 安装目录，包含 data/ 与虚拟环境。
     appworld_bin: Path
     appworld_python: Path
-    python_exe: str  # Pico 使用的 Pydantic v2 虚拟环境 Python。
+    python_exe: str  # Looprail 使用的 Pydantic v2 虚拟环境 Python。
     config_path: Path  # 目标运行时配置 JSON。
     out_dir_root: Path
     split: str = "train"
@@ -264,7 +264,7 @@ def run_eval(
 
     ``cwd`` overrides the subprocess working directory (default
     ``aw.appworld_root``). Passing a candidate commit's worktree here makes
-    ``python -m pico...`` import the candidate's harness from that checkout
+    ``python -m looprail...`` import the candidate's harness from that checkout
     (cwd is first on ``sys.path`` for ``-m``) — the zero-contamination eval that
     replaces writing candidate files into the live repo. Activation env is then
     unnecessary: the committed code is already the candidate.

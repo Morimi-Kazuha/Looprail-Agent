@@ -17,7 +17,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from pico.evolver.tree import git_ops
+from looprail.evolver.tree import git_ops
 
 # 驱动可编辑的框架表面；触及的其他内容都会还原。
 WHITELIST_PREFIXES = (

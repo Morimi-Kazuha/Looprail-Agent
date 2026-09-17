@@ -1,5 +1,5 @@
 [project]
-name = "pico-harness"
+name = "looprail"
 version = "0.1.7"
 description = "Compact, composable, benchmark-gated Agent Harness with an opt-in evolution path"
 requires-python = ">=3.12,<3.13"
@@ -34,7 +34,7 @@ dependencies = [
     "watchfiles>=0.21,<2.0",
     "tomli-w>=1.2.0",
     # OAuth 供应商登录（Codex/GitHub Copilot）会在引导期间导入此包，因此它必须是
-    # 运行时依赖；否则通过 `uv tool install pico-harness` 安装的用户一选择 OAuth
+    # 运行时依赖；否则通过 `uv tool install looprail` 安装的用户一选择 OAuth
     # 供应商就会遇到“oauth_cli_kit not installed”。
     "oauth-cli-kit>=0.1.6,<1.0.0",
     "portalocker>=3.2.0",
@@ -52,7 +52,7 @@ channel-feishu = ["lark-oapi>=1.5.0,<2.0.0"]
 channel-wecom = ["wecom-aibot-sdk-python>=0.1.5"]
 channel-qq = ["qq-botpy>=1.2.0,<2.0.0"]
 channels = [
-    "pico-harness[channel-feishu,channel-qq,channel-wecom]",
+    "looprail[channel-feishu,channel-qq,channel-wecom]",
 ]
 tools = [
     "readability-lxml>=0.8.4,<1.0.0",
@@ -74,7 +74,7 @@ dev = [
 eval = []
 
 [project.scripts]
-pico = "pico.cli.commands:run"
+looprail = "looprail.cli.commands:run"
 
 [build-system]
 requires = ["hatchling"]
@@ -84,10 +84,10 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["pico"]
+packages = ["looprail"]
 
-# 预构建、自包含的 TUI 包 ui-tui/dist/entry.js 会以 pico/ui-tui/dist 路径打入
-# wheel，使 `uv tool install` 无需源码检出即可得到可用的 `pico`。下方自定义构建
+# 预构建、自包含的 TUI 包 ui-tui/dist/entry.js 会以 looprail/ui-tui/dist 路径打入
+# wheel，使 `uv tool install` 无需源码检出即可得到可用的 `looprail`。下方自定义构建
 # 钩子 hatch_build.py 会按条件加入该文件；静态 force-include 在被 Git 忽略的
 # dist/ 缺失时会硬失败，破坏 `git clone && uv sync`。发布构建必须先运行
 # `npm ci --prefix ui-tui && make build-tui`。
@@ -96,24 +96,36 @@ path = "hatch_build.py"
 
 [tool.hatch.build]
 include = [
-    "pico/**/*.py",
-    "pico/plugin/**/pico-plugin.toml",
-    "pico/templates/**/*.md",
-    "pico/skills/**/*.md",
-    "pico/skills/**/*.sh",
+    "looprail/**/*.py",
+    "looprail/plugin/**/looprail-plugin.toml",
+    "looprail/templates/**/*.md",
+    "looprail/skills/**/*.md",
+    "looprail/skills/**/*.sh",
     # 追踪仪表板查看器（无依赖 Node 服务端加静态客户端）。
-    "pico/tracing/viewer/**/*.js",
-    "pico/tracing/viewer/**/*.css",
-    "pico/tracing/viewer/**/*.html",
-    "pico/tracing/viewer/**/*.json",
+    "looprail/tracing/viewer/**/*.js",
+    "looprail/tracing/viewer/**/*.css",
+    "looprail/tracing/viewer/**/*.html",
+    "looprail/tracing/viewer/**/*.json",
 ]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "pico/",
+    "looprail/",
     "hatch_build.py",
     "README.md",
     "LICENSE",
+]
+exclude = [
+    "/.gitee",
+    "/.looprail",
+    "/.uv-cache",
+    "/.uv-python",
+    "/.venv",
+    "/build",
+    "/dist",
+    "/node_modules",
+    "/reports",
+    "/ui-tui/node_modules",
 ]
 
 [tool.hatch.build.targets.sdist.force-include]
@@ -130,7 +142,7 @@ constraint-dependencies = [
 ]
 
 [tool.uv.sources]
-pico-harness = { workspace = true }
+looprail = { workspace = true }
 
 [tool.ruff]
 line-length = 120
@@ -149,22 +161,22 @@ ignore = ["E501"]
 
 # 追踪探针工厂以目标类为参数，并为可读性沿用类名，例如
 # `def _install_llm(LLMProvider: type)`。
-"pico/tracing/instrument.py" = ["N803"]
+"looprail/tracing/instrument.py" = ["N803"]
 
 # CLI 启动顺序与延迟导入，长期接受。
-"pico/cli/commands.py" = ["E402"]
-"pico/cli/cron_commands.py" = ["E402"]
+"looprail/cli/commands.py" = ["E402"]
+"looprail/cli/cron_commands.py" = ["E402"]
 
 # 其他延迟导入或启动顺序导入，允许使用。
-"pico/eval_engine/engine.py" = ["E402"]
-"pico/memory_engine/skill_local/registry.py" = ["E402"]
+"looprail/eval_engine/engine.py" = ["E402"]
+"looprail/memory_engine/skill_local/registry.py" = ["E402"]
 "scripts/skill_forge_full_e2e.py" = ["E402"]
 
 # 断言；转换或保留的取舍在 v2 中跟踪。
-"pico/agent/subagent/manager.py" = ["S101"]
-"pico/cli/doctor_commands.py" = ["S101"]
-"pico/cli/onboard_commands.py" = ["S101"]
-"pico/memory_engine/contract_test.py" = ["S101"]
+"looprail/agent/subagent/manager.py" = ["S101"]
+"looprail/cli/doctor_commands.py" = ["S101"]
+"looprail/cli/onboard_commands.py" = ["S101"]
+"looprail/memory_engine/contract_test.py" = ["S101"]
 
 # scripts/：开发工具，允许使用部分路径子进程和断言。
 "scripts/check_commit_file.py" = ["S607"]
@@ -174,17 +186,17 @@ ignore = ["E501"]
 # evolver 与 appworld 基准按设计使用 Git/Bash 子进程驱动（S607）；K 是 SOP 领域中
 # 每任务试验次数的术语（N803/N806）；*_PASS/*_TOKEN 常量是结果标签和信标标记，
 # 不是凭据（S105）；断言与上方转换或保留批次一起跟踪（S101）。
-"pico/evolver/tree/git_ops.py" = ["S607"]
-"pico/evolver/launch/config.py" = ["S607"]
-"pico/evolver/launch/contract.py" = ["S607"]
-"pico/evolver/launch/runner.py" = ["S607"]
-"pico/evolver/orchestrator/nodes/semantic.py" = ["S101"]
-"pico/evolver/scheduler/cold_start_bandit.py" = ["N803", "N806"]
-"pico/evolver/scheduler/tree_aware_bandit.py" = ["N803"]
-"pico/evolver/scheduler/tree_loader.py" = ["S101"]
-"pico/evolver/analysis/stability_bucket.py" = ["S105"]
-"pico/evolver/applier/beacon_guard.py" = ["S105"]
-"pico/evolver/judge/prompts.py" = ["S105"]
+"looprail/evolver/tree/git_ops.py" = ["S607"]
+"looprail/evolver/launch/config.py" = ["S607"]
+"looprail/evolver/launch/contract.py" = ["S607"]
+"looprail/evolver/launch/runner.py" = ["S607"]
+"looprail/evolver/orchestrator/nodes/semantic.py" = ["S101"]
+"looprail/evolver/scheduler/cold_start_bandit.py" = ["N803", "N806"]
+"looprail/evolver/scheduler/tree_aware_bandit.py" = ["N803"]
+"looprail/evolver/scheduler/tree_loader.py" = ["S101"]
+"looprail/evolver/analysis/stability_bucket.py" = ["S105"]
+"looprail/evolver/applier/beacon_guard.py" = ["S105"]
+"looprail/evolver/judge/prompts.py" = ["S105"]
 "benchmarks/appworld/evolve/adapter.py" = ["N803", "S105"]
 "benchmarks/appworld/evolve/editor.py" = ["N806"]
 "benchmarks/appworld/evolve/sandbox.py" = ["S607"]
@@ -200,7 +212,7 @@ addopts = [
     "not (real_llm or llm_judge or real_vm or real_channel or external_runtime or e2e)",
 ]
 markers = [
-    "medium_baseline: deterministic Windows-supported Medium+ runtime baseline; no real LLM or deferred surfaces",
+    "runtime_baseline: deterministic Windows-supported Looprail runtime baseline; no real LLM or deferred surfaces",
     "real_llm: calls a live model or embedding endpoint and may incur cost; opt-in",
     "llm_judge: uses an LLM as a grader for extraction quality (extra cost / non-determinism); opt-in",
     "real_vm: boots or connects to a real virtual machine; opt-in",

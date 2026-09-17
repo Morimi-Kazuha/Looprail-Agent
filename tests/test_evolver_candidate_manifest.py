@@ -14,12 +14,12 @@ from benchmarks.appworld.evolve.eval import (
     materialize_candidate_patch,
     prepare_candidate_manifest,
 )
-from pico.evolver.applier.path_guard import (
+from looprail.evolver.applier.path_guard import (
     ImmutablePathError,
     assert_patch_allowed,
     check_patch_paths,
 )
-from pico.evolver.candidate_manifest import (
+from looprail.evolver.candidate_manifest import (
     LABEL_POLICIES,
     ActivationPolicy,
     CandidateLabel,
@@ -29,10 +29,10 @@ from pico.evolver.candidate_manifest import (
     evaluate_manifest_gate,
     manifest_for_patch,
 )
-from pico.evolver.judge.schema import PatchWhere, PatchWhy
-from pico.evolver.orchestrator.production import make_git_commit_apply_fn
-from pico.evolver.tree.node import AppliedPatch, HarnessNode, PatchComponent
-from pico.evolver.tree.store import EvolverTreeStore
+from looprail.evolver.judge.schema import PatchWhere, PatchWhy
+from looprail.evolver.orchestrator.production import make_git_commit_apply_fn
+from looprail.evolver.tree.node import AppliedPatch, HarnessNode, PatchComponent
+from looprail.evolver.tree.store import EvolverTreeStore
 
 
 def _patch(where: PatchWhere, target: str) -> AppliedPatch:
@@ -103,17 +103,17 @@ def _candidate_repo(tmp_path: Path) -> tuple[Path, str]:
     repo = tmp_path / "subject"
     (repo / "benchmarks/appworld").mkdir(parents=True)
     (repo / "benchmarks/appworld/agent_cli.py").write_text("VALUE = 1\n")
-    (repo / "pico/evolver").mkdir(parents=True)
-    (repo / "pico/evolver/kernel.py").write_text("SEALED = True\n")
+    (repo / "looprail/evolver").mkdir(parents=True)
+    (repo / "looprail/evolver/kernel.py").write_text("SEALED = True\n")
     (repo / "mutable/real").mkdir(parents=True)
     (repo / "mutable/link").symlink_to("real", target_is_directory=True)
     _git(repo, "init", "-q")
     env = {
         **os.environ,
-        "GIT_AUTHOR_NAME": "Pico Test",
-        "GIT_AUTHOR_EMAIL": "pico-test@example.invalid",
-        "GIT_COMMITTER_NAME": "Pico Test",
-        "GIT_COMMITTER_EMAIL": "pico-test@example.invalid",
+        "GIT_AUTHOR_NAME": "Looprail Test",
+        "GIT_AUTHOR_EMAIL": "looprail-test@example.invalid",
+        "GIT_COMMITTER_NAME": "Looprail Test",
+        "GIT_COMMITTER_EMAIL": "looprail-test@example.invalid",
     }
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True, env=env)
     subprocess.run(["git", "commit", "-qm", "fixture"], cwd=repo, check=True, env=env)
@@ -147,7 +147,7 @@ def test_manifest_is_a_deterministic_view_over_applied_patch() -> None:
 def test_manifest_gate_rejects_tampered_patch_metadata() -> None:
     patch = _patch(PatchWhere.loop_override, "benchmarks/appworld/agent_cli.py")
     manifest = _manifest("candidate-1", CandidateLabel.runtime, patch)
-    tampered = replace(manifest, target_files=("pico/templates/AGENTS.md",))
+    tampered = replace(manifest, target_files=("looprail/templates/AGENTS.md",))
 
     result = _evaluate(tampered, patch)
 
@@ -191,7 +191,7 @@ def test_manifest_gate_binds_raw_parent_and_result_bytes() -> None:
 def test_supported_label_requires_executable_evaluator_binding(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.evolver import candidate_evidence
+    from looprail.evolver import candidate_evidence
 
     patch = _patch(PatchWhere.loop_override, "benchmarks/appworld/agent_cli.py")
     manifest = _manifest("candidate-1", CandidateLabel.runtime, patch)
@@ -212,12 +212,12 @@ def test_supported_label_requires_executable_evaluator_binding(
         (
             CandidateLabel.skill,
             PatchWhere.skill,
-            "pico/memory_engine/skills/example/SKILL.md",
+            "looprail/memory_engine/skills/example/SKILL.md",
         ),
         (
             CandidateLabel.prompt,
             PatchWhere.system_prompt_template,
-            "pico/templates/AGENTS.md",
+            "looprail/templates/AGENTS.md",
         ),
         (CandidateLabel.policy, PatchWhere.config, "config/policy.yaml"),
         (CandidateLabel.model_profile, PatchWhere.config, "config/model_profile.json"),
@@ -238,7 +238,7 @@ def test_labels_without_safe_evaluators_fail_g5(
 
 @pytest.mark.parametrize("label", [CandidateLabel.model_profile, CandidateLabel.route])
 def test_model_profile_and_route_are_config_only_and_never_weights(label: CandidateLabel) -> None:
-    code_patch = _patch(PatchWhere.config, "pico/routing/profiles.py")
+    code_patch = _patch(PatchWhere.config, "looprail/routing/profiles.py")
     weight_patch = _patch(PatchWhere.config, "models/adapter.safetensors")
 
     code_result = _evaluate(_manifest("code", label, code_patch), code_patch)
@@ -251,7 +251,7 @@ def test_model_profile_and_route_are_config_only_and_never_weights(label: Candid
 def test_runtime_requires_human_review_and_exact_mutable_surface() -> None:
     patch = _patch(PatchWhere.loop_override, "benchmarks/appworld/agent_cli.py")
     manifest = _manifest("runtime-1", CandidateLabel.runtime, patch)
-    outside = _patch(PatchWhere.loop_override, "pico/agent/loop/recovery.py")
+    outside = _patch(PatchWhere.loop_override, "looprail/agent/loop/recovery.py")
 
     assert manifest.activation_policy == ActivationPolicy.human_review
     assert _evaluate(manifest, patch).passed
@@ -266,12 +266,12 @@ def test_runtime_requires_human_review_and_exact_mutable_surface() -> None:
 @pytest.mark.parametrize(
     "target",
     [
-        "../pico/templates/AGENTS.md",
-        "pico/templates/../../pyproject.toml",
+        "../looprail/templates/AGENTS.md",
+        "looprail/templates/../../pyproject.toml",
         "/tmp/candidate.py",
         r"C:\tmp\candidate.py",
         r"\\server\share\candidate.py",
-        "pico//templates/AGENTS.md",
+        "looprail//templates/AGENTS.md",
     ],
 )
 def test_path_guard_rejects_traversal_and_absolute_paths(target: str) -> None:
@@ -281,10 +281,10 @@ def test_path_guard_rejects_traversal_and_absolute_paths(target: str) -> None:
 
 
 def test_path_guard_rejects_symlink_components(tmp_path: Path) -> None:
-    (tmp_path / "pico").mkdir()
+    (tmp_path / "looprail").mkdir()
     (tmp_path / "outside").mkdir()
-    (tmp_path / "pico" / "templates").symlink_to(tmp_path / "outside", target_is_directory=True)
-    target = "pico/templates/AGENTS.md"
+    (tmp_path / "looprail" / "templates").symlink_to(tmp_path / "outside", target_is_directory=True)
+    target = "looprail/templates/AGENTS.md"
 
     assert check_patch_paths([target], repo_root=tmp_path) == [target]
     with pytest.raises(ImmutablePathError):
@@ -354,12 +354,12 @@ def test_tree_store_rejects_parent_tree_symlink_before_child_node(
 @pytest.mark.parametrize(
     "target",
     [
-        "pico/evolver/candidate_manifest.py",
-        "pico/eval_engine/engine.py",
+        "looprail/evolver/candidate_manifest.py",
+        "looprail/eval_engine/engine.py",
         "tests/test_evolver_candidate_manifest.py",
         "benchmarks/appworld/evolve/grade.py",
         "benchmarks/appworld/batch.py",
-        "PICO/EVOLVER/candidate_manifest.py",
+        "LOOPRAIL/EVOLVER/candidate_manifest.py",
     ],
 )
 def test_path_guard_keeps_kernel_and_evidence_surfaces_immutable(target: str) -> None:
@@ -462,7 +462,7 @@ def test_g5_rejects_non_utf8_candidate_content(tmp_path: Path) -> None:
 def test_g5_rejection_creates_no_candidate_commit(tmp_path: Path) -> None:
     repo, parent_sha = _candidate_repo(tmp_path)
     candidate = Candidate(
-        files={"pico/evolver/kernel.py": b"SEALED = False\n"},
+        files={"looprail/evolver/kernel.py": b"SEALED = False\n"},
         why="unsafe_fixture",
         summary="edit the Evolver kernel",
     )

@@ -1,4 +1,4 @@
-"""Unit tests for ``pico/cli/tracing_commands.py`` viewer-launch helpers.
+"""Unit tests for ``looprail/cli/tracing_commands.py`` viewer-launch helpers.
 
 Focus: the port-reuse guard. A live port must only be reused when it is *our*
 tracing viewer (answers ``/api/health`` with ``{"ok": true}``); a foreign or
@@ -12,7 +12,7 @@ import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from pico.cli import tracing_commands as tc
+from looprail.cli import tracing_commands as tc
 
 
 def _free_port() -> int:
@@ -40,7 +40,7 @@ class _Handler(BaseHTTPRequestHandler):
         if (
             self.path == "/api/shutdown"
             and getattr(self.server, "health_ok", False)
-            and self.headers.get("X-Pico-Viewer-Action") == "shutdown"
+            and self.headers.get("X-Looprail-Viewer-Action") == "shutdown"
         ):
             body = json.dumps({"ok": True, "stopping": True}).encode()
             self.send_response(200)
@@ -96,17 +96,17 @@ def test_find_free_port_skips_occupied():
 
 
 def test_viewer_env_does_not_add_unrelated_environment(monkeypatch):
-    monkeypatch.delenv("PICO_VIEWER_TEST_VALUE", raising=False)
+    monkeypatch.delenv("LOOPRAIL_VIEWER_TEST_VALUE", raising=False)
 
     env = tc._viewer_env(4318)
 
-    assert "PICO_VIEWER_TEST_VALUE" not in env
+    assert "LOOPRAIL_VIEWER_TEST_VALUE" not in env
 
 
 def test_viewer_env_preserves_unrelated_operator_environment(monkeypatch):
-    monkeypatch.setenv("PICO_VIEWER_TEST_VALUE", "operator-value")
+    monkeypatch.setenv("LOOPRAIL_VIEWER_TEST_VALUE", "operator-value")
 
-    assert tc._viewer_env(4318)["PICO_VIEWER_TEST_VALUE"] == "operator-value"
+    assert tc._viewer_env(4318)["LOOPRAIL_VIEWER_TEST_VALUE"] == "operator-value"
 
 
 def test_stop_dashboard_sends_guarded_shutdown_request():

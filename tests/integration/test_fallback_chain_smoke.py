@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import pytest
 
-from pico.providers.base import LLMProvider, LLMResponse
-from pico.routing.router import ModelRouter
-from pico.routing.types import ClassificationResult, ModelBenchmark, ModelTaskScore
+from looprail.providers.base import LLMProvider, LLMResponse
+from looprail.routing.router import ModelRouter
+from looprail.routing.types import ClassificationResult, ModelBenchmark, ModelTaskScore
 
 
 class _FlakyProvider(LLMProvider):

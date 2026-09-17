@@ -93,7 +93,7 @@ function clampChalkLevelForAppleTerminal(): boolean {
  * Explicit color-tier override. `HERMES_TUI_LEVEL=0|1|2|3` pins chalk's level
  * EXACTLY, unlike `FORCE_COLOR` which only acts as a floor (supports-color
  * still returns 3 when `COLORTERM=truecolor`, so `FORCE_COLOR=2` can't force a
- * *downgrade*). The app sets this from `--color` / `PICO_TUI_COLOR`. When
+ * *downgrade*). The app sets this from `--color` / `LOOPRAIL_TUI_COLOR`. When
  * present it is authoritative and the boost/clamp corrections are skipped.
  */
 function applyExplicitLevel(): boolean {

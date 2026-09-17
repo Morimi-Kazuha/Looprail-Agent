@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from loguru import logger
 
-from pico.channels.adapters.qq import parsing as qp
-from pico.channels.adapters.qq.channel import QQChannel
+from looprail.channels.adapters.qq import parsing as qp
+from looprail.channels.adapters.qq.channel import QQChannel
 
 
 def _channel(allow_from=("*",)):
@@ -328,8 +328,8 @@ def test_start_bails_out_without_credentials(app_id, secret):
 
 
 def test_qq_satisfies_channel_contract():
-    from pico.channels import Channel
-    from pico.channels.contract import capability_violations
+    from looprail.channels import Channel
+    from looprail.channels.contract import capability_violations
 
     ch = QQChannel(SimpleNamespace(app_id="a", secret="s"))
     assert isinstance(ch, Channel)
@@ -337,7 +337,7 @@ def test_qq_satisfies_channel_contract():
 
 
 def test_qq_spec_declares_beta_maturity():
-    from pico.channels.adapters.qq.spec import SPEC
+    from looprail.channels.adapters.qq.spec import SPEC
 
     assert SPEC.maturity == "beta"
 
@@ -347,9 +347,9 @@ def test_qq_spec_factory_raises_import_error_without_sdk(monkeypatch):
     just this channel."""
     import sys
 
-    monkeypatch.delitem(sys.modules, "pico.channels.adapters.qq.channel", raising=False)
+    monkeypatch.delitem(sys.modules, "looprail.channels.adapters.qq.channel", raising=False)
     monkeypatch.setitem(sys.modules, "botpy", None)
-    from pico.channels.adapters.qq.spec import SPEC
+    from looprail.channels.adapters.qq.spec import SPEC
 
     with pytest.raises(ImportError):
         SPEC.factory(SimpleNamespace(app_id="a", secret="s", allow_from=["*"]))
@@ -362,7 +362,7 @@ def test_qq_spec_import_is_cheap():
     import sys
 
     code = (
-        "import sys, pico.channels.adapters.qq.spec as s;"
+        "import sys, looprail.channels.adapters.qq.spec as s;"
         "assert 'botpy' not in sys.modules, 'spec import pulled in the botpy SDK';"
         "assert callable(s.SPEC.factory) and s.SPEC.display_name == 'QQ'"
     )

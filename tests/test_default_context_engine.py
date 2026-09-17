@@ -18,20 +18,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pico.agent.context import ContextBuilder
-from pico.agent.loop import AgentLoop
-from pico.config.pico import ContextConfig
-from pico.context_engine import ContextAssembler, ContextEngine, TurnContext
-from pico.context_engine.segments import (
+from looprail.agent.context import ContextBuilder
+from looprail.agent.loop import AgentLoop
+from looprail.config.looprail import ContextConfig
+from looprail.context_engine import ContextAssembler, ContextEngine, TurnContext
+from looprail.context_engine.segments import (
     ActiveSkillsSegmentBuilder,
     BootstrapSegmentBuilder,
     IdentitySegmentBuilder,
     MemorySegmentBuilder,
     SkillsSegmentBuilder,
 )
-from pico.context_engine.segments.curator import CuratorSegmentBuilder
-from pico.memory_engine import Memory, TokenBudget
-from pico.memory_engine.skill_forge import RouterHit, SkillForgeRouter
+from looprail.context_engine.segments.curator import CuratorSegmentBuilder
+from looprail.memory_engine import Memory, TokenBudget
+from looprail.memory_engine.skill_forge import RouterHit, SkillForgeRouter
 
 # ---------------------------------------------------------------------------
 

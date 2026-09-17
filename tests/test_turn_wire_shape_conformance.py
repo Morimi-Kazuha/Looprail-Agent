@@ -17,11 +17,11 @@ from unittest.mock import AsyncMock
 import pytest
 from pydantic import TypeAdapter
 
-from pico.spine import ChatType, Origin, Source, TurnRequest
-from pico.tui_rpc.methods.turn import turn_cancel, turn_send, turn_subscribe
-from pico.tui_rpc.models import TurnEvent
-from pico.tui_rpc.spine import build_tui
-from pico.tui_rpc.subscriptions import SubscriptionEmitter
+from looprail.spine import ChatType, Origin, Source, TurnRequest
+from looprail.tui_rpc.methods.turn import turn_cancel, turn_send, turn_subscribe
+from looprail.tui_rpc.models import TurnEvent
+from looprail.tui_rpc.spine import build_tui
+from looprail.tui_rpc.subscriptions import SubscriptionEmitter
 
 _turn_event_adapter: TypeAdapter[TurnEvent] = TypeAdapter(TurnEvent)
 
@@ -44,7 +44,7 @@ class FakeScheduler:
 
 @pytest.fixture(autouse=True)
 def _clear_active_turns():
-    from pico.tui_rpc.methods import turn as _turn_mod
+    from looprail.tui_rpc.methods import turn as _turn_mod
 
     _turn_mod._active_turns.clear()
     _turn_mod._active_request_keys.clear()
@@ -92,7 +92,7 @@ async def test_subagent_delivery_uses_a_typed_uncorrelated_event() -> None:
             usage_sink=None,
             text_sink=None,
         ):
-            from pico.spine import TurnOutcome, Usage
+            from looprail.spine import TurnOutcome, Usage
 
             assert stream is False
             assert text_sink is not None
@@ -146,7 +146,7 @@ async def test_message_complete_payload_has_turn_id_and_usage_only() -> None:
             usage_sink=None,
             text_sink=None,
         ):
-            from pico.spine import Text, TurnOutcome, Usage
+            from looprail.spine import Text, TurnOutcome, Usage
 
             await emit(Text(content="stub content (must not appear on wire)", source=req.source))
             if usage_sink is not None:
@@ -183,7 +183,7 @@ async def test_overflow_error_event_payload_shape() -> None:
 
     sub_id = await emitter.register("tui:default")
 
-    from pico.tui_rpc.subscriptions import QUEUE_CAPACITY
+    from looprail.tui_rpc.subscriptions import QUEUE_CAPACITY
 
     for i in range(QUEUE_CAPACITY + 50):
         await emitter.emit(

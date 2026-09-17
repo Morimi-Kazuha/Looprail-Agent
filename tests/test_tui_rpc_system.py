@@ -16,9 +16,9 @@ import time
 
 import pytest
 
-from pico.tui_rpc.dispatcher import Dispatcher
-from pico.tui_rpc.errors import ConfigValidationError
-from pico.tui_rpc.methods.system import (
+from looprail.tui_rpc.dispatcher import Dispatcher
+from looprail.tui_rpc.errors import ConfigValidationError
+from looprail.tui_rpc.methods.system import (
     register_system_methods,
     system_hello,
     system_ping,
@@ -66,8 +66,8 @@ async def test_version_returns_three_fields():
     result = await system_version({})
     assert "server_version" in result
     assert "schema_version" in result
-    assert "pico_version" in result
-    assert all(isinstance(result[k], str) for k in ("server_version", "schema_version", "pico_version"))
+    assert "looprail_version" in result
+    assert all(isinstance(result[k], str) for k in ("server_version", "schema_version", "looprail_version"))
 
 
 # ---------------------------------------------------------------------------

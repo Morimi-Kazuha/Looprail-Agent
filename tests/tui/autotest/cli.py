@@ -38,13 +38,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "smoke",
         help="Spawn <command>, wait readiness, then terminate; print trace + exit code",
     )
-    smoke.add_argument("command", help="Command to spawn (e.g. 'uv run pico --check')")
+    smoke.add_argument("command", help="Command to spawn (e.g. 'uv run looprail --check')")
     smoke.add_argument("--cols", type=int, default=120, help="Terminal cols (default 120)")
     smoke.add_argument("--rows", type=int, default=40, help="Terminal rows (default 40)")
     smoke.add_argument(
         "--wait-readiness",
-        default=r"Pico",
-        help='Regex to await as readiness (default "Pico")',
+        default=r"Looprail",
+        help='Regex to await as readiness (default "Looprail")',
     )
     smoke.add_argument(
         "--wait-timeout",

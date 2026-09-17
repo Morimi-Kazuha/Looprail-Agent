@@ -1,4 +1,4 @@
-"""CLI tests for ``pico run``.
+"""CLI tests for ``looprail run``.
 
 The ``run`` command is an interactive REPL with optional ``-m`` single-turn
 mode. Smoke-level coverage: ``--help`` works, options are surfaced, the
@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
-from pico.config.loader import set_config_path
+from looprail.cli.commands import app
+from looprail.config.loader import set_config_path
 
 runner = CliRunner()
 
@@ -27,7 +27,7 @@ def tmp_config(tmp_path: Path) -> Path:
 
 
 def test_run_help_works() -> None:
-    """``pico run --help`` lists the key options."""
+    """``looprail run --help`` lists the key options."""
     r = runner.invoke(app, ["run", "--help"])
     assert r.exit_code == 0
     assert "Interact with the agent" in r.stdout
@@ -46,8 +46,8 @@ def test_run_without_api_key_exits_cleanly(tmp_config: Path) -> None:
     only reliable way to detect a regression like a missing import is to
     inspect ``r.exception`` directly.
     """
-    from pico.config.loader import save_config
-    from pico.config.schema import Config
+    from looprail.config.loader import save_config
+    from looprail.config.schema import Config
 
     save_config(Config())
 
@@ -91,9 +91,9 @@ def _invoke_agent_capturing_session(
     key, mirroring the old session_key arg)."""
     import os as _os
 
-    from pico.config.loader import save_config
-    from pico.config.schema import Config
-    from pico.spine import Text, TurnOutcome, Usage
+    from looprail.config.loader import save_config
+    from looprail.config.schema import Config
+    from looprail.spine import Text, TurnOutcome, Usage
 
     cfg = Config()
     cfg.providers.openrouter.api_key = "stub-test-key"
@@ -130,15 +130,15 @@ def _invoke_agent_capturing_session(
             pass
 
     monkeypatch.setattr(_os, "_exit", lambda code: (_ for _ in ()).throw(SystemExit(code)))
-    monkeypatch.setattr("pico.cli.agent_commands.make_provider", lambda _: object())
-    monkeypatch.setattr("pico.agent.loop.AgentLoop", _StubAgentLoop)
+    monkeypatch.setattr("looprail.cli.agent_commands.make_provider", lambda _: object())
+    monkeypatch.setattr("looprail.agent.loop.AgentLoop", _StubAgentLoop)
 
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.maybe_build_memory_backend",
+        "looprail.cli._plugin_stack.maybe_build_memory_backend",
         lambda *a, **k: None,
     )
     monkeypatch.setattr(
-        "pico.cli._plugin_stack.build_plugin_tools",
+        "looprail.cli._plugin_stack.build_plugin_tools",
         lambda *a, **k: [],
     )
     args = ["run", "-m", "hi"]
@@ -172,7 +172,7 @@ def test_agent_adapter_uses_shared_runtime_assembly(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -206,12 +206,12 @@ def test_agent_defaults_to_current_project_and_keeps_state_hidden(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
     project = tmp_path / "project"
     project.mkdir()
-    product_home = tmp_path / "pico-home"
-    monkeypatch.setenv("PICO_HOME", str(product_home))
+    product_home = tmp_path / "looprail-home"
+    monkeypatch.setenv("LOOPRAIL_HOME", str(product_home))
     monkeypatch.chdir(project)
     original = _runtime_assembly.assemble_runtime
     calls: list[tuple[tuple, dict]] = []
@@ -240,7 +240,7 @@ def test_invalid_resume_stops_before_runtime_assembly(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -272,7 +272,7 @@ def test_interactive_setup_failure_closes_runtime(
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, MagicMock
 
-    from pico.cli import _runtime_assembly
+    from looprail.cli import _runtime_assembly
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -293,9 +293,9 @@ def test_interactive_setup_failure_closes_runtime(
         return runtime
 
     monkeypatch.setattr(_runtime_assembly, "assemble_runtime", _assemble)
-    monkeypatch.setattr("pico.cli.agent_commands.make_provider", lambda cfg: object())
-    monkeypatch.setattr("pico.cli.agent_commands._init_prompt_session", lambda: None)
-    monkeypatch.setattr("pico.cli.agent_commands.signal.signal", lambda *args: None)
+    monkeypatch.setattr("looprail.cli.agent_commands.make_provider", lambda cfg: object())
+    monkeypatch.setattr("looprail.cli.agent_commands._init_prompt_session", lambda: None)
+    monkeypatch.setattr("looprail.cli.agent_commands.signal.signal", lambda *args: None)
 
     class _SetupFailure(RuntimeError):
         pass
@@ -303,7 +303,7 @@ def test_interactive_setup_failure_closes_runtime(
     def _fail_build(*args, **kwargs):
         raise _SetupFailure
 
-    monkeypatch.setattr("pico.cli._repl_spine.build_repl", _fail_build)
+    monkeypatch.setattr("looprail.cli._repl_spine.build_repl", _fail_build)
 
     result = runner.invoke(
         app,
@@ -338,7 +338,7 @@ def test_agent_continue_binds_most_recent_cli_session(
     tmp_config: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``-c`` binds the agent to the most-recent persisted cli session."""
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -355,7 +355,7 @@ def test_agent_continue_binds_most_recent_cli_session(
 
 def test_agent_resume_binds_resolved_session(tmp_config: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """``--resume <prefix>`` resolves and binds that cli session."""
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -386,7 +386,7 @@ def test_agent_bare_session_resolves_cross_channel(
 ) -> None:
     """``--session <bare id>`` resolves to an existing session on a non-cli
     channel — it must NOT be mis-routed to a colon-less/malformed key."""
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -469,21 +469,21 @@ def test_agent_continue_without_prior_session_starts_fresh(
 )
 def test_is_exit_command(command: str, expected: bool) -> None:
     """``_is_exit_command`` detects the canonical exit triggers (case-insensitive)."""
-    from pico.cli.agent_commands import _is_exit_command
+    from looprail.cli.agent_commands import _is_exit_command
 
     assert _is_exit_command(command) is expected
 
 
 def test_exit_commands_set_contents() -> None:
     """The canonical exit triggers stay in sync with documented behavior."""
-    from pico.cli.agent_commands import EXIT_COMMANDS
+    from looprail.cli.agent_commands import EXIT_COMMANDS
 
     assert EXIT_COMMANDS == {"exit", "quit", "/exit", "/quit", ":q"}
 
 
 def test_print_agent_response_with_markdown(capsys: pytest.CaptureFixture) -> None:
     """``_print_agent_response`` renders the body — markdown mode."""
-    from pico.cli.agent_commands import _print_agent_response
+    from looprail.cli.agent_commands import _print_agent_response
 
     _print_agent_response("# hi", render_markdown=True)
     out = capsys.readouterr().out
@@ -493,7 +493,7 @@ def test_print_agent_response_with_markdown(capsys: pytest.CaptureFixture) -> No
 
 def test_print_agent_response_plain(capsys: pytest.CaptureFixture) -> None:
     """``_print_agent_response`` renders plain text — markdown disabled."""
-    from pico.cli.agent_commands import _print_agent_response
+    from looprail.cli.agent_commands import _print_agent_response
 
     _print_agent_response("hello world", render_markdown=False)
     out = capsys.readouterr().out
@@ -509,15 +509,15 @@ def test_agent_message_mode_mocked_provider(tmp_config: Path, monkeypatch: pytes
     """``run -m 'hi'`` with a mocked provider must reach a clean exit
     (no traceback). We mock ``make_provider`` so the agent loop builds
     without contacting any LLM."""
-    from pico.config.loader import save_config
-    from pico.config.schema import Config
+    from looprail.config.loader import save_config
+    from looprail.config.schema import Config
 
     cfg = Config()
     cfg.providers.openrouter.api_key = "stub-test-key"
     save_config(cfg)
 
     monkeypatch.setattr(
-        "pico.cli.agent_commands.make_provider",
+        "looprail.cli.agent_commands.make_provider",
         lambda _: (_ for _ in ()).throw(RuntimeError("mock-no-provider")),
     )
 
@@ -562,7 +562,7 @@ def isolated_runtime(tmp_path: Path, monkeypatch) -> Path:
     """
     cfg = tmp_path / "config.json"
     set_config_path(cfg)
-    monkeypatch.setattr("pico.config.update.get_config_path", lambda: cfg)
+    monkeypatch.setattr("looprail.config.update.get_config_path", lambda: cfg)
     yield tmp_path
     set_config_path(None)  # type: ignore[arg-type]
 
@@ -571,13 +571,13 @@ def isolated_runtime(tmp_path: Path, monkeypatch) -> Path:
 def test_slash_non_commands_fall_through(text: str) -> None:
     """Plain chat and bus-level commands (/stop, /restart) must fall through
     to the LLM/bus path — handler returns False."""
-    from pico.cli._repl_slash import handle_repl_slash
+    from looprail.cli._repl_slash import handle_repl_slash
 
     assert handle_repl_slash(text, console=_RecordingConsole()) is False
 
 
 def test_slash_help_lists_namespaces() -> None:
-    from pico.cli._repl_slash import handle_repl_slash
+    from looprail.cli._repl_slash import handle_repl_slash
 
     con = _RecordingConsole()
     assert handle_repl_slash("/help", console=con) is True
@@ -586,7 +586,7 @@ def test_slash_help_lists_namespaces() -> None:
 
 
 def test_cron_help_is_handled_and_sentinel_falls_through() -> None:
-    from pico.cli._repl_slash import handle_repl_slash
+    from looprail.cli._repl_slash import handle_repl_slash
 
     con = _RecordingConsole()
     assert handle_repl_slash("/cron", console=con) is True
@@ -595,7 +595,7 @@ def test_cron_help_is_handled_and_sentinel_falls_through() -> None:
 
 
 def test_cron_run_is_shell_only(isolated_runtime: Path) -> None:
-    from pico.cli._repl_slash import handle_repl_slash
+    from looprail.cli._repl_slash import handle_repl_slash
 
     con = _RecordingConsole()
     assert handle_repl_slash("/cron run abc123", console=con) is True
@@ -603,7 +603,7 @@ def test_cron_run_is_shell_only(isolated_runtime: Path) -> None:
 
 
 def test_cron_config_write_is_shell_only(isolated_runtime: Path) -> None:
-    from pico.cli._repl_slash import handle_repl_slash
+    from looprail.cli._repl_slash import handle_repl_slash
 
     con = _RecordingConsole()
     assert handle_repl_slash("/cron config set --forward-channels '*'", console=con) is True
@@ -611,15 +611,15 @@ def test_cron_config_write_is_shell_only(isolated_runtime: Path) -> None:
 
 
 def test_cron_list_runs_against_empty_store(isolated_runtime: Path) -> None:
-    from pico.cli._repl_slash import handle_repl_slash
+    from looprail.cli._repl_slash import handle_repl_slash
 
     assert handle_repl_slash("/cron list", console=_RecordingConsole()) is True
 
 
 def _make_cron_job():
-    from pico.config.paths import get_cron_dir
-    from pico.proactive_engine.schedulers.cron.service import CronService
-    from pico.proactive_engine.schedulers.cron.types import CronSchedule
+    from looprail.config.paths import get_cron_dir
+    from looprail.proactive_engine.schedulers.cron.service import CronService
+    from looprail.proactive_engine.schedulers.cron.types import CronSchedule
 
     svc = CronService(get_cron_dir() / "jobs.json", allowed_channels=None)
     job = svc.add_job(
@@ -634,7 +634,7 @@ def _make_cron_job():
 
 def test_cron_delete_requires_inline_yes(isolated_runtime: Path) -> None:
     """Without -y, destructive ops only preview and keep the job."""
-    from pico.cli._repl_slash import handle_repl_slash
+    from looprail.cli._repl_slash import handle_repl_slash
 
     svc, job = _make_cron_job()
     con = _RecordingConsole()
@@ -644,9 +644,9 @@ def test_cron_delete_requires_inline_yes(isolated_runtime: Path) -> None:
 
 
 def test_cron_delete_with_yes_removes_job(isolated_runtime: Path) -> None:
-    from pico.cli._repl_slash import handle_repl_slash
-    from pico.config.paths import get_cron_dir
-    from pico.proactive_engine.schedulers.cron.service import CronService
+    from looprail.cli._repl_slash import handle_repl_slash
+    from looprail.config.paths import get_cron_dir
+    from looprail.proactive_engine.schedulers.cron.service import CronService
 
     svc, job = _make_cron_job()
     assert handle_repl_slash(f"/cron delete {job.id} -y", console=_RecordingConsole()) is True

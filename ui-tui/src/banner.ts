@@ -46,7 +46,7 @@ export function parseRichMarkup(markup: string): Line[] {
   return lines
 }
 
-const PICO_WORD_ART = [
+const LOOPRAIL_WORD_ART = [
   '██████╗ ██╗ ██████╗  ██████╗ ',
   '██╔══██╗██║██╔════╝ ██╔═══██╗',
   '██████╔╝██║██║      ██║   ██║',
@@ -64,19 +64,19 @@ const AGENT_WORD_ART = [
   '╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   '
 ] as const
 
-const PICO_LOGO_ART = PICO_WORD_ART.map((row, index) => `${row}   ${AGENT_WORD_ART[index]}`)
+const LOOPRAIL_LOGO_ART = LOOPRAIL_WORD_ART.map((row, index) => `${row}   ${AGENT_WORD_ART[index]}`)
 
-const PICO_HERO_ART = [
+const LOOPRAIL_HERO_ART = [
   '         ╱╲         ',
   '        ╱  ╲        ',
   '       ╱ ◆  ╲       ',
   '      ╱      ╲      ',
-  '     ╱  PICO  ╲     ',
+  '     ╱  LOOPRAIL  ╲     ',
   '    ╰──────────╯    '
 ] as const
 
-export const PICO_LOGO_WIDTH = PICO_LOGO_ART.reduce((width, row) => Math.max(width, [...row].length), 0)
-export const PICO_HERO_WIDTH = PICO_HERO_ART.reduce((width, row) => Math.max(width, [...row].length), 0)
+export const LOOPRAIL_LOGO_WIDTH = LOOPRAIL_LOGO_ART.reduce((width, row) => Math.max(width, [...row].length), 0)
+export const LOOPRAIL_HERO_WIDTH = LOOPRAIL_HERO_ART.reduce((width, row) => Math.max(width, [...row].length), 0)
 
 // 标题中每个渐变色覆盖的字符画行数（垂直色带）。
 const LOGO_ROWS_PER_BAND = 2
@@ -88,25 +88,25 @@ const bandColor = (ramp: readonly string[], row: number) =>
 
 // 标题字标从上到下每 LOGO_ROWS_PER_BAND 行使用一种渐变色，取前
 // ceil(rows / band) 个渐变项。
-export const picoLogo = (ramp: readonly string[], customLogo?: string): Line[] =>
-  customLogo ? parseRichMarkup(customLogo) : PICO_LOGO_ART.map((text, i) => [bandColor(ramp, i), text])
+export const looprailLogo = (ramp: readonly string[], customLogo?: string): Line[] =>
+  customLogo ? parseRichMarkup(customLogo) : LOOPRAIL_LOGO_ART.map((text, i) => [bandColor(ramp, i), text])
 
-// “PICO”字标的宽度，也是短版所需的最小宽度。
-export const PICO_WORD_WIDTH = PICO_WORD_ART.reduce((width, row) => Math.max(width, [...row].length), 0)
+// “LOOPRAIL”字标的宽度，也是短版所需的最小宽度。
+export const LOOPRAIL_WORD_WIDTH = LOOPRAIL_WORD_ART.reduce((width, row) => Math.max(width, [...row].length), 0)
 
-// 只渲染“PICO”字标，并采用从上到下的渐变。
-export const picoLogoWord = (ramp: readonly string[]): Line[] =>
-  PICO_WORD_ART.map((text, i) => [bandColor(ramp, i), text])
+// 只渲染“LOOPRAIL”字标，并采用从上到下的渐变。
+export const looprailLogoWord = (ramp: readonly string[]): Line[] =>
+  LOOPRAIL_WORD_ART.map((text, i) => [bandColor(ramp, i), text])
 
-// Pico 主图使用由 HERO_BANDS 个列色带构成的横向渐变。颜色从右向左加深，
+// Looprail 主图使用由 HERO_BANDS 个列色带构成的横向渐变。颜色从右向左加深，
 // 使高亮色 ramp[0] 位于右侧，最深色 ramp[HERO_BANDS-1] 位于左侧。
 // 每行返回一组用于行内渲染的 `[color, segment]` 对。
-export const picoHero = (ramp: readonly string[], customHero?: string): Line[][] => {
+export const looprailHero = (ramp: readonly string[], customHero?: string): Line[][] => {
   if (customHero) {
     return parseRichMarkup(customHero).map(line => [line])
   }
 
-  return PICO_HERO_ART.map(row => {
+  return LOOPRAIL_HERO_ART.map(row => {
     const chars = [...row]
     const bandWidth = Math.ceil(chars.length / HERO_BANDS)
     const segments: Line[] = []

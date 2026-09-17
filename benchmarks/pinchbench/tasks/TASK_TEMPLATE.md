@@ -16,7 +16,7 @@ workspace_files: []
 
 This template defines the structure for PinchBench task specifications. Each task file in the `tasks/` directory must follow this format.
 
-Task files are executable benchmark fixtures, not Pico product documentation.
+Task files are executable benchmark fixtures, not Looprail product documentation.
 A task may intentionally probe an unsupported or removed capability; its
 presence does not add that capability to the Runtime.
 

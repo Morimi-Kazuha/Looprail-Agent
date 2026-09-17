@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pico.providers.base import ErrorClassification, LLMProvider, LLMResponse, ToolCallRequest
+from looprail.providers.base import ErrorClassification, LLMProvider, LLMResponse, ToolCallRequest
 
 
 class _ChatOnlyProvider(LLMProvider):

@@ -1,4 +1,4 @@
-// Pico TUI RPC 订阅注册表与端到端推送事件路由测试。
+// Looprail TUI RPC 订阅注册表与端到端推送事件路由测试。
 
 import type { Server, Socket } from 'node:net'
 

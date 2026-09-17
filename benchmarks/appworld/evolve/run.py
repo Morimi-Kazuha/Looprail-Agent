@@ -2,7 +2,7 @@
 
 Everything generic (round loop, focused-Fisher gate, per-parent frozen baseline,
 edit-then-commit apply, termination, journal/resume) comes from
-``pico.evolver.orchestrator``; only the AppWorld brain is wired here:
+``looprail.evolver.orchestrator``; only the AppWorld brain is wired here:
 
 - diagnose_fn = W1-W7 judge over the parent's failing trajectories
 - design_fn   = bash-editor producing candidate file edits off the parent commit
@@ -44,16 +44,16 @@ from benchmarks.appworld.evolve.trajectories import (
     build_passing_ids_source,
     render_candidate_failure,
 )
-from pico.evolver.orchestrator.config import Budget, OrchestratorConfig
-from pico.evolver.orchestrator.gates.policy import make_frozen_baseline
-from pico.evolver.orchestrator.gates.strategies import (
+from looprail.evolver.orchestrator.config import Budget, OrchestratorConfig
+from looprail.evolver.orchestrator.gates.policy import make_frozen_baseline
+from looprail.evolver.orchestrator.gates.strategies import (
     FocusedFisherGate,
     confirm_job_name,
 )
-from pico.evolver.orchestrator.loop import EvolutionOrchestrator
-from pico.evolver.orchestrator.nodes.taxonomy import resolve_taxonomy
-from pico.evolver.orchestrator.production import build_evolution_orchestrator
-from pico.evolver.tree.node import HarnessNode
+from looprail.evolver.orchestrator.loop import EvolutionOrchestrator
+from looprail.evolver.orchestrator.nodes.taxonomy import resolve_taxonomy
+from looprail.evolver.orchestrator.production import build_evolution_orchestrator
+from looprail.evolver.tree.node import HarnessNode
 
 
 def build_appworld_orchestrator(
@@ -115,7 +115,7 @@ def build_appworld_orchestrator(
     if analysis_mode == "agentic":
         # 构建时快速失败：智能体分析只通过已安装且已登录的 Claude CLI 在 Claude 模型上
         # 运行，不能运行到中途才失败，也不适用于使用 mapreduce 分支的其他驱动。
-        from pico.evolver.orchestrator.providers.claude_agentic import (
+        from looprail.evolver.orchestrator.providers.claude_agentic import (
             require_claude_for_agentic,
         )
 
@@ -244,7 +244,7 @@ def build_appworld_orchestrator(
 
     def baseline_of():
         if baseline_mode == "same_session":
-            from pico.evolver.orchestrator.gates.policy import (
+            from looprail.evolver.orchestrator.gates.policy import (
                 SameSessionPairedBaseline,
             )
 
@@ -263,7 +263,7 @@ def build_appworld_orchestrator(
 
     # Gate-b 回读：携带信标的候选实际在哪些训练任务上触发，结果取确认输出目录与基础
     # 设施重跑阶梯兄弟目录的并集。
-    from pico.evolver.activation.ledger import read_fired_tasks
+    from looprail.evolver.activation.ledger import read_fired_tasks
 
     def fired_source_of(node: HarnessNode, task_ids: list[str]):
         dirs = aw_adapter.ladder_out_dirs(runs_root / confirm_job_name(node.node_id))
@@ -271,7 +271,7 @@ def build_appworld_orchestrator(
 
     preflight_fn = None
     if zero_hit_preflight:
-        from pico.evolver.orchestrator.production import make_zero_hit_preflight
+        from looprail.evolver.orchestrator.production import make_zero_hit_preflight
 
         preflight_fn = make_zero_hit_preflight(trajectory_source)
 
@@ -323,11 +323,11 @@ def build_appworld_sealed_runner(
     checked out and ``batch.py`` runs against it), invoked with ``split="test"``
     and the infra rerun ladder, so test is scored exactly like train. Never
     called during evolution — feed the journal records to
-    :func:`pico.evolver.orchestrator.sealed.runner.unseal_retention` after the
+    :func:`looprail.evolver.orchestrator.sealed.runner.unseal_retention` after the
     loop finishes.
     """
-    from pico.evolver.orchestrator.scoring import eval_with_infra_rerun
-    from pico.evolver.orchestrator.sealed.runner import SealedTestRunner
+    from looprail.evolver.orchestrator.scoring import eval_with_infra_rerun
+    from looprail.evolver.orchestrator.sealed.runner import SealedTestRunner
 
     raw = make_appworld_eval_fn(aw_cfg, repo_root)
 

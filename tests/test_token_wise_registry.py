@@ -1,11 +1,11 @@
-"""Tests for pico.token_wise.registry.StrategyRegistry."""
+"""Tests for looprail.token_wise.registry.StrategyRegistry."""
 
 from __future__ import annotations
 
 import pytest
 
-from pico.token_wise.base import TokenStrategy, UsageSnapshot
-from pico.token_wise.registry import StrategyRegistry
+from looprail.token_wise.base import TokenStrategy, UsageSnapshot
+from looprail.token_wise.registry import StrategyRegistry
 
 
 class _RecordingBefore(TokenStrategy):

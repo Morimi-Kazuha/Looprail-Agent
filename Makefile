@@ -1,10 +1,10 @@
-.PHONY: help install install-deps format check check-public-tree lint lint-python lint-tui test test-python test-retained test-tui picobench-smoke picobench picobench-reproduce picobench-scorecard-estimate picobench-scorecard-ship picobench-scorecard-score picobench-runtime-scheduler picobench-runtime-tools picobench-runtime-live-plan picobench-runtime-live-run picobench-runtime-live-verify picobench-call-efficiency-plan picobench-call-efficiency-preflight picobench-call-efficiency-run picobench-call-efficiency-verify picobench-tracing-plan picobench-tracing-run picobench-tracing-verify verify-channels verify-evolver verify-turn-evidence build build-tui release-dist check-commits check-pr-title check-large-files ci clean
+.PHONY: help install install-deps format check check-public-tree lint lint-python lint-tui test test-python test-retained test-tui looprailbench-smoke looprailbench looprailbench-reproduce looprailbench-scorecard-estimate looprailbench-scorecard-ship looprailbench-scorecard-score looprailbench-runtime-scheduler looprailbench-runtime-tools looprailbench-runtime-live-plan looprailbench-runtime-live-run looprailbench-runtime-live-verify looprailbench-call-efficiency-plan looprailbench-call-efficiency-preflight looprailbench-call-efficiency-run looprailbench-call-efficiency-verify looprailbench-tracing-plan looprailbench-tracing-run looprailbench-tracing-verify verify-channels verify-evolver verify-turn-evidence build build-tui release-dist check-commits check-pr-title check-large-files ci clean
 
 PYTHON ?= python3
 PYTHON_LINT_TARGETS ?= scripts/check_commit_file.py scripts/check_commit_messages.py scripts/check_pr_title.py scripts/check_large_files.py scripts/commit_lint.py tests/test_commit_lint.py tests/test_large_file_check.py
 COMMIT_RANGE ?= origin/main..HEAD
-PICO_CALL_EFFICIENCY_OUTPUT ?= .pico/evidence/call-efficiency-cost-current
-PICO_TRACING_OUTPUT ?= .pico/evidence/tracing-overhead-current
+LOOPRAIL_CALL_EFFICIENCY_OUTPUT ?= .looprail/evidence/call-efficiency-cost-current
+LOOPRAIL_TRACING_OUTPUT ?= .looprail/evidence/tracing-overhead-current
 
 help:
 	@echo "Targets:"
@@ -18,24 +18,24 @@ help:
 	@echo "  lint-tui       TypeScript lint + RPC drift check"
 	@echo "  test           Run focused Python checks and TUI tests"
 	@echo "  test-retained  Run the deterministic Python suite without opt-in tests"
-	@echo "  picobench-smoke Run the credential-free PicoBench gate"
-	@echo "  picobench-runtime-scheduler Run deterministic scheduler A/B experiments"
-	@echo "  picobench-runtime-tools Run the Tool scheduler A/B microbenchmark"
-	@echo "  picobench-runtime-live-plan Freeze the real-Agent scheduler plan and spend ceiling"
-	@echo "  picobench-runtime-live-run Run the approved real-Agent scheduler experiment"
-	@echo "  picobench-runtime-live-verify Rebuild live scheduler metrics from raw Turn records"
-	@echo "  picobench-call-efficiency-plan Freeze the current integrated cost campaign plan"
-	@echo "  picobench-call-efficiency-preflight Verify live DeepSeek prompt-cache behavior"
-	@echo "  picobench-call-efficiency-run Run or resume the approved 72-Trial cost campaign"
-	@echo "  picobench-call-efficiency-verify Rebuild cost evidence without Provider calls"
-	@echo "  picobench-tracing-plan Print the 1,000-pair Runtime tracing plan"
-	@echo "  picobench-tracing-run Run or resume the deterministic tracing on/off campaign"
-	@echo "  picobench-tracing-verify Rebuild tracing metrics and verify raw trace receipts"
-	@echo "  picobench      Run the frozen PicoBench calibration and formal campaign"
-	@echo "  picobench-reproduce Run or reuse every Scorecard track and render one report"
-	@echo "  picobench-scorecard-estimate Print the current Scorecard worst-case budget"
-	@echo "  picobench-scorecard-ship Run the current Context and Tool/MCP Scorecard campaign"
-	@echo "  picobench-scorecard-score Compute the multidimensional diagnostic score"
+	@echo "  looprailbench-smoke Run the credential-free LooprailBench gate"
+	@echo "  looprailbench-runtime-scheduler Run deterministic scheduler A/B experiments"
+	@echo "  looprailbench-runtime-tools Run the Tool scheduler A/B microbenchmark"
+	@echo "  looprailbench-runtime-live-plan Freeze the real-Agent scheduler plan and spend ceiling"
+	@echo "  looprailbench-runtime-live-run Run the approved real-Agent scheduler experiment"
+	@echo "  looprailbench-runtime-live-verify Rebuild live scheduler metrics from raw Turn records"
+	@echo "  looprailbench-call-efficiency-plan Freeze the current integrated cost campaign plan"
+	@echo "  looprailbench-call-efficiency-preflight Verify live DeepSeek prompt-cache behavior"
+	@echo "  looprailbench-call-efficiency-run Run or resume the approved 72-Trial cost campaign"
+	@echo "  looprailbench-call-efficiency-verify Rebuild cost evidence without Provider calls"
+	@echo "  looprailbench-tracing-plan Print the 1,000-pair Runtime tracing plan"
+	@echo "  looprailbench-tracing-run Run or resume the deterministic tracing on/off campaign"
+	@echo "  looprailbench-tracing-verify Rebuild tracing metrics and verify raw trace receipts"
+	@echo "  looprailbench      Run the frozen LooprailBench calibration and formal campaign"
+	@echo "  looprailbench-reproduce Run or reuse every Scorecard track and render one report"
+	@echo "  looprailbench-scorecard-estimate Print the current Scorecard worst-case budget"
+	@echo "  looprailbench-scorecard-ship Run the current Context and Tool/MCP Scorecard campaign"
+	@echo "  looprailbench-scorecard-score Compute the multidimensional diagnostic score"
 	@echo "  verify-channels Run the deterministic V-C0 contract and V-S0 security Channel gates"
 	@echo "  verify-evolver Run the deterministic V-E0 Evolver gate"
 	@echo "  verify-turn-evidence Run the deterministic V-TE0 turn-correlation gate"
@@ -56,7 +56,7 @@ install: install-deps
 	npm ci --prefix ui-tui
 
 format:
-	uv run --extra dev ruff format pico scripts tests
+	uv run --extra dev ruff format looprail scripts tests
 
 check: check-public-tree lint build test-retained test-tui
 
@@ -83,73 +83,73 @@ test-python:
 test-retained: build-tui
 	uv run --frozen --all-extras --exact pytest tests -q --strict-markers -m 'not (real_llm or llm_judge or real_vm or real_channel or external_runtime or e2e)'
 
-picobench-smoke:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench --mode smoke
+looprailbench-smoke:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench --mode smoke
 
-picobench:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench --mode ship
+looprailbench:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench --mode ship
 
-picobench-reproduce:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.reproduce
+looprailbench-reproduce:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.reproduce
 
-picobench-scorecard-estimate:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.scorecard_campaign estimate
+looprailbench-scorecard-estimate:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.scorecard_campaign estimate
 
-picobench-scorecard-ship:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.scorecard_campaign ship \
-		$(if $(PICO_SCORECARD_RUNTIME_EVIDENCE),--runtime-evidence "$(PICO_SCORECARD_RUNTIME_EVIDENCE)",)
+looprailbench-scorecard-ship:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.scorecard_campaign ship \
+		$(if $(LOOPRAIL_SCORECARD_RUNTIME_EVIDENCE),--runtime-evidence "$(LOOPRAIL_SCORECARD_RUNTIME_EVIDENCE)",)
 
-picobench-scorecard-score:
-	@test -n "$$PICO_SCORECARD_FORMAL_SUMMARY" || (echo "PICO_SCORECARD_FORMAL_SUMMARY is required" >&2; exit 2)
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.scorecard \
-		--formal-summary "$$PICO_SCORECARD_FORMAL_SUMMARY" \
-		$(if $(PICO_SCORECARD_RUNTIME_EVIDENCE),--runtime-evidence "$(PICO_SCORECARD_RUNTIME_EVIDENCE)",) \
-		$(if $(PICO_SCORECARD_TOKENWISE_REPORT),--tokenwise-report "$(PICO_SCORECARD_TOKENWISE_REPORT)",) \
-		$(if $(PICO_SCORECARD_PREREGISTERED),--scoring-spec-preregistered,)
+looprailbench-scorecard-score:
+	@test -n "$$LOOPRAIL_SCORECARD_FORMAL_SUMMARY" || (echo "LOOPRAIL_SCORECARD_FORMAL_SUMMARY is required" >&2; exit 2)
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.scorecard \
+		--formal-summary "$$LOOPRAIL_SCORECARD_FORMAL_SUMMARY" \
+		$(if $(LOOPRAIL_SCORECARD_RUNTIME_EVIDENCE),--runtime-evidence "$(LOOPRAIL_SCORECARD_RUNTIME_EVIDENCE)",) \
+		$(if $(LOOPRAIL_SCORECARD_TOKENWISE_REPORT),--tokenwise-report "$(LOOPRAIL_SCORECARD_TOKENWISE_REPORT)",) \
+		$(if $(LOOPRAIL_SCORECARD_PREREGISTERED),--scoring-spec-preregistered,)
 
-picobench-runtime-scheduler:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.packs.runtime.scheduler_experiments
+looprailbench-runtime-scheduler:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.packs.runtime.scheduler_experiments
 
-picobench-runtime-tools:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.packs.runtime.tool_execution_experiments
+looprailbench-runtime-tools:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.packs.runtime.tool_execution_experiments
 
-picobench-runtime-live-plan:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.packs.runtime.live_scheduler_experiment plan
+looprailbench-runtime-live-plan:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.packs.runtime.live_scheduler_experiment plan
 
-picobench-runtime-live-run:
-	@test -n "$$PICO_LIVE_PERF_APPROVAL_DIGEST" || (echo "PICO_LIVE_PERF_APPROVAL_DIGEST is required" >&2; exit 2)
-	@test -n "$$PICO_LIVE_PERF_APPROVED_CNY" || (echo "PICO_LIVE_PERF_APPROVED_CNY is required" >&2; exit 2)
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.packs.runtime.live_scheduler_experiment run \
-			--approval-digest "$$PICO_LIVE_PERF_APPROVAL_DIGEST" \
-			--approved-cny "$$PICO_LIVE_PERF_APPROVED_CNY"
+looprailbench-runtime-live-run:
+	@test -n "$$LOOPRAIL_LIVE_PERF_APPROVAL_DIGEST" || (echo "LOOPRAIL_LIVE_PERF_APPROVAL_DIGEST is required" >&2; exit 2)
+	@test -n "$$LOOPRAIL_LIVE_PERF_APPROVED_CNY" || (echo "LOOPRAIL_LIVE_PERF_APPROVED_CNY is required" >&2; exit 2)
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.packs.runtime.live_scheduler_experiment run \
+			--approval-digest "$$LOOPRAIL_LIVE_PERF_APPROVAL_DIGEST" \
+			--approved-cny "$$LOOPRAIL_LIVE_PERF_APPROVED_CNY"
 
-picobench-runtime-live-verify:
-	@test -n "$$PICO_LIVE_PERF_EVIDENCE" || (echo "PICO_LIVE_PERF_EVIDENCE is required" >&2; exit 2)
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.packs.runtime.live_scheduler_experiment verify \
-			--evidence "$$PICO_LIVE_PERF_EVIDENCE"
+looprailbench-runtime-live-verify:
+	@test -n "$$LOOPRAIL_LIVE_PERF_EVIDENCE" || (echo "LOOPRAIL_LIVE_PERF_EVIDENCE is required" >&2; exit 2)
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.packs.runtime.live_scheduler_experiment verify \
+			--evidence "$$LOOPRAIL_LIVE_PERF_EVIDENCE"
 
-picobench-call-efficiency-plan picobench-call-efficiency-preflight picobench-call-efficiency-run picobench-call-efficiency-verify:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.tokenwise_cost_campaign \
-		--mode $(if $(filter picobench-call-efficiency-run,$@),formal,$(patsubst picobench-call-efficiency-%,%,$@)) \
-		--output-root "$(PICO_CALL_EFFICIENCY_OUTPUT)" \
-		$(if $(filter picobench-call-efficiency-preflight picobench-call-efficiency-run,$@),--execute-paid-campaign,)
+looprailbench-call-efficiency-plan looprailbench-call-efficiency-preflight looprailbench-call-efficiency-run looprailbench-call-efficiency-verify:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.tokenwise_cost_campaign \
+		--mode $(if $(filter looprailbench-call-efficiency-run,$@),formal,$(patsubst looprailbench-call-efficiency-%,%,$@)) \
+		--output-root "$(LOOPRAIL_CALL_EFFICIENCY_OUTPUT)" \
+		$(if $(filter looprailbench-call-efficiency-preflight looprailbench-call-efficiency-run,$@),--execute-paid-campaign,)
 
-picobench-tracing-plan picobench-tracing-run picobench-tracing-verify:
-	uv run --frozen --all-extras --exact python -m benchmarks.picobench.packs.tracing.overhead_experiment \
-		$(patsubst picobench-tracing-%,%,$@) \
-		--output-root "$(PICO_TRACING_OUTPUT)" \
-		$(if $(PICO_TRACING_COMMIT),--pico-commit "$(PICO_TRACING_COMMIT)",)
+looprailbench-tracing-plan looprailbench-tracing-run looprailbench-tracing-verify:
+	uv run --frozen --all-extras --exact python -m benchmarks.looprailbench.packs.tracing.overhead_experiment \
+		$(patsubst looprailbench-tracing-%,%,$@) \
+		--output-root "$(LOOPRAIL_TRACING_OUTPUT)" \
+		$(if $(LOOPRAIL_TRACING_COMMIT),--looprail-commit "$(LOOPRAIL_TRACING_COMMIT)",)
 
 test-tui:
 	npm test --prefix ui-tui
 
 verify-channels:
 	uv run --frozen --all-extras --exact python scripts/verify_channels.py \
-		--output-root .pico/evidence/channels
+		--output-root .looprail/evidence/channels
 
 verify-turn-evidence:
 	uv run --frozen --all-extras --exact python scripts/verify_turn_evidence.py \
-		--output-root .pico/evidence/turns
+		--output-root .looprail/evidence/turns
 
 verify-evolver:
 	uv run --frozen --all-extras --exact pytest \
@@ -166,10 +166,10 @@ build-tui:
 	npm run build --prefix ui-tui
 
 release-dist:
-	@test -n "$$PICO_RELEASE_OUTPUT" || (echo "PICO_RELEASE_OUTPUT is required and must name an empty directory outside the checkout" >&2; exit 2)
+	@test -n "$$LOOPRAIL_RELEASE_OUTPUT" || (echo "LOOPRAIL_RELEASE_OUTPUT is required and must name an empty directory outside the checkout" >&2; exit 2)
 	uv run --frozen --all-extras --exact python scripts/verify_distribution.py \
-		--output-root "$$PICO_RELEASE_OUTPUT" \
-		--entrypoint pico \
+		--output-root "$$LOOPRAIL_RELEASE_OUTPUT" \
+		--entrypoint looprail \
 		--extras base,channel-feishu,channel-qq,channel-wecom,channels,sandbox
 
 check-commits:

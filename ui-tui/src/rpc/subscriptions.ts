@@ -1,4 +1,4 @@
-// Pico TUI RPC 服务端推送订阅注册表。
+// Looprail TUI RPC 服务端推送订阅注册表。
 //
 // 服务端发送 `method: "event"` 的 JSON-RPC 通知帧（规范 §2.4），参数为
 // `{ subscription_id, event }`。注册表将 subscription_id 映射到处理器，使

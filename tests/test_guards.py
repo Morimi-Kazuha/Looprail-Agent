@@ -7,7 +7,7 @@ silently change behavior at 30-day scale.
 
 from __future__ import annotations
 
-from pico.memory_engine.consolidate.consolidator import (
+from looprail.memory_engine.consolidate.consolidator import (
     _PROCESS_TAGS,
     _VALID_CONFIDENCE,
     _drop_bullets_without_src,

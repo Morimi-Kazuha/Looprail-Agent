@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-VIEWER_DIR = ROOT / "pico" / "tracing" / "viewer"
+VIEWER_DIR = ROOT / "looprail" / "tracing" / "viewer"
 
 
 def _node() -> str:
@@ -62,7 +62,7 @@ def test_viewer_ui_exposes_explicit_shutdown_lifecycle() -> None:
     assert 'id="shutdownDialog"' in shell
     assert 'id="shutdownState"' in shell
     assert "fetch('/api/shutdown'" in app
-    assert "'X-Pico-Viewer-Action': 'shutdown'" in app
+    assert "'X-Looprail-Viewer-Action': 'shutdown'" in app
     assert "classList.add('viewer-stopped')" in app
 
 
@@ -197,7 +197,7 @@ def test_viewer_shutdown_requires_explicit_origin_bound_action(tmp_path: Path) -
             method="POST",
             headers={
                 "Origin": "https://example.com",
-                "X-Pico-Viewer-Action": "shutdown",
+                "X-Looprail-Viewer-Action": "shutdown",
             },
         )
         with pytest.raises(urllib.error.HTTPError) as exc_info:
@@ -210,7 +210,7 @@ def test_viewer_shutdown_requires_explicit_origin_bound_action(tmp_path: Path) -
             method="POST",
             headers={
                 "Origin": f"http://127.0.0.1:{port}",
-                "X-Pico-Viewer-Action": "shutdown",
+                "X-Looprail-Viewer-Action": "shutdown",
             },
         )
         with urllib.request.urlopen(trusted, timeout=2) as response:

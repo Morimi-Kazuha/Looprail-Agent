@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from pico.providers.litellm_provider import LiteLLMProvider
+from looprail.providers.litellm_provider import LiteLLMProvider
 
 
 def test_provider_does_not_own_cache_control_by_default() -> None:
@@ -43,7 +43,7 @@ async def test_chat_payload_respects_cache_control_owner(
             ),
         )
 
-    monkeypatch.setattr("pico.providers.litellm_provider.acompletion", fake_acompletion)
+    monkeypatch.setattr("looprail.providers.litellm_provider.acompletion", fake_acompletion)
     provider = LiteLLMProvider(
         api_key="test",
         default_model="anthropic/claude-sonnet-4-5",

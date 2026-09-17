@@ -1,7 +1,7 @@
 """Text normalisation helpers - the evolvable surface of this subject repo.
 
 This module lives at ``benchmarks/appworld/agent_cli.py`` because that path is a
-hard contract, not a naming preference. ``pico.evolver.candidate_manifest``
+hard contract, not a naming preference. ``looprail.evolver.candidate_manifest``
 ships exactly one supported Candidate Label, ``runtime``, and its
 ``LabelPolicy.mutable_paths`` allowlist is
 ``("benchmarks/appworld/agent_cli.py", "benchmarks/appworld/tool.py")``. G5 runs

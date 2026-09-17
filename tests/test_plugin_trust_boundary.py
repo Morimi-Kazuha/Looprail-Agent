@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli._plugin_stack import build_plugin_registry, plugin_discovery_sources
-from pico.config.pico import MemoryConfig, PicoConfig, PluginsConfig
-from pico.plugin import PluginDiscovery, ServiceLocator, assemble_plugin_registry
+from looprail.cli._plugin_stack import build_plugin_registry, plugin_discovery_sources
+from looprail.config.looprail import LooprailConfig, MemoryConfig, PluginsConfig
+from looprail.plugin import PluginDiscovery, ServiceLocator, assemble_plugin_registry
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +45,7 @@ def _write_tool_plugin(root: Path, *, marker: Path) -> Path:
         ),
         encoding="utf-8",
     )
-    (plugin_dir / "pico-plugin.toml").write_text(
+    (plugin_dir / "looprail-plugin.toml").write_text(
         textwrap.dedent(
             """
             [plugin]
@@ -63,8 +63,8 @@ def _write_tool_plugin(root: Path, *, marker: Path) -> Path:
     return plugin_dir
 
 
-def _memory_off_config() -> PicoConfig:
-    return PicoConfig(
+def _memory_off_config() -> LooprailConfig:
+    return LooprailConfig(
         memory=MemoryConfig(backend=None),
         plugins=PluginsConfig(),
     )
@@ -76,9 +76,9 @@ def test_shared_cli_tui_gateway_registry_ignores_checkout_plugins(
 ) -> None:
     checkout = tmp_path / "checkout"
     marker = tmp_path / "host-imported"
-    _write_tool_plugin(checkout / ".pico" / "plugins", marker=marker)
+    _write_tool_plugin(checkout / ".looprail" / "plugins", marker=marker)
     monkeypatch.chdir(checkout)
-    monkeypatch.setenv("PICO_HOME", str(tmp_path / "pico-home"))
+    monkeypatch.setenv("LOOPRAIL_HOME", str(tmp_path / "looprail-home"))
 
     sources = plugin_discovery_sources()
     registry = build_plugin_registry(_memory_off_config())
@@ -88,23 +88,23 @@ def test_shared_cli_tui_gateway_registry_ignores_checkout_plugins(
     assert not marker.exists()
 
 
-def test_pico_plugins_does_not_import_checkout_plugins(
+def test_looprail_plugins_does_not_import_checkout_plugins(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     checkout = tmp_path / "checkout"
     marker = tmp_path / "plugins-command-imported"
-    _write_tool_plugin(checkout / ".pico" / "plugins", marker=marker)
+    _write_tool_plugin(checkout / ".looprail" / "plugins", marker=marker)
     config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps({"memory": {"backend": None}}), encoding="utf-8")
     monkeypatch.chdir(checkout)
 
-    from pico.cli.commands import app
+    from looprail.cli.commands import app
 
     result = CliRunner().invoke(
         app,
         ["plugins", "--config", str(config_path)],
-        env={**os.environ, "PICO_HOME": str(tmp_path / "pico-home"), "COLUMNS": "200"},
+        env={**os.environ, "LOOPRAIL_HOME": str(tmp_path / "looprail-home"), "COLUMNS": "200"},
     )
 
     assert result.exit_code == 0, result.stdout
@@ -112,19 +112,19 @@ def test_pico_plugins_does_not_import_checkout_plugins(
     assert not marker.exists()
 
 
-def test_pico_plugins_inspects_user_manifest_without_importing_factory(tmp_path: Path) -> None:
-    pico_home = tmp_path / "pico-home"
+def test_looprail_plugins_inspects_user_manifest_without_importing_factory(tmp_path: Path) -> None:
+    looprail_home = tmp_path / "looprail-home"
     marker = tmp_path / "user-command-imported"
-    plugin_dir = _write_tool_plugin(pico_home / "plugins", marker=marker)
+    plugin_dir = _write_tool_plugin(looprail_home / "plugins", marker=marker)
     config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps({"memory": {"backend": None}}), encoding="utf-8")
 
-    from pico.cli.commands import app
+    from looprail.cli.commands import app
 
     result = CliRunner().invoke(
         app,
         ["plugins", "--config", str(config_path)],
-        env={**os.environ, "PICO_HOME": str(pico_home), "COLUMNS": "200"},
+        env={**os.environ, "LOOPRAIL_HOME": str(looprail_home), "COLUMNS": "200"},
     )
 
     assert result.exit_code == 0, result.stdout

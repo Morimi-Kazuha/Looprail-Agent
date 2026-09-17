@@ -1,4 +1,4 @@
-"""`pico` commands that build the agent loop must not segfault on exit.
+"""`looprail` commands that build the agent loop must not segfault on exit.
 
 The agent loop opens a lancedb-backed store; lancedb starts a process-global
 Rust/tokio background thread (``LanceDBBackgroundEventLoop``) with no public
@@ -6,9 +6,9 @@ shutdown hook. A normal CPython interpreter finalization races that live native
 runtime and segfaults (exit 139), masking the command's real exit code and
 failing ``expect_exit(0)`` for the whole TUI e2e suite.
 
-Fix: the CLI exit chokepoint ``pico.cli.commands.run`` hard-exits past
+Fix: the CLI exit chokepoint ``looprail.cli.commands.run`` hard-exits past
 finalization (flush stdio + loguru, then ``os._exit``) when
-``pico.cli._exit.lancedb_finalization_hazard`` reports the thread live. These
+``looprail.cli._exit.lancedb_finalization_hazard`` reports the thread live. These
 tests build the real agent loop in a subprocess so the native thread is
 genuinely live.
 """
@@ -29,7 +29,7 @@ _BUILD_FAILED = 42
 _BUILD_LOOP = """
 import sys
 try:
-    from pico.cli.tui_commands import _build_tui_agent_loop
+    from looprail.cli.tui_commands import _build_tui_agent_loop
     loop = _build_tui_agent_loop()
 except BaseException as e:
     print(f"BUILD_FAILED: {type(e).__name__}: {e}", file=sys.stderr)
@@ -55,7 +55,7 @@ def test_hazard_gate_fires_and_hard_exit_is_clean():
     helper returns cleanly (exit 0) instead of a SIGSEGV."""
     src = (
         _BUILD_LOOP
-        + "from pico.cli._exit import flush_and_hard_exit, lancedb_finalization_hazard\n"
+        + "from looprail.cli._exit import flush_and_hard_exit, lancedb_finalization_hazard\n"
         + "if not lancedb_finalization_hazard():\n"
         + "    sys.exit(43)\n"
         + "flush_and_hard_exit(0)\n"

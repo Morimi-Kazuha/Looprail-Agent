@@ -4,7 +4,7 @@ Pins the contract that the legacy-callback adapters rely on when porting
 AgentLoop's existing scattered callback fields to hooks, and that the
 eval_engine relies on when implementing its three iteration-phase hooks.
 
-The hooks live as a standalone abstraction in ``pico/agent/hook/``.
+The hooks live as a standalone abstraction in ``looprail/agent/hook/``.
 This test file's job is to lock in the eight contract dimensions:
 
 1. Default no-op for every phase.
@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from pico.agent.hook import (
+from looprail.agent.hook import (
     AgentHook,
     AgentHookContext,
     CompositeHook,
@@ -482,8 +482,8 @@ class TestCompositeHookEndToEndScenario:
         modifying the outbound content."""
         log: list[str] = []
 
-        from pico.spine.message import ChatType, Source
-        from pico.spine.turn import Origin, TurnRequest
+        from looprail.spine.message import ChatType, Source
+        from looprail.spine.turn import Origin, TurnRequest
 
         def _req(text: str) -> TurnRequest:
             return TurnRequest(

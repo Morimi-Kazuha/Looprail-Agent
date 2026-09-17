@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from pico.spine import BusyPolicy, ChatType, Origin, Source, TurnRequest
+from looprail.spine import BusyPolicy, ChatType, Origin, Source, TurnRequest
 
 
 def _src():

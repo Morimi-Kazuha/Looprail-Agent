@@ -1,4 +1,4 @@
-"""CLI tests for ``pico gateway``.
+"""CLI tests for ``looprail gateway``.
 
 The ``gateway`` command spawns the agent loop, channel manager, cron service,
 and optional background services, then runs forever. Coverage includes startup
@@ -14,8 +14,8 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
-from pico.config.loader import set_config_path
+from looprail.cli.commands import app
+from looprail.config.loader import set_config_path
 
 runner = CliRunner()
 
@@ -78,10 +78,10 @@ def _gateway_cleanup_dependencies(*, failures=()):
 
 
 def test_gateway_help_works() -> None:
-    """``pico gateway --help`` lists the documented options."""
+    """``looprail gateway --help`` lists the documented options."""
     r = runner.invoke(app, ["gateway", "--help"])
     assert r.exit_code == 0
-    assert "Start the Pico gateway" in r.stdout
+    assert "Start the Looprail gateway" in r.stdout
     assert "--port" in r.stdout
     assert "--workspace" in r.stdout
     assert "--verbose" in r.stdout
@@ -103,8 +103,8 @@ def test_gateway_without_api_key_exits_with_error(tmp_config: Path) -> None:
     must not raise a crash-class exception (NameError / AttributeError /
     ImportError). Those would indicate a regression like a missing import.
     """
-    from pico.config.loader import save_config
-    from pico.config.schema import Config
+    from looprail.config.loader import save_config
+    from looprail.config.schema import Config
 
     save_config(Config())
 
@@ -126,8 +126,8 @@ def test_gateway_validates_channels_before_shared_runtime_assembly(
     from types import SimpleNamespace
     from unittest.mock import MagicMock
 
-    from pico.cli import _runtime_assembly, gateway_commands
-    from pico.config.paths import RuntimePaths
+    from looprail.cli import _runtime_assembly, gateway_commands
+    from looprail.config.paths import RuntimePaths
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -142,7 +142,7 @@ def test_gateway_validates_channels_before_shared_runtime_assembly(
     )
     for name in ("feishu", "qq", "wecom"):
         getattr(config.channels, name).enabled = False
-    pico_config = MagicMock()
+    looprail_config = MagicMock()
     provider = object()
     router = object()
     cron_service = MagicMock()
@@ -170,23 +170,23 @@ def test_gateway_validates_channels_before_shared_runtime_assembly(
         lambda workspace_path: None,
     )
     monkeypatch.setattr(
-        "pico.cli._log_file.redirect_loguru_to_file",
+        "looprail.cli._log_file.redirect_loguru_to_file",
         lambda *args, **kwargs: tmp_path / "gateway.log",
     )
     monkeypatch.setattr(
-        "pico.cli._gateway_lock.acquire",
+        "looprail.cli._gateway_lock.acquire",
         lambda **kwargs: object(),
     )
     monkeypatch.setattr(
-        "pico.config.pico.load_pico_config",
-        lambda: pico_config,
+        "looprail.config.looprail.load_looprail_config",
+        lambda: looprail_config,
     )
     monkeypatch.setattr(
-        "pico.config.paths.get_cron_dir",
+        "looprail.config.paths.get_cron_dir",
         lambda: tmp_path / "cron",
     )
     monkeypatch.setattr(
-        "pico.proactive_engine.schedulers.cron.service.CronService",
+        "looprail.proactive_engine.schedulers.cron.service.CronService",
         lambda *args, **kwargs: cron_service,
     )
     monkeypatch.setattr(
@@ -215,7 +215,7 @@ def test_gateway_validates_channels_before_shared_runtime_assembly(
         return channels
 
     monkeypatch.setattr(
-        "pico.channels.manager.ChannelManager",
+        "looprail.channels.manager.ChannelManager",
         _build_channels,
     )
 
@@ -235,7 +235,7 @@ def test_gateway_validates_channels_before_shared_runtime_assembly(
     assert len(calls) == (0 if channel_validation_fails else 1)
     if channel_validation_fails:
         return
-    assert calls[0][0] == (config, pico_config)
+    assert calls[0][0] == (config, looprail_config)
     assert calls[0][1] == {
         "provider": provider,
         "cron_service": cron_service,
@@ -251,12 +251,12 @@ def test_gateway_validates_channels_before_shared_runtime_assembly(
 def test_gateway_refuses_second_instance(tmp_config: Path, monkeypatch) -> None:
     """When the instance lock is already held, gateway exits 1 with a clear
     message and never builds the agent/channel stack."""
-    from pico.config.loader import save_config
-    from pico.config.schema import Config
+    from looprail.config.loader import save_config
+    from looprail.config.schema import Config
 
     save_config(Config())
 
-    from pico.cli import _gateway_lock
+    from looprail.cli import _gateway_lock
 
     def _raise(now: float):
         raise _gateway_lock.GatewayAlreadyRunningError(
@@ -272,7 +272,7 @@ def test_gateway_refuses_second_instance(tmp_config: Path, monkeypatch) -> None:
 
 
 async def test_gateway_quiesces_intake_before_spine_and_stops_transports_afterward() -> None:
-    from pico.cli.gateway_commands import _cleanup_gateway
+    from looprail.cli.gateway_commands import _cleanup_gateway
 
     dependencies, events, _errors = _gateway_cleanup_dependencies()
 
@@ -282,7 +282,7 @@ async def test_gateway_quiesces_intake_before_spine_and_stops_transports_afterwa
 
 
 async def test_gateway_attempts_every_cleanup_and_raises_the_first_failure() -> None:
-    from pico.cli.gateway_commands import _cleanup_gateway
+    from looprail.cli.gateway_commands import _cleanup_gateway
 
     failures = {
         "health_close",
@@ -310,7 +310,7 @@ async def test_gateway_attempts_every_cleanup_and_raises_the_first_failure() -> 
 async def test_gateway_preserves_run_failure_over_cleanup_failures(
     run_error: BaseException,
 ) -> None:
-    from pico.cli.gateway_commands import _cleanup_gateway
+    from looprail.cli.gateway_commands import _cleanup_gateway
 
     dependencies, events, _errors = _gateway_cleanup_dependencies(
         failures={"health_close", "cron_stop", "runtime_close"}
@@ -324,7 +324,7 @@ async def test_gateway_preserves_run_failure_over_cleanup_failures(
 
 
 async def test_gateway_preserves_run_failure_over_cleanup_cancellation() -> None:
-    from pico.cli.gateway_commands import _cleanup_gateway
+    from looprail.cli.gateway_commands import _cleanup_gateway
 
     dependencies, events, _errors = _gateway_cleanup_dependencies()
     run_error = RuntimeError("gateway run failed")
@@ -343,9 +343,9 @@ async def test_gateway_preserves_run_failure_over_cleanup_cancellation() -> None
 
 
 async def test_gateway_cancellation_at_intake_barrier_finishes_barrier_before_spine() -> None:
-    from pico.channels.intake import Intake
-    from pico.channels.manager import ChannelManager
-    from pico.cli.gateway_commands import _cleanup_gateway
+    from looprail.channels.intake import Intake
+    from looprail.channels.manager import ChannelManager
+    from looprail.cli.gateway_commands import _cleanup_gateway
 
     events: list[str] = []
     barrier_started = asyncio.Event()
@@ -420,7 +420,7 @@ async def test_gateway_cancellation_at_intake_barrier_finishes_barrier_before_sp
 
 
 def test_gateway_log_config_defaults() -> None:
-    from pico.config.schema import GatewayConfig
+    from looprail.config.schema import GatewayConfig
 
     cfg = GatewayConfig()
     log = cfg.log
@@ -432,7 +432,7 @@ def test_gateway_log_config_defaults() -> None:
 
 
 def test_gateway_log_config_overrides_parse() -> None:
-    from pico.config.schema import GatewayConfig
+    from looprail.config.schema import GatewayConfig
 
     cfg = GatewayConfig.model_validate(
         {
@@ -454,7 +454,7 @@ def test_gateway_channels_excludes_tui_when_no_im_enabled() -> None:
 
     from unittest.mock import MagicMock
 
-    from pico.cli.gateway_commands import _build_gateway_channels
+    from looprail.cli.gateway_commands import _build_gateway_channels
 
     cfg = MagicMock()
     for name in ("feishu", "qq", "wecom"):
@@ -467,7 +467,7 @@ def test_gateway_channels_excludes_tui_when_no_im_enabled() -> None:
 def test_gateway_channels_excludes_tui_alongside_enabled_im() -> None:
     from unittest.mock import MagicMock
 
-    from pico.cli.gateway_commands import _build_gateway_channels
+    from looprail.cli.gateway_commands import _build_gateway_channels
 
     cfg = MagicMock()
     for name in ("feishu", "qq", "wecom"):
@@ -490,7 +490,7 @@ def test_stop_dispatch_cancels_both_scheduler_and_subagents() -> None:
     """
     import inspect
 
-    from pico.cli import gateway_commands
+    from looprail.cli import gateway_commands
 
     src = inspect.getsource(gateway_commands.register)
     stop_branch = src.split('if cmd == "/stop":', 1)[1].split('elif cmd == "/restart":', 1)[0]
@@ -505,11 +505,11 @@ def test_stop_dispatch_cancels_both_scheduler_and_subagents() -> None:
 
 from types import SimpleNamespace
 
-from pico.cli.gateway_commands import build_model_routing
-from pico.config.schema import ModelEndpoint, RoutingConfig
-from pico.providers.per_model_provider import PerModelProvider
-from pico.routing.knn_router import KNNModelRouter
-from pico.routing.router import ModelRouter
+from looprail.cli.gateway_commands import build_model_routing
+from looprail.config.schema import ModelEndpoint, RoutingConfig
+from looprail.providers.per_model_provider import PerModelProvider
+from looprail.routing.knn_router import KNNModelRouter
+from looprail.routing.router import ModelRouter
 
 
 class _FakeProvider:

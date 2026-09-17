@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.memory_engine.consolidate.consolidator import MemoryStore
+from looprail.memory_engine.consolidate.consolidator import MemoryStore
 
 
 def test_locked_yields_without_throwing(tmp_path: Path) -> None:

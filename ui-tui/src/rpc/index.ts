@@ -1,4 +1,4 @@
-// Pico TUI RPC 面向消费者的统一公开入口。
+// Looprail TUI RPC 面向消费者的统一公开入口。
 //
 // ui-tui 消费者应统一从 `./rpc` 导入：
 //   import { RpcClient, SessionNotFoundError, type TurnEvent } from './rpc';

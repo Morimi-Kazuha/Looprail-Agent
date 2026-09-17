@@ -6,7 +6,7 @@
 // 由 Ink 的 onFrame 回调供数的轻量 FPS 跟踪器。每个条目都是一个 Ink 帧
 // （React 提交帧加仅排空帧），与用户感知的运动更一致。
 //
-// 未设置 PICO_TUI_FPS 时没有额外成本：trackFrame 为 undefined，onFrame
+// 未设置 LOOPRAIL_TUI_FPS 时没有额外成本：trackFrame 为 undefined，onFrame
 // 回调会在可选链处短路。
 
 import { atom } from 'nanostores'

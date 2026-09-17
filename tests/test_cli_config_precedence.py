@@ -1,12 +1,12 @@
 """Regression tests for the ``--config`` flag precedence in
-``pico run`` / ``gateway`` subcommands.
+``looprail run`` / ``gateway`` subcommands.
 
-Pre-fix, both subcommands called ``load_pico_config()`` BEFORE
-``_load_runtime_config(--config)``. Because ``load_pico_config()``
+Pre-fix, both subcommands called ``load_looprail_config()`` BEFORE
+``_load_runtime_config(--config)``. Because ``load_looprail_config()``
 reads the module-global ``_current_config_path`` (which
 ``_load_runtime_config`` sets via ``set_config_path``), the extension
 blocks (``skill_forge`` / ``context`` / ``token_wise``)
-silently fell back to ``~/.pico/config.json`` regardless of the
+silently fell back to ``~/.looprail/config.json`` regardless of the
 ``--config`` flag.
 
 Real-world impact: every claweval / PinchBench experiment passing a
@@ -32,7 +32,7 @@ def _write_json(path: Path, body: dict) -> None:
 
 def _minimal_base_config(skill_forge_block: dict) -> dict:
     """Build a JSON dict valid enough for both ``_load_runtime_config``
-    (base Config) and ``load_pico_config`` (extension blocks)."""
+    (base Config) and ``load_looprail_config`` (extension blocks)."""
     return {
         "agents": {
             "defaults": {
@@ -62,28 +62,28 @@ def isolated_config_state(tmp_path: Path, monkeypatch):
     fake_home.mkdir()
     monkeypatch.setattr(Path, "home", lambda: fake_home)
 
-    import pico.config.loader as loader
+    import looprail.config.loader as loader
 
     monkeypatch.setattr(loader, "_current_config_path", None)
 
     return fake_home
 
 
-def test_load_pico_config_reads_from_set_config_path(
+def test_load_looprail_config_reads_from_set_config_path(
     isolated_config_state: Path,
     tmp_path: Path,
     monkeypatch,
 ):
-    """Contract: after ``set_config_path(X)``, ``load_pico_config()``
-    must read from X — not from ``~/.pico/config.json``.
+    """Contract: after ``set_config_path(X)``, ``load_looprail_config()``
+    must read from X — not from ``~/.looprail/config.json``.
 
     This is the invariant the CLI relies on. If a future refactor
-    breaks it (e.g. ``load_pico_config`` starts reading
-    ``Path.home() / ".pico" / "config.json"`` directly), the CLI's
+    breaks it (e.g. ``load_looprail_config`` starts reading
+    ``Path.home() / ".looprail" / "config.json"`` directly), the CLI's
     ``--config`` flag becomes a no-op for extension blocks again.
     """
 
-    global_cfg = isolated_config_state / ".pico" / "config.json"
+    global_cfg = isolated_config_state / ".looprail" / "config.json"
     _write_json(
         global_cfg,
         _minimal_base_config(
@@ -106,23 +106,23 @@ def test_load_pico_config_reads_from_set_config_path(
         ),
     )
 
-    from pico.config import loader
-    from pico.config.pico import load_pico_config
+    from looprail.config import loader
+    from looprail.config.looprail import load_looprail_config
 
-    cfg_before = load_pico_config()
+    cfg_before = load_looprail_config()
     assert cfg_before.skill_forge.injection_mode == "summary", (
-        "Without set_config_path, load_pico_config must read the "
-        "default ~/.pico/config.json (which we stubbed to summary)."
+        "Without set_config_path, load_looprail_config must read the "
+        "default ~/.looprail/config.json (which we stubbed to summary)."
     )
 
     loader.set_config_path(custom_cfg)
-    cfg_after = load_pico_config()
+    cfg_after = load_looprail_config()
     assert cfg_after.skill_forge.injection_mode == "full_body", (
-        f"After set_config_path({custom_cfg}), load_pico_config "
+        f"After set_config_path({custom_cfg}), load_looprail_config "
         f"should read injection_mode from custom (full_body), got "
         f"{cfg_after.skill_forge.injection_mode!r}. "
         f"This means either set_config_path is not honored, or "
-        f"load_pico_config reads from a hardcoded path."
+        f"load_looprail_config reads from a hardcoded path."
     )
 
 
@@ -139,25 +139,25 @@ def test_cli_subcommand_loads_extension_blocks_from_custom_config(
     tmp_path: Path,
     monkeypatch,
 ):
-    """``pico {run,gateway} --config X`` must load skill_forge from
-    X, not from ``~/.pico/config.json``.
+    """``looprail {run,gateway} --config X`` must load skill_forge from
+    X, not from ``~/.looprail/config.json``.
 
-    Before the fix, both subcommands called ``load_pico_config()``
+    Before the fix, both subcommands called ``load_looprail_config()``
     before ``_load_runtime_config(--config)``, so the global config
     won. This test:
 
-      1. Stubs ~/.pico/config.json with skill_forge.injection_mode=summary
+      1. Stubs ~/.looprail/config.json with skill_forge.injection_mode=summary
       2. Writes a custom config with injection_mode=full_body
-      3. Patches ``load_pico_config`` to capture the loaded value
+      3. Patches ``load_looprail_config`` to capture the loaded value
          then raise (so the rest of the subcommand prologue is skipped).
-      4. Invokes ``pico {subcommand} --config <custom>``.
+      4. Invokes ``looprail {subcommand} --config <custom>``.
       5. Asserts the captured value has injection_mode=full_body.
 
     If the order regresses, the captured value will be 'summary' and
     the assertion fails with a pointer to the bug.
     """
 
-    global_cfg = isolated_config_state / ".pico" / "config.json"
+    global_cfg = isolated_config_state / ".looprail" / "config.json"
     _write_json(
         global_cfg,
         _minimal_base_config(
@@ -181,17 +181,17 @@ def test_cli_subcommand_loads_extension_blocks_from_custom_config(
     )
 
     captured: dict = {}
-    import pico.config.pico as ec_module
+    import looprail.config.looprail as ec_module
 
-    real_load = ec_module.load_pico_config
+    real_load = ec_module.load_looprail_config
 
     def capture_and_stop():
         captured["ec_config"] = real_load()
         raise _CaptureAndStop()
 
-    monkeypatch.setattr(ec_module, "load_pico_config", capture_and_stop)
+    monkeypatch.setattr(ec_module, "load_looprail_config", capture_and_stop)
 
-    from pico.cli.commands import app
+    from looprail.cli.commands import app
 
     runner = CliRunner()
     if subcommand == "run":
@@ -210,18 +210,18 @@ def test_cli_subcommand_loads_extension_blocks_from_custom_config(
     result = runner.invoke(app, cmd, catch_exceptions=True)
 
     assert "ec_config" in captured, (
-        f"load_pico_config was never invoked by `pico {subcommand}`. "
+        f"load_looprail_config was never invoked by `looprail {subcommand}`. "
         f"This means the prologue diverged from the documented pattern "
         f"(or the test stub is wired wrong). "
         f"exit_code={result.exit_code}, stdout={result.stdout!r}"
     )
     sf = captured["ec_config"].skill_forge
     assert sf.injection_mode == "full_body", (
-        f"`pico {subcommand} --config <X>` IGNORED skill_forge from X. "
+        f"`looprail {subcommand} --config <X>` IGNORED skill_forge from X. "
         f"Got injection_mode={sf.injection_mode!r} (from global config), "
         f"expected 'full_body' (from --config).\n\n"
-        f"Root cause: load_pico_config() was called BEFORE "
-        f"_load_runtime_config() in pico/cli/commands.py:{subcommand}(). "
+        f"Root cause: load_looprail_config() was called BEFORE "
+        f"_load_runtime_config() in looprail/cli/commands.py:{subcommand}(). "
         f"_load_runtime_config calls set_config_path(--config); "
-        f"load_pico_config reads that global. Reverse the order to fix."
+        f"load_looprail_config reads that global. Reverse the order to fix."
     )

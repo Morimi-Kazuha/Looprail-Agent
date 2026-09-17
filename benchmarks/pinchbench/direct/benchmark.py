@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PinchBench Benchmark Runner - adapted for Pico.
+PinchBench Benchmark Runner - adapted for Looprail.
 
 Usage:
     python benchmark.py --model deepseek-v4-flash
@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
-# 将项目根目录加入路径，以便导入 Pico 运行时。
+# 将项目根目录加入路径，以便导入 Looprail 运行时。
 # 路径：benchmarks/pinchbench/direct/benchmark.py
 SCRIPT_DIR = Path(__file__).parent
 BENCHMARK_ROOT = SCRIPT_DIR.parent  # pinchbench/ 目录。
@@ -32,7 +32,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from grading import DEFAULT_JUDGE_MODEL, GradeResult, grade_task  # noqa: E402
-from pico_executor import (  # noqa: E402
+from looprail_executor import (  # noqa: E402
     DEFAULT_API_BASE,
     DEFAULT_API_KEY,
     DEFAULT_MODEL,
@@ -54,7 +54,7 @@ logger = logging.getLogger("benchmark")
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="PinchBench for Pico")
+    parser = argparse.ArgumentParser(description="PinchBench for Looprail")
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
@@ -164,7 +164,7 @@ async def run_benchmark(args: argparse.Namespace) -> None:
         return
 
     logger.info("=" * 70)
-    logger.info("  PinchBench for Pico")
+    logger.info("  PinchBench for Looprail")
     logger.info("  Model: %s", args.model)
     logger.info("  Provider: %s", args.provider)
     logger.info("  API base: %s", args.api_base)
@@ -184,7 +184,7 @@ async def run_benchmark(args: argparse.Namespace) -> None:
         model_slug = (
             f"eco-routed_{model_slug}" if routing_profile == "eco" else f"{routing_profile}-routed_{model_slug}"
         )
-    run_root = Path("/tmp/pinchbench-pico")
+    run_root = Path("/tmp/pinchbench-looprail")
     run_id = _next_run_id(run_root)
 
     results: List[Dict[str, Any]] = []

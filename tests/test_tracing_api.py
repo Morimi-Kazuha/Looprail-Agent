@@ -1,4 +1,4 @@
-"""Contract tests for the ``pico.tracing.trace`` facade (standard-api.v1).
+"""Contract tests for the ``looprail.tracing.trace`` facade (standard-api.v1).
 
 Exercises the public ``trace.span`` API and asserts it emits well-formed
 ``audit.span.v1`` records: correct nesting, kinds, attributes, artifact refs,
@@ -13,14 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from pico.tracing import spans as _spans
-from pico.tracing import trace
+from looprail.tracing import spans as _spans
+from looprail.tracing import trace
 
 
 @pytest.fixture
 def trace_dir(tmp_path, monkeypatch):
-    monkeypatch.setenv("PICO_TRACING", "1")
-    monkeypatch.setenv("PICO_TRACING_DIR", str(tmp_path))
+    monkeypatch.setenv("LOOPRAIL_TRACING", "1")
+    monkeypatch.setenv("LOOPRAIL_TRACING_DIR", str(tmp_path))
     _spans._store = None
     yield tmp_path
     _spans._store = None
@@ -53,7 +53,7 @@ def test_nesting_kinds_and_attributes(trace_dir):
 
 
 def test_invocation_source_derives_from_enclosing_purpose(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("skill.gate", kind="skill"):
         with trace.span("llm.call") as s:
@@ -69,7 +69,7 @@ def test_invocation_source_is_none_at_root(trace_dir):
 
 
 def test_purpose_spans_record_input_and_output(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     class _R:
         need_retrieval = True
@@ -86,7 +86,7 @@ def test_purpose_spans_record_input_and_output(trace_dir):
 
 
 def test_personalize_extractor_records_step_io(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("personalize.classify", kind="memory") as s:
         semconv.personalize(
@@ -195,7 +195,7 @@ def test_root_refuses_inherited_context(trace_dir):
 
 
 def test_llm_and_tool_call_ids_are_emitted(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("llm.call") as s:
         semconv.llm_call(s, {"self": None, "messages": [], "tools": None, "model": "openrouter/m"}, None, None)
@@ -208,7 +208,7 @@ def test_llm_and_tool_call_ids_are_emitted(trace_dir):
 
 
 def test_tool_call_id_is_omitted_when_the_caller_has_none(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("tool.call") as s:
         semconv.tool_call(s, {"name": "grep", "params": {}}, "ok", None)
@@ -247,23 +247,23 @@ def test_artifact_omits_inline_image_data_without_mutating_live_payload(trace_di
 
 
 def test_custom_node_uses_explicit_kind(trace_dir):
-    with trace.span("pico.plugin.refresh", {"plugin.reason": "x"}, kind="plugin"):
+    with trace.span("looprail.plugin.refresh", {"plugin.reason": "x"}, kind="plugin"):
         pass
 
     spans = _spans_written(trace_dir)
-    assert spans[0]["name"] == "pico.plugin.refresh"
+    assert spans[0]["name"] == "looprail.plugin.refresh"
     assert spans[0]["attributes"]["span.type"] == "plugin"
 
 
 def test_disabled_is_noop(trace_dir, monkeypatch):
-    monkeypatch.setenv("PICO_TRACING", "0")
+    monkeypatch.setenv("LOOPRAIL_TRACING", "0")
     with trace.span("should.noop") as n:
         n.set({"x": 1})
     assert _spans_written(trace_dir) == []
 
 
 def test_tool_call_extractor(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("tool.call") as s:
         semconv.tool_call(s, {"name": "list_dir", "params": {"path": "."}}, "a\nb", None)
@@ -276,7 +276,7 @@ def test_tool_call_extractor(trace_dir):
 
 
 def test_read_file_of_skill_retypes_to_skill(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("tool.call") as s:
         semconv.tool_call(
@@ -294,7 +294,7 @@ def test_read_file_of_skill_retypes_to_skill(trace_dir):
 
 
 def test_skill_read_tool_retypes_to_skill(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("tool.call") as s:
         semconv.tool_call(
@@ -311,7 +311,7 @@ def test_skill_read_tool_retypes_to_skill(trace_dir):
 
 
 def test_tool_error_result_marks_status(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("tool.call") as s:
         semconv.tool_call(s, {"name": "read_file", "params": {"path": "x"}}, "Error: no such file", None)
@@ -320,8 +320,8 @@ def test_tool_error_result_marks_status(trace_dir):
 
 
 def test_tool_result_explicit_success_overrides_error_prefix(trace_dir):
-    from pico.agent.tools.base import ToolResult
-    from pico.tracing import semconv
+    from looprail.agent.tools.base import ToolResult
+    from looprail.tracing import semconv
 
     result = ToolResult("Error: quoted source text", failed=False)
     with trace.span("tool.call") as s:
@@ -333,7 +333,7 @@ def test_tool_result_explicit_success_overrides_error_prefix(trace_dir):
 
 
 def test_memory_extract_extractor(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("memory.extract") as s:
         semconv.memory_extract(
@@ -346,7 +346,7 @@ def test_memory_extract_extractor(trace_dir):
 
 
 def test_memory_consolidate_extractor(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     class _S:
         key = "cli:abc"
@@ -361,7 +361,7 @@ def test_memory_consolidate_extractor(trace_dir):
 
 
 def test_subagent_children_nest(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     with trace.span("subagent.run") as sa:
         semconv.subagent(
@@ -404,11 +404,11 @@ def test_audit_span_v1_record_shape_is_frozen(trace_dir):
     assert set(sp["status"].keys()) == {"code", "message"}
     for key in ("span.type", "framework", "session.id", "channel.id", "audit.schema_version"):
         assert key in sp["attributes"]
-    assert sp["attributes"]["framework"] == "pico"
+    assert sp["attributes"]["framework"] == "looprail"
 
 
 def test_span_kind_vocabulary_is_frozen():
-    from pico.tracing import trace as _t
+    from looprail.tracing import trace as _t
 
     assert set(_t._KIND_BY_DOMAIN.values()) == {
         "session",
@@ -433,7 +433,7 @@ def test_spine_and_channel_domains_derive_their_kind(trace_dir):
 
 
 def test_standard_span_required_attributes(trace_dir):
-    from pico.tracing import semconv
+    from looprail.tracing import semconv
 
     class _Resp:
         content = "hi"
@@ -453,7 +453,7 @@ def test_standard_span_required_attributes(trace_dir):
 
 
 def test_tracing_disabled_is_passthrough(monkeypatch):
-    monkeypatch.setenv("PICO_TRACING", "0")
+    monkeypatch.setenv("LOOPRAIL_TRACING", "0")
     calls = {"n": 0}
 
     @trace.instrument("llm.call")
@@ -467,7 +467,7 @@ def test_tracing_disabled_is_passthrough(monkeypatch):
 
 
 def test_tracing_internal_failure_never_breaks_host(trace_dir, monkeypatch):
-    from pico.tracing import spans as _spans
+    from looprail.tracing import spans as _spans
 
     def _boom(*_a, **_k):
         raise RuntimeError("tracing store down")

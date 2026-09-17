@@ -1,4 +1,4 @@
-"""Tests for pico.token_wise.cache_optimizer.CacheOptimizer."""
+"""Tests for looprail.token_wise.cache_optimizer.CacheOptimizer."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import copy
 
 import pytest
 
-from pico.token_wise.cache_optimizer import CacheOptimizer
+from looprail.token_wise.cache_optimizer import CacheOptimizer
 
 ANTHROPIC_MODEL = "anthropic/claude-sonnet-4-5"
 

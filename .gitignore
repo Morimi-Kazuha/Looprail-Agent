@@ -26,7 +26,7 @@ ui-tui/coverage/
 ui-tui/.vitest-cache/
 ui-tui/packages/hermes-ink/dist/
 
-.pico/
+.looprail/
 .skill_index/
 .cache/skill_index/
 .worktrees/

@@ -1,6 +1,6 @@
 """The single agent tool for AppWorld: execute Python in the AppWorld REPL.
 
-AppWorld is pinned to pydantic v1 (via sqlmodel) while Pico needs pydantic
+AppWorld is pinned to pydantic v1 (via sqlmodel) while Looprail needs pydantic
 v2, so the two cannot share a venv. We therefore run AppWorld as its own HTTP
 ``environment`` server (``appworld serve environment``, in the AppWorld venv) and
 talk to it over HTTP from here — this module never imports ``appworld``.
@@ -23,7 +23,7 @@ from typing import Any
 
 import requests
 
-from pico.agent.tools.base import Tool
+from looprail.agent.tools.base import Tool
 
 
 class AppWorldExecuteTool(Tool):

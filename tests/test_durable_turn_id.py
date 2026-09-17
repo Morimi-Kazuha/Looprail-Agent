@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pico.spine import ChatType, Origin, OriginPools, Scheduler, Source, TurnOutcome, TurnRequest, Usage
+from looprail.spine import ChatType, Origin, OriginPools, Scheduler, Source, TurnOutcome, TurnRequest, Usage
 
 
 def _request(turn_id: str | None = None) -> TurnRequest:

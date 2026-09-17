@@ -10,11 +10,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pico.agent.loop import AgentLoop
-from pico.call_efficiency import CallEfficiency
-from pico.call_efficiency.provider import CallEfficiencyProvider
-from pico.providers.base import LLMProvider, LLMResponse, StreamDelta
-from pico.tracing.usage import normalize as normalize_trace_usage
+from looprail.agent.loop import AgentLoop
+from looprail.call_efficiency import CallEfficiency
+from looprail.call_efficiency.provider import CallEfficiencyProvider
+from looprail.providers.base import LLMProvider, LLMResponse, StreamDelta
+from looprail.tracing.usage import normalize as normalize_trace_usage
 
 
 def _cache_markers(value) -> int:
@@ -102,7 +102,7 @@ def test_ambiguous_cached_usage_fails_closed_for_cost(tmp_path) -> None:
 
 
 def test_runtime_pricing_never_imports_litellm_on_the_response_path(monkeypatch, tmp_path) -> None:
-    import pico.call_efficiency.pricing as pricing
+    import looprail.call_efficiency.pricing as pricing
 
     seen: list[bool] = []
 
@@ -128,7 +128,7 @@ def test_runtime_pricing_never_imports_litellm_on_the_response_path(monkeypatch,
 
 
 def test_tracing_pricing_never_imports_litellm_on_the_response_path(monkeypatch) -> None:
-    import pico.call_efficiency.pricing as pricing
+    import looprail.call_efficiency.pricing as pricing
 
     seen: list[bool] = []
 
@@ -459,7 +459,7 @@ def test_ledger_preserves_schema_and_evidence_lineage(tmp_path) -> None:
     rows = list(tmp_path.glob("call-efficiency-*.jsonl"))
     assert len(rows) == 1
     payload = json.loads(rows[0].read_text(encoding="utf-8").strip())
-    assert payload["schema"] == "pico.call-efficiency.call.v1"
+    assert payload["schema"] == "looprail.call-efficiency.call.v1"
     assert payload["requested_model"] == "deepseek/deepseek-v4-flash"
     assert payload["attempted_model"] == "deepseek/deepseek-v4-flash"
     assert payload["actual_model"] == "deepseek/deepseek-v4-flash"
@@ -484,7 +484,7 @@ def test_ledger_persists_on_a_background_writer(monkeypatch, tmp_path) -> None:
         with path.open("a", encoding="utf-8") as handle:
             handle.write("".join(f"{line}\n" for line in lines))
 
-    monkeypatch.setattr("pico.call_efficiency.ledger.locked_append", _locked_append)
+    monkeypatch.setattr("looprail.call_efficiency.ledger.locked_append", _locked_append)
     caller_thread = threading.get_ident()
     controller = CallEfficiency(mode="observe", telemetry_dir=tmp_path, persist=True)
 
@@ -528,7 +528,7 @@ def test_ledger_write_failure_persists_machine_readable_degradation(monkeypatch,
     def _fail(*_args, **_kwargs):
         raise OSError("disk offline")
 
-    monkeypatch.setattr("pico.call_efficiency.ledger.locked_append", _fail)
+    monkeypatch.setattr("looprail.call_efficiency.ledger.locked_append", _fail)
     controller = CallEfficiency(mode="observe", telemetry_dir=tmp_path, persist=True)
     controller.record(
         LLMResponse(
@@ -544,7 +544,7 @@ def test_ledger_write_failure_persists_machine_readable_degradation(monkeypatch,
         controller.close()
 
     health = json.loads((tmp_path / "call-efficiency-ledger-health.json").read_text(encoding="utf-8"))
-    assert health["schema"] == "pico.call-efficiency.ledger-health.v1"
+    assert health["schema"] == "looprail.call-efficiency.ledger-health.v1"
     assert health["status"] == "degraded"
     assert health["accepted_records"] == 1
     assert health["persisted_records"] == 0
@@ -555,7 +555,7 @@ def test_ledger_failure_updates_loss_evidence_for_later_calls(monkeypatch, tmp_p
     def _fail(*_args, **_kwargs):
         raise OSError("disk offline")
 
-    monkeypatch.setattr("pico.call_efficiency.ledger.locked_append", _fail)
+    monkeypatch.setattr("looprail.call_efficiency.ledger.locked_append", _fail)
     controller = CallEfficiency(mode="observe", telemetry_dir=tmp_path, persist=True)
     response = LLMResponse(
         content="ok",
@@ -596,7 +596,7 @@ def test_ledger_failure_health_write_does_not_block_later_calls(monkeypatch, tmp
     def _fail(*_args, **_kwargs):
         raise OSError("disk offline")
 
-    monkeypatch.setattr("pico.call_efficiency.ledger.locked_append", _fail)
+    monkeypatch.setattr("looprail.call_efficiency.ledger.locked_append", _fail)
     controller = CallEfficiency(mode="observe", telemetry_dir=tmp_path, persist=True)
     original_write_health = controller.ledger._write_health
 
@@ -638,7 +638,7 @@ def test_ledger_failure_health_write_does_not_block_later_calls(monkeypatch, tmp
 
 
 def test_ledger_health_degradation_is_monotonic_across_runtimes(monkeypatch, tmp_path) -> None:
-    import pico.call_efficiency.ledger as ledger_module
+    import looprail.call_efficiency.ledger as ledger_module
 
     original_append = ledger_module.locked_append
 
@@ -810,7 +810,7 @@ class _PersonalizationBackend:
 
 
 def _personalization_runtime(tmp_path, delegate):
-    from pico.cli._runtime_assembly import RuntimeAssembly
+    from looprail.cli._runtime_assembly import RuntimeAssembly
 
     telemetry = tmp_path / "telemetry"
     controller = CallEfficiency(mode="observe", telemetry_dir=telemetry, provider=delegate)
@@ -835,7 +835,7 @@ def _personalization_runtime(tmp_path, delegate):
 
 
 def _personalization_request():
-    from pico.spine import ChatType, Origin, Source, TurnRequest
+    from looprail.spine import ChatType, Origin, Source, TurnRequest
 
     return TurnRequest(
         origin=Origin.USER,
@@ -1049,8 +1049,8 @@ async def test_runtime_shutdown_records_entered_post_learn_before_ledger_close(
     monkeypatch,
     tmp_path,
 ) -> None:
-    from pico.agent.personalizer import Personalizer
-    from pico.spine import Origin
+    from looprail.agent.personalizer import Personalizer
+    from looprail.spine import Origin
 
     async def _no_clarification(self, message, history=None):
         return {"needs_clarification": False, "domain": ""}
@@ -1082,8 +1082,8 @@ async def test_runtime_shutdown_cancels_unentered_post_learn_without_late_provid
     monkeypatch,
     tmp_path,
 ) -> None:
-    from pico.agent.personalizer import Personalizer
-    from pico.spine import Origin
+    from looprail.agent.personalizer import Personalizer
+    from looprail.spine import Origin
 
     async def _no_clarification(self, message, history=None):
         return {"needs_clarification": False, "domain": ""}
@@ -1112,8 +1112,8 @@ async def test_runtime_shutdown_records_entered_preference_extraction_before_led
     monkeypatch,
     tmp_path,
 ) -> None:
-    from pico.agent.personalizer import Personalizer
-    from pico.spine import Origin
+    from looprail.agent.personalizer import Personalizer
+    from looprail.spine import Origin
 
     async def _no_clarification(self, message, history=None):
         return {"needs_clarification": False, "domain": ""}
@@ -1152,8 +1152,8 @@ async def test_runtime_shutdown_finishes_when_personalization_cleanup_raises(
     monkeypatch,
     tmp_path,
 ) -> None:
-    from pico.agent.personalizer import Personalizer
-    from pico.spine import Origin
+    from looprail.agent.personalizer import Personalizer
+    from looprail.spine import Origin
 
     entered = asyncio.Event()
 

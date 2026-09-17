@@ -1,37 +1,37 @@
-# Pico Benchmarks
+# Looprail Benchmarks
 
 This directory holds **evaluation harnesses** that are deliberately decoupled
-from the runtime package. They are not imported by `pico/` and are
+from the runtime package. They are not imported by `looprail/` and are
 excluded from the wheel build — keep it that way.
 
 The Markdown task cards under `pinchbench/tasks/` are executable benchmark
-fixtures, not Pico product documentation. Some intentionally probe capabilities
-removed from Pico, including image generation or remote Skill discovery. A
+fixtures, not Looprail product documentation. Some intentionally probe capabilities
+removed from Looprail, including image generation or remote Skill discovery. A
 task card's presence does not mean the current Runtime supports that Tool.
 
 Use this area for reproducible evaluation work: capability suites, agent
 comparisons, and context stress tests that should not ship as part of the
 end-user CLI package.
 
-## PicoBench
+## LooprailBench
 
-PicoBench Ship-1 is the checkout-only Agent application evaluation harness
-under `benchmarks/picobench/`. Its contract is documented under
+LooprailBench Ship-1 is the checkout-only Agent application evaluation harness
+under `benchmarks/looprailbench/`. Its contract is documented under
 [public evaluation notes](../docs/evaluation/README.md). It evaluates the existing
 Runtime through frozen, single-axis paired tasks and parent-owned deterministic
 Verifiers.
 
 The implementation does not create a result claim by itself. Generated
-PicoBench evidence remains outside Git. Ship Completeness and Measurement
+LooprailBench evidence remains outside Git. Ship Completeness and Measurement
 Validity govern the campaign, while each capability separately applies its
 Positive Claim Eligibility rules. PinchBench, EvalEngine, Evolver evidence,
-PicoBench, and V-R0 remain distinct scopes.
+LooprailBench, and V-R0 remain distinct scopes.
 
 The final-history Ship-1 campaign completed all 216 planned E2E Trials and 260
 Retrieval Cases, but one Context Pair lacked complete usage evidence and made
 the aggregate measurement invalid. Tool disclosure also regressed task pass
 count, so the retained main-campaign material exports no positive CV metric.
-See [PicoBench](picobench/README.md) for the published experiment boundary.
+See [LooprailBench](looprailbench/README.md) for the published experiment boundary.
 
 ## Layout
 
@@ -40,7 +40,7 @@ benchmarks/
 ├── appworld/           AppWorld agent benchmark + evolver plugin
 │   ├── agent_cli.py       One-task subject agent (drives AgentLoop)
 │   ├── batch.py           Batch scorer: N tasks x K trials, resumable
-│   └── evolve/            pico.evolver BenchBundle plugin (entry.py)
+│   └── evolve/            looprail.evolver BenchBundle plugin (entry.py)
 │                          + designer/diagnosis/sandbox/precheck glue
 │
 ├── evolver/            Deterministic Evolution Run subject
@@ -56,7 +56,7 @@ benchmarks/
 │   ├── assets/            Task-specific workspace files
 │   └── results/           Run outputs (gitignored)
 │
-├── picobench/          Agent application evaluation harness
+├── looprailbench/          Agent application evaluation harness
 │   ├── packs/             Runtime, Context, Memory/Skill, and Tool/MCP tracks
 │   ├── suites/            Frozen experiment plans and claim rules
 │   └── README.md          Smoke, campaign, rebuild, and evidence boundaries
@@ -81,7 +81,7 @@ retrieval architecture.
 
 ### Model and tool configuration
 
-The benchmark runners can use the normal `~/.pico/config.json`, or the
+The benchmark runners can use the normal `~/.looprail/config.json`, or the
 environment overrides below. Never commit real keys.
 
 For an OpenAI-compatible gateway using OpenRouter-style environment names:
@@ -89,8 +89,8 @@ For an OpenAI-compatible gateway using OpenRouter-style environment names:
 ```bash
 export OPENROUTER_API_KEY="..."
 export OPENROUTER_API_BASE="https://openrouter.ai/api/v1"
-export PICO_BENCH_PROVIDER="custom"
-export PICO_BENCH_MODEL="deepseek-v4-flash"
+export LOOPRAIL_BENCH_PROVIDER="custom"
+export LOOPRAIL_BENCH_MODEL="deepseek-v4-flash"
 ```
 
 Optional web tools:
@@ -100,7 +100,7 @@ export SERPER_API_KEY="..."
 export JINA_API_KEY="..."
 ```
 
-Equivalent `~/.pico/config.json`:
+Equivalent `~/.looprail/config.json`:
 
 ```json
 {
@@ -152,7 +152,7 @@ export CLAW_BENCH_ROOT="$PWD/../claw-bench"
 ./benchmarks/clawbench/run.sh \
     --clawbench-root "$CLAW_BENCH_ROOT" \
     --limit 80 \
-    --session-id clawbench-stream-pico-80 \
+    --session-id clawbench-stream-looprail-80 \
     --max-iterations 40
 ```
 
@@ -161,7 +161,7 @@ ClawBench with Curator context engine:
 ./benchmarks/clawbench/run.sh \
     --clawbench-root "$CLAW_BENCH_ROOT" \
     --limit 80 \
-    --session-id clawbench-stream-pico-curator-80 \
+    --session-id clawbench-stream-looprail-curator-80 \
     --context-engine curator \
     --curator-model deepseek-v4-flash \
     --max-iterations 40
@@ -169,11 +169,11 @@ ClawBench with Curator context engine:
 
 ## Relation to runtime
 
-The runtime (`pico/`) **never statically imports from `benchmarks/`** — this
+The runtime (`looprail/`) **never statically imports from `benchmarks/`** — this
 is the "independent eval track" principle. The reverse is allowed and
-expected: benchmarks import `pico.agent`, `pico.providers`, etc. directly.
+expected: benchmarks import `looprail.agent`, `looprail.providers`, etc. directly.
 
-One scoped exception: `pico.evolver` loads its bench *plugins* from here by
+One scoped exception: `looprail.evolver` loads its bench *plugins* from here by
 registry name at launch (`benchmarks.appworld.evolve.entry:build`), inserting
 the subject repo root on `sys.path` first. It is lazy, opt-in, and only works
 from a repo checkout — evolution needs the git repo as its subject anyway, so

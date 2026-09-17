@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-from pico.session.manager import Session, SessionManager, new_chat_id
-from pico.utils.atomic_io import StorageCorruptionError
+from looprail.session.manager import Session, SessionManager, new_chat_id
+from looprail.utils.atomic_io import StorageCorruptionError
 
 
 def _turn_worker(workspace_str: str, key: str, writer_id: int) -> None:
@@ -705,7 +705,7 @@ def test_session_read_error_is_not_minted_as_blank_session(
     def _raise_read_error(_path: Path):
         raise OSError("device unavailable")
 
-    monkeypatch.setattr("pico.session.manager.locked_read", _raise_read_error)
+    monkeypatch.setattr("looprail.session.manager.locked_read", _raise_read_error)
     with pytest.raises(StorageCorruptionError, match="failed to load session"):
         SessionManager(tmp_path).get_or_create(session.key)
 
@@ -745,7 +745,7 @@ def test_lazy_session_generation_comes_from_locked_load_snapshot(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from pico.session import manager as manager_module
+    from looprail.session import manager as manager_module
 
     monkeypatch.setattr(manager_module, "locked_read", lambda _path: (None, 4, True))
 
@@ -788,7 +788,7 @@ def test_legacy_global_sessions_shim_removed(tmp_path: Path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        "pico.session.manager.get_legacy_sessions_dir",
+        "looprail.session.manager.get_legacy_sessions_dir",
         lambda: legacy,
         raising=False,
     )
@@ -1085,7 +1085,7 @@ def test_read_only_load_retries_when_deletion_epoch_changes(
     session.add_message("user", "read consistently")
     manager.save(session)
 
-    from pico.session import manager as manager_module
+    from looprail.session import manager as manager_module
 
     def deny_lock(_path: Path):
         raise PermissionError("read-only directory")
@@ -1345,7 +1345,7 @@ def test_undo_last_turn_n_clamps_to_tail_first_user():
 
 
 def test_clear_then_save_truncates_file_on_disk(tmp_path):
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     s = mgr.get_or_create("tui:keepme")
@@ -1364,7 +1364,7 @@ def test_clear_then_save_truncates_file_on_disk(tmp_path):
 
 
 def test_undo_then_save_truncates_file_on_disk(tmp_path):
-    from pico.session.manager import SessionManager
+    from looprail.session.manager import SessionManager
 
     mgr = SessionManager(tmp_path)
     s = mgr.get_or_create("tui:undome")

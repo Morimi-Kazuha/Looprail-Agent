@@ -30,12 +30,12 @@ from typing import Any
 
 import pytest
 
-from pico.memory_engine.consolidate.consolidator import (
+from looprail.memory_engine.consolidate.consolidator import (
     MemoryStore,
     _parse_episode_line,
     _splice_h2_section,
 )
-from pico.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from looprail.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 _TAG_RE = re.compile(r"#[a-z][a-z0-9-]*")
 _EVIDENCE_RE = re.compile(r"\[src: episodes\.md @ [^\]]+\]")

@@ -20,8 +20,8 @@ import tempfile
 from pathlib import Path
 
 from benchmarks.appworld.evolve import tasks as task_defs
-from pico.evolver.orchestrator.scoring import TaskEval, prefer_rerun_measurement
-from pico.evolver.tree import git_ops
+from looprail.evolver.orchestrator.scoring import TaskEval, prefer_rerun_measurement
+from looprail.evolver.tree import git_ops
 
 MODULE_PATH = "benchmarks/appworld/agent_cli.py"
 GRADE_SCRIPT = Path(__file__).resolve().parent / "grade.py"
@@ -204,7 +204,7 @@ def read_case_failures(out_dir: str | Path, task_ids: list[str]) -> dict[str, li
 
 
 def make_eval_fn(repo_root: str | Path, runs_root: str | Path, *, timeout: float = DEFAULT_TIMEOUT):
-    """Build the bench :class:`~pico.evolver.orchestrator.scoring.EvalFn`."""
+    """Build the bench :class:`~looprail.evolver.orchestrator.scoring.EvalFn`."""
     repo_root = Path(repo_root)
     runs_root = Path(runs_root)
 

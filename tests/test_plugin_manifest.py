@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from pico.plugin import (
+from looprail.plugin import (
     Contributes,
     MemoryBackendContribution,
     PluginManifest,
@@ -185,6 +185,11 @@ class TestFlagsAndSchema:
         mf = PluginManifest.from_toml_str(toml)
         assert mf.id == "x"
 
+        retired = PluginManifest.from_toml_str(
+            '[plugin]\nid = "x"\nversion = "0.1"\npico = ">=0.1,<0.2"\n'
+        )
+        assert retired.looprail is None
+
 
 # ---------------------------------------------------------------------------
 
@@ -193,7 +198,7 @@ class TestFlagsAndSchema:
 
 class TestFromTomlPath:
     def test_reads_file(self, tmp_path: Path) -> None:
-        path = tmp_path / "pico-plugin.toml"
+        path = tmp_path / "looprail-plugin.toml"
         path.write_text(
             textwrap.dedent("""
             [plugin]

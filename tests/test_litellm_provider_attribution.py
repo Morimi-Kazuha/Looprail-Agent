@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from pico.providers.litellm_provider import _ANTHROPIC_EXTRA_KEYS, LiteLLMProvider
+from looprail.providers.litellm_provider import _ANTHROPIC_EXTRA_KEYS, LiteLLMProvider
 
 
 def _make_provider(provider_name: str, extra_headers: dict | None = None) -> LiteLLMProvider:
     with (
-        patch("pico.providers.litellm_provider.litellm"),
-        patch("pico.providers.litellm_provider.LiteLLMProvider._setup_env"),
+        patch("looprail.providers.litellm_provider.litellm"),
+        patch("looprail.providers.litellm_provider.LiteLLMProvider._setup_env"),
     ):
         return LiteLLMProvider(
             api_key="sk-test",
@@ -21,16 +21,16 @@ def _make_provider(provider_name: str, extra_headers: dict | None = None) -> Lit
 
 def test_openrouter_injects_all_attribution_headers():
     provider = _make_provider("openrouter")
-    assert provider.extra_headers["HTTP-Referer"] == "https://gitee.com/htxoffical/pico-harness"
-    assert provider.extra_headers["X-Title"] == "Pico Agent Harness"
-    assert provider.extra_headers["X-OpenRouter-Title"] == "Pico Agent Harness"
+    assert "HTTP-Referer" not in provider.extra_headers
+    assert provider.extra_headers["X-Title"] == "Looprail"
+    assert provider.extra_headers["X-OpenRouter-Title"] == "Looprail"
     assert provider.extra_headers["X-OpenRouter-Categories"] == "cli-agent,personal-agent"
 
 
 def test_openrouter_user_headers_override_defaults():
     provider = _make_provider("openrouter", extra_headers={"X-OpenRouter-Title": "Custom"})
     assert provider.extra_headers["X-OpenRouter-Title"] == "Custom"
-    assert provider.extra_headers["HTTP-Referer"] == "https://gitee.com/htxoffical/pico-harness"
+    assert "HTTP-Referer" not in provider.extra_headers
 
 
 def test_non_openrouter_provider_has_no_attribution():

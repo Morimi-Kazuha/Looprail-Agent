@@ -1,4 +1,4 @@
-// Pico TUI RPC 带类型的错误类层次结构。
+// Looprail TUI RPC 带类型的错误类层次结构。
 //
 // 与 specs/tui-ipc.md §4 中服务端定义的 15 个错误码对应。收到 JSON-RPC
 // 错误响应时，`client.ts` 使用规范构造器 `rpcErrorFromFrame(frame)` 按

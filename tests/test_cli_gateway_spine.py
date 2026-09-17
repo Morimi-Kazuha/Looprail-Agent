@@ -3,10 +3,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from pico.channels.intake import Intake
-from pico.channels.manager import ChannelManager
-from pico.cli._gateway_spine import build_gateway
-from pico.spine import (
+from looprail.channels.intake import Intake
+from looprail.channels.manager import ChannelManager
+from looprail.cli._gateway_spine import build_gateway
+from looprail.spine import (
     ChatType,
     MediaOut,
     Origin,
@@ -18,9 +18,9 @@ from pico.spine import (
     TurnRequest,
     Usage,
 )
-from pico.spine import delivery as delivery_mod
-from pico.spine.delivery import Capabilities, DeliveryHub
-from pico.spine.message import Media
+from looprail.spine import delivery as delivery_mod
+from looprail.spine.delivery import Capabilities, DeliveryHub
+from looprail.spine.message import Media
 
 
 def _src(channel="telegram", chat_id="c1") -> Source:
@@ -221,7 +221,7 @@ async def test_gateway_logs_recovered_tool_failures_for_fire_and_forget(
             )
 
     monkeypatch.setattr(
-        "pico.cli._gateway_spine.logger.warning",
+        "looprail.cli._gateway_spine.logger.warning",
         lambda *args, **kwargs: warnings.append((args, kwargs)),
     )
     agent = _RecoveredAgent()
@@ -381,7 +381,7 @@ async def test_gateway_teardown_attempts_delivery_and_prefers_cancellation(monke
 
 async def test_intake_quiesce_is_bounded_when_delivery_queue_is_full(monkeypatch):
     monkeypatch.setattr(delivery_mod, "_OUTLET_QUEUE_MAXSIZE", 1)
-    monkeypatch.setattr("pico.channels.manager._INTAKE_DRAIN_TIMEOUT_S", 0.01, raising=False)
+    monkeypatch.setattr("looprail.channels.manager._INTAKE_DRAIN_TIMEOUT_S", 0.01, raising=False)
     delivery_started = asyncio.Event()
 
     class _BlockedOutlet:

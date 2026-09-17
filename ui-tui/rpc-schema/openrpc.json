@@ -1,8 +1,8 @@
 {
   "openrpc": "1.2.6",
   "info": {
-    "title": "Pico TUI RPC",
-    "description": "JSON-RPC 2.0 contract for the Pico conversational TUI. Python registration, Pydantic models, generated TypeScript, and frontend calls are checked for drift.",
+    "title": "Looprail TUI RPC",
+    "description": "JSON-RPC 2.0 contract for the Looprail conversational TUI. Python registration, Pydantic models, generated TypeScript, and frontend calls are checked for drift.",
     "version": "0.1.0",
     "license": {
       "name": "MIT",
@@ -12,7 +12,7 @@
   "methods": [
     {
       "name": "session.list",
-      "summary": "Pico TUI operation: session.list.",
+      "summary": "Looprail TUI operation: session.list.",
       "params": [
         {
           "name": "limit",
@@ -32,7 +32,7 @@
     },
     {
       "name": "session.create",
-      "summary": "Pico TUI operation: session.create.",
+      "summary": "Looprail TUI operation: session.create.",
       "params": [
         {
           "name": "cols",
@@ -52,7 +52,7 @@
     },
     {
       "name": "session.close",
-      "summary": "Pico TUI operation: session.close.",
+      "summary": "Looprail TUI operation: session.close.",
       "params": [
         {
           "name": "session_id",
@@ -72,7 +72,7 @@
     },
     {
       "name": "session.resume",
-      "summary": "Pico TUI operation: session.resume.",
+      "summary": "Looprail TUI operation: session.resume.",
       "params": [
         {
           "name": "session_id",
@@ -92,7 +92,7 @@
     },
     {
       "name": "session.delete",
-      "summary": "Pico TUI operation: session.delete.",
+      "summary": "Looprail TUI operation: session.delete.",
       "params": [
         {
           "name": "session_id",
@@ -113,7 +113,7 @@
     },
     {
       "name": "session.most_recent",
-      "summary": "Pico TUI operation: session.most_recent.",
+      "summary": "Looprail TUI operation: session.most_recent.",
       "params": [],
       "result": {
         "name": "SessionMostRecentResult",
@@ -125,7 +125,7 @@
     },
     {
       "name": "session.title",
-      "summary": "Pico TUI operation: session.title.",
+      "summary": "Looprail TUI operation: session.title.",
       "params": [
         {
           "name": "session_id",
@@ -153,7 +153,7 @@
     },
     {
       "name": "session.clear",
-      "summary": "Pico TUI operation: session.clear.",
+      "summary": "Looprail TUI operation: session.clear.",
       "params": [
         {
           "name": "session_id",
@@ -174,7 +174,7 @@
     },
     {
       "name": "session.undo",
-      "summary": "Pico TUI operation: session.undo.",
+      "summary": "Looprail TUI operation: session.undo.",
       "params": [
         {
           "name": "session_id",
@@ -203,7 +203,7 @@
     },
     {
       "name": "session.branch",
-      "summary": "Pico TUI operation: session.branch.",
+      "summary": "Looprail TUI operation: session.branch.",
       "params": [
         {
           "name": "session_id",
@@ -230,7 +230,7 @@
     },
     {
       "name": "session.export",
-      "summary": "Pico TUI operation: session.export.",
+      "summary": "Looprail TUI operation: session.export.",
       "params": [
         {
           "name": "session_id",
@@ -250,7 +250,7 @@
     },
     {
       "name": "turn.send",
-      "summary": "Pico TUI operation: turn.send.",
+      "summary": "Looprail TUI operation: turn.send.",
       "params": [
         {
           "name": "session_key",
@@ -305,7 +305,7 @@
     },
     {
       "name": "turn.subscribe",
-      "summary": "Pico TUI operation: turn.subscribe.",
+      "summary": "Looprail TUI operation: turn.subscribe.",
       "params": [
         {
           "name": "session_key",
@@ -325,7 +325,7 @@
     },
     {
       "name": "turn.unsubscribe",
-      "summary": "Pico TUI operation: turn.unsubscribe.",
+      "summary": "Looprail TUI operation: turn.unsubscribe.",
       "params": [
         {
           "name": "subscription_id",
@@ -345,7 +345,7 @@
     },
     {
       "name": "turn.cancel",
-      "summary": "Pico TUI operation: turn.cancel.",
+      "summary": "Looprail TUI operation: turn.cancel.",
       "params": [
         {
           "name": "session_key",
@@ -365,7 +365,7 @@
     },
     {
       "name": "image.attach",
-      "summary": "Pico TUI operation: image.attach.",
+      "summary": "Looprail TUI operation: image.attach.",
       "params": [
         {
           "name": "session_id",
@@ -392,7 +392,7 @@
     },
     {
       "name": "model.options",
-      "summary": "Pico TUI operation: model.options.",
+      "summary": "Looprail TUI operation: model.options.",
       "params": [
         {
           "name": "session_id",
@@ -412,7 +412,7 @@
     },
     {
       "name": "model.save_key",
-      "summary": "Pico TUI operation: model.save_key.",
+      "summary": "Looprail TUI operation: model.save_key.",
       "params": [
         {
           "name": "slug",
@@ -453,7 +453,7 @@
     },
     {
       "name": "model.disconnect",
-      "summary": "Pico TUI operation: model.disconnect.",
+      "summary": "Looprail TUI operation: model.disconnect.",
       "params": [
         {
           "name": "slug",
@@ -480,7 +480,7 @@
     },
     {
       "name": "model.add_model",
-      "summary": "Pico TUI operation: model.add_model.",
+      "summary": "Looprail TUI operation: model.add_model.",
       "params": [
         {
           "name": "slug",
@@ -514,7 +514,7 @@
     },
     {
       "name": "model.remove_model",
-      "summary": "Pico TUI operation: model.remove_model.",
+      "summary": "Looprail TUI operation: model.remove_model.",
       "params": [
         {
           "name": "slug",
@@ -548,7 +548,7 @@
     },
     {
       "name": "config.get",
-      "summary": "Pico TUI operation: config.get.",
+      "summary": "Looprail TUI operation: config.get.",
       "params": [
         {
           "name": "keys",
@@ -571,7 +571,7 @@
     },
     {
       "name": "config.set",
-      "summary": "Pico TUI operation: config.set.",
+      "summary": "Looprail TUI operation: config.set.",
       "params": [
         {
           "name": "key",
@@ -612,7 +612,7 @@
     },
     {
       "name": "system.hello",
-      "summary": "Pico TUI operation: system.hello.",
+      "summary": "Looprail TUI operation: system.hello.",
       "params": [
         {
           "name": "client_version",
@@ -642,7 +642,7 @@
     },
     {
       "name": "system.ping",
-      "summary": "Pico TUI operation: system.ping.",
+      "summary": "Looprail TUI operation: system.ping.",
       "params": [],
       "result": {
         "name": "SystemPingResult",
@@ -654,7 +654,7 @@
     },
     {
       "name": "system.version",
-      "summary": "Pico TUI operation: system.version.",
+      "summary": "Looprail TUI operation: system.version.",
       "params": [],
       "result": {
         "name": "SystemVersionResult",
@@ -666,7 +666,7 @@
     },
     {
       "name": "setup.status",
-      "summary": "Pico TUI operation: setup.status.",
+      "summary": "Looprail TUI operation: setup.status.",
       "params": [],
       "result": {
         "name": "SetupStatusResult",
@@ -678,7 +678,7 @@
     },
     {
       "name": "terminal.resize",
-      "summary": "Pico TUI operation: terminal.resize.",
+      "summary": "Looprail TUI operation: terminal.resize.",
       "params": [
         {
           "name": "cols",
@@ -712,7 +712,7 @@
     },
     {
       "name": "confirm.respond",
-      "summary": "Pico TUI operation: confirm.respond.",
+      "summary": "Looprail TUI operation: confirm.respond.",
       "params": [
         {
           "name": "request_id",
@@ -739,7 +739,7 @@
     },
     {
       "name": "clarify.respond",
-      "summary": "Pico TUI operation: clarify.respond.",
+      "summary": "Looprail TUI operation: clarify.respond.",
       "params": [
         {
           "name": "request_id",
@@ -1244,7 +1244,7 @@
       },
       "SessionInfo": {
         "additionalProperties": false,
-        "description": "The init bundle rendered by the Pico TUI Session panel.",
+        "description": "The init bundle rendered by the Looprail TUI Session panel.",
         "properties": {
           "model": {
             "type": "string"
@@ -1568,14 +1568,14 @@
             "description": "OpenRPC info.version mirrored back to client.",
             "type": "string"
           },
-          "pico_version": {
+          "looprail_version": {
             "type": "string"
           }
         },
         "required": [
           "server_version",
           "schema_version",
-          "pico_version"
+          "looprail_version"
         ],
         "type": "object"
       },

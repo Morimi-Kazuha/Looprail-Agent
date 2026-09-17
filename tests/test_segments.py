@@ -8,17 +8,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pico.agent.context import ContextBuilder
-from pico.context_engine.base import AssemblyContext
-from pico.context_engine.segments import (
+from looprail.agent.context import ContextBuilder
+from looprail.context_engine.base import AssemblyContext
+from looprail.context_engine.segments import (
     ActiveSkillsSegmentBuilder,
     BootstrapSegmentBuilder,
     IdentitySegmentBuilder,
     MemorySegmentBuilder,
     SkillsSegmentBuilder,
 )
-from pico.memory_engine import Memory, TokenBudget
-from pico.memory_engine.skill_forge import RouterHit, SkillForgeRouter
+from looprail.memory_engine import Memory, TokenBudget
+from looprail.memory_engine.skill_forge import RouterHit, SkillForgeRouter
 
 
 def _ctx(tmp_path: Path, msg: str = "hi", session=None) -> AssemblyContext:

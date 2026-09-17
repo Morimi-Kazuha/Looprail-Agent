@@ -5,7 +5,7 @@ import json
 import pytest
 from loguru import logger
 
-from pico.spine import (
+from looprail.spine import (
     ChatType,
     Media,
     MediaOut,
@@ -18,10 +18,10 @@ from pico.spine import (
     ToolEvent,
     ToolPhase,
 )
-from pico.spine import delivery as delivery_mod
-from pico.spine.delivery import Capabilities, DeliveryHub, Outlet, SupportsStreaming
-from pico.tracing import spans as _spans
-from pico.tracing import trace
+from looprail.spine import delivery as delivery_mod
+from looprail.spine.delivery import Capabilities, DeliveryHub, Outlet, SupportsStreaming
+from looprail.tracing import spans as _spans
+from looprail.tracing import trace
 
 
 def test_capabilities_default_to_all_off():
@@ -681,8 +681,8 @@ async def test_drain_keeps_wait_idle_consistent(hub):
 
 @pytest.fixture
 def trace_dir(tmp_path, monkeypatch):
-    monkeypatch.setenv("PICO_TRACING", "1")
-    monkeypatch.setenv("PICO_TRACING_DIR", str(tmp_path))
+    monkeypatch.setenv("LOOPRAIL_TRACING", "1")
+    monkeypatch.setenv("LOOPRAIL_TRACING_DIR", str(tmp_path))
     _spans._store = None
     yield tmp_path
     _spans._store = None
@@ -852,7 +852,7 @@ async def test_a_raising_stream_chunk_does_not_kill_the_worker(hub):
 
 
 async def test_delivery_evidence_is_absent_when_tracing_is_disabled(hub, trace_dir, monkeypatch):
-    monkeypatch.setenv("PICO_TRACING", "0")
+    monkeypatch.setenv("LOOPRAIL_TRACING", "0")
     hub.register(FakeOutlet("tg"))
     await hub.dispatch(Text(content="hi", source=_src("tg")))
     await hub.wait_idle("tg")

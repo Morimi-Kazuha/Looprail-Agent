@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.agent.tools.file_search import FindTool, GrepTool
+from looprail.agent.tools.file_search import FindTool, GrepTool
 
 
 @pytest.fixture

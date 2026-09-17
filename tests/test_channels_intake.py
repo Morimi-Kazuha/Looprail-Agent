@@ -5,8 +5,8 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from pico.channels.intake import Intake
-from pico.channels.transcribe import transcribe_audio
+from looprail.channels.intake import Intake
+from looprail.channels.transcribe import transcribe_audio
 
 
 def test_intake_is_allowed():
@@ -32,7 +32,7 @@ def test_intake_custom_allow_check_gates_publish():
 
 
 def test_intake_submit_path_builds_turnrequest():
-    from pico.spine import ChatType, Origin
+    from looprail.spine import ChatType, Origin
 
     submit = AsyncMock()
     intake = Intake("tg", SimpleNamespace(allow_from=["*"]))
@@ -59,7 +59,7 @@ def test_intake_submit_path_builds_turnrequest():
 
 
 def test_intake_submit_path_dm_default_and_no_conversation():
-    from pico.spine import ChatType
+    from looprail.spine import ChatType
 
     submit = AsyncMock()
     intake = Intake("tg", SimpleNamespace(allow_from=["*"]))
@@ -140,7 +140,7 @@ def test_transcribe_audio_delegates(monkeypatch):
         async def transcribe(self, path):
             return "hello world"
 
-    monkeypatch.setattr("pico.providers.transcription.GroqTranscriptionProvider", _FakeProvider)
+    monkeypatch.setattr("looprail.providers.transcription.GroqTranscriptionProvider", _FakeProvider)
     assert asyncio.run(transcribe_audio("/a.ogg", api_key="k")) == "hello world"
 
 
@@ -149,7 +149,7 @@ def test_transcribe_audio_swallows_errors(monkeypatch):
         def __init__(self, api_key=None):
             raise RuntimeError("nope")
 
-    monkeypatch.setattr("pico.providers.transcription.GroqTranscriptionProvider", _Boom)
+    monkeypatch.setattr("looprail.providers.transcription.GroqTranscriptionProvider", _Boom)
     assert asyncio.run(transcribe_audio("/a.ogg")) == ""
 
 
@@ -163,7 +163,7 @@ def test_transcribe_audio_empty_key_becomes_none(monkeypatch):
         async def transcribe(self, path):
             return ""
 
-    monkeypatch.setattr("pico.providers.transcription.GroqTranscriptionProvider", _Rec)
+    monkeypatch.setattr("looprail.providers.transcription.GroqTranscriptionProvider", _Rec)
     asyncio.run(transcribe_audio("/a.ogg", api_key=""))
     assert seen["key"] is None
     asyncio.run(transcribe_audio("/a.ogg", api_key="k"))

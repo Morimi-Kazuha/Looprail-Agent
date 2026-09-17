@@ -43,14 +43,14 @@ def test_pytest_defaults_require_explicit_opt_in() -> None:
 
 
 def test_retained_tests_use_an_isolated_home(tmp_path: Path) -> None:
-    from pico.config.loader import get_config_path
+    from looprail.config.loader import get_config_path
     from tests.conftest import _is_external_environment
 
     isolated_home = tmp_path / "home"
     assert Path.home() == isolated_home
-    assert get_config_path() == isolated_home / ".pico" / "config.json"
-    assert _is_external_environment("ANTHROPIC_API_KEY_PICO")
-    assert _is_external_environment("OPENAI_API_KEY_PICO")
+    assert get_config_path() == isolated_home / ".looprail" / "config.json"
+    assert _is_external_environment("ANTHROPIC_API_KEY_TEST")
+    assert _is_external_environment("OPENAI_API_KEY_TEST")
     assert _is_external_environment("SSH_AUTH_SOCK")
     assert _is_external_environment("HTTPS_PROXY")
     assert not _is_external_environment("GIT_AUTHOR_NAME")

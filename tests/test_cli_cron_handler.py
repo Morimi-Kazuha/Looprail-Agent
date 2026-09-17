@@ -1,4 +1,4 @@
-"""Trigger-path tests for ``make_on_cron_job`` (pico/cli/_cron_handler.py).
+"""Trigger-path tests for ``make_on_cron_job`` (looprail/cli/_cron_handler.py).
 
 Distinct scope from:
   - ``test_cron_delivery.py`` — unit-tests the ``resolve_cron_delivery``
@@ -29,17 +29,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from pico.cli import _cron_handler
-from pico.cli._cron_handler import make_on_cron_job
-from pico.proactive_engine.schedulers import cron as cron_package
-from pico.proactive_engine.schedulers.cron.service import CronService
-from pico.proactive_engine.schedulers.cron.types import (
+from looprail.cli import _cron_handler
+from looprail.cli._cron_handler import make_on_cron_job
+from looprail.proactive_engine.schedulers import cron as cron_package
+from looprail.proactive_engine.schedulers.cron.service import CronService
+from looprail.proactive_engine.schedulers.cron.types import (
     CronJob,
     CronJobState,
     CronPayload,
     CronSchedule,
 )
-from pico.spine import Origin, Text
+from looprail.spine import Origin, Text
 
 
 def _make_job(
@@ -112,7 +112,7 @@ def patch_cron_config(monkeypatch):
         config = MagicMock()
         config.cron = SimpleNamespace(forward_channels=forward_channels)
         monkeypatch.setattr(
-            "pico.config.loader.load_config",
+            "looprail.config.loader.load_config",
             lambda: config,
         )
 
@@ -127,10 +127,10 @@ def test_cron_handler_has_no_proactive_collaborators() -> None:
 
 def test_cron_production_imports_have_no_proactive_side_effect_dependencies() -> None:
     forbidden = (
-        "pico.proactive_engine.sentinel",
-        "pico.proactive_engine.schedulers.heartbeat",
-        "pico.proactive_engine.system_events",
-        "pico.proactive_engine.wake",
+        "looprail.proactive_engine.sentinel",
+        "looprail.proactive_engine.schedulers.heartbeat",
+        "looprail.proactive_engine.system_events",
+        "looprail.proactive_engine.wake",
     )
     paths = [Path(_cron_handler.__file__)]
     paths.extend(Path(cron_package.__file__).parent.glob("*.py"))
@@ -352,7 +352,7 @@ async def test_trigger_dynamic_config_reload(
         config.cron = SimpleNamespace(forward_channels=state["forward_channels"])
         return config
 
-    monkeypatch.setattr("pico.config.loader.load_config", _make_config)
+    monkeypatch.setattr("looprail.config.loader.load_config", _make_config)
     channel_manager = SimpleNamespace(enabled_channels=["telegram", "feishu"])
 
     handler = make_on_cron_job(
@@ -536,8 +536,8 @@ async def test_silent_job_on_non_ephemeral_channel_warns(
 
 
 async def test_repl_assembly_cron_renders_once_via_clioutlet_not_broadcast(fake_hub, patch_cron_config):
-    from pico.cli._repl_spine import build_repl
-    from pico.spine import Text, TurnOutcome, Usage
+    from looprail.cli._repl_spine import build_repl
+    from looprail.spine import Text, TurnOutcome, Usage
 
     patch_cron_config(["*"])
 

@@ -5,7 +5,7 @@ Two taxonomy sources, toggled by the caller (default = hardcoded):
 - **hardcoded** (default): the hand-derived 7 AppWorld WHY classes (W1-W7), derived once by
   hand from real vanilla trajectories. Frozen constant :data:`DEFAULT_APPWORLD_TAXONOMY`.
 - **induce**: the bench-neutral open-ended map-reduce in
-  :mod:`pico.evolver.orchestrator.nodes.taxonomy` discovers a taxonomy from
+  :mod:`looprail.evolver.orchestrator.nodes.taxonomy` discovers a taxonomy from
   vanilla failures; :func:`ensure_taxonomy` here is the AppWorld-bound wrapper
   (AppWorld bench description, W1-W7 as the hardcoded default). Induction
   failure raises — it never silently substitutes the hardcoded table.
@@ -27,17 +27,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Optional
 
-from pico.evolver.orchestrator.nodes.taxonomy import (
+from looprail.evolver.orchestrator.nodes.taxonomy import (
     TaxonomySpec,
     classify_failures,
 )
-from pico.evolver.orchestrator.nodes.taxonomy import (
+from looprail.evolver.orchestrator.nodes.taxonomy import (
     ensure_taxonomy as _generic_ensure_taxonomy,
 )
-from pico.evolver.orchestrator.nodes.taxonomy import (
+from looprail.evolver.orchestrator.nodes.taxonomy import (
     induce_taxonomy as _generic_induce_taxonomy,
 )
-from pico.evolver.tree.node import HarnessNode
+from looprail.evolver.tree.node import HarnessNode
 
 # 手工归纳的七类 AppWorld WHY（保持原文）及一个逃生类别。
 WHY_CLASSES = {
@@ -55,9 +55,9 @@ WHY_CLASSES = {
 WHERE_CLASSES = {
     "appworld_prompt": "benchmarks/appworld/agent_cli.py APPWORLD_PROMPT (the agent instruction text).",
     "exec_tool": "benchmarks/appworld/tool.py AppWorldExecuteTool (execution / error-recovery behaviour).",
-    "agent_hook_new": "a NEW lifecycle hook pico/agent/hook/<name>.py (runtime intervention: finalize/recovery/verify).",
+    "agent_hook_new": "a NEW lifecycle hook looprail/agent/hook/<name>.py (runtime intervention: finalize/recovery/verify).",
     "agent_hook_wire": "benchmarks/appworld/agent_cli.py hook wiring (construct the hook and pass it to AgentLoop, unconditionally).",
-    "agent_loop": "pico/agent/loop/ (loop-level change — use sparingly).",
+    "agent_loop": "looprail/agent/loop/ (loop-level change — use sparingly).",
     "none": "capability ceiling — no harness fix can help (typical for W6/W7); do not target.",
 }
 

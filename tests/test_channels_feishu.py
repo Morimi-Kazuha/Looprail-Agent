@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from pico.channels.adapters.feishu import cards, content
-from pico.channels.adapters.feishu.channel import FeishuChannel
-from pico.channels.outlet import ChannelOutletAdapter
-from pico.spine import ChatType, Notice, NoticeKind, Source, Text
-from pico.spine.delivery import DeliveryHub, TerminalDeliveryError
+from looprail.channels.adapters.feishu import cards, content
+from looprail.channels.adapters.feishu.channel import FeishuChannel
+from looprail.channels.outlet import ChannelOutletAdapter
+from looprail.spine import ChatType, Notice, NoticeKind, Source, Text
+from looprail.spine.delivery import DeliveryHub, TerminalDeliveryError
 
 
 def _channel(group_policy="open"):
@@ -152,7 +152,7 @@ def test_transcribe_prefers_native_feishu_stt(monkeypatch):
     ch = _channel()
     ch._lark_stt_sync = lambda _path: "native text"
     groq = AsyncMock(return_value="groq text")
-    monkeypatch.setattr("pico.channels.adapters.feishu.channel.transcribe_audio", groq)
+    monkeypatch.setattr("looprail.channels.adapters.feishu.channel.transcribe_audio", groq)
     assert asyncio.run(ch._transcribe("/tmp/a.opus")) == "native text"
     groq.assert_not_called()
 
@@ -161,7 +161,7 @@ def test_transcribe_falls_back_to_groq(monkeypatch):
     ch = _channel()
     ch._lark_stt_sync = lambda _path: None
     groq = AsyncMock(return_value="groq text")
-    monkeypatch.setattr("pico.channels.adapters.feishu.channel.transcribe_audio", groq)
+    monkeypatch.setattr("looprail.channels.adapters.feishu.channel.transcribe_audio", groq)
     assert asyncio.run(ch._transcribe("/tmp/a.opus")) == "groq text"
     groq.assert_awaited_once()
 
@@ -172,7 +172,7 @@ def test_transcribe_skips_native_once_disabled(monkeypatch):
     calls = []
     ch._lark_stt_sync = lambda _path: calls.append(1) or "unused"
     monkeypatch.setattr(
-        "pico.channels.adapters.feishu.channel.transcribe_audio",
+        "looprail.channels.adapters.feishu.channel.transcribe_audio",
         AsyncMock(return_value="groq text"),
     )
     assert asyncio.run(ch._transcribe("/tmp/a.opus")) == "groq text"
@@ -329,8 +329,8 @@ async def test_quiesced_intake_drops_scheduled_handler_that_resumes_after_stop()
 
 
 def test_feishu_satisfies_channel_contract():
-    from pico.channels import Channel
-    from pico.channels.contract import capability_violations
+    from looprail.channels import Channel
+    from looprail.channels.contract import capability_violations
 
     ch = _channel()
     assert isinstance(ch, Channel)
@@ -344,7 +344,7 @@ def test_feishu_spec_import_is_cheap():
     import sys
 
     code = (
-        "import sys, pico.channels.adapters.feishu.spec as s;"
+        "import sys, looprail.channels.adapters.feishu.spec as s;"
         "assert 'lark_oapi' not in sys.modules, 'spec import pulled in lark_oapi';"
         "assert callable(s.SPEC.factory) and s.SPEC.display_name == 'Feishu';"
         "assert s.SPEC.maturity == 'live-gated'"

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.evolver.tree import git_ops
+from looprail.evolver.tree import git_ops
 
 _ENV = {
     "GIT_AUTHOR_NAME": "t",

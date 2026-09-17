@@ -2,11 +2,11 @@
 # 执行一轮漏斗。
 #
 #   uv run python scripts/setup_small_real_subject.py            # 仅执行一次
-#   uv run pico evolve check    --config benchmarks/evolver/small_real.yaml
-#   uv run pico evolve run      --config benchmarks/evolver/small_real.yaml --smoke
-#   uv run pico evolve run      --config benchmarks/evolver/small_real.yaml
-#   uv run pico evolve status   --config benchmarks/evolver/small_real.yaml
-#   uv run pico evolve finalize --config benchmarks/evolver/small_real.yaml --yes
+#   uv run looprail evolve check    --config benchmarks/evolver/small_real.yaml
+#   uv run looprail evolve run      --config benchmarks/evolver/small_real.yaml --smoke
+#   uv run looprail evolve run      --config benchmarks/evolver/small_real.yaml
+#   uv run looprail evolve status   --config benchmarks/evolver/small_real.yaml
+#   uv run looprail evolve finalize --config benchmarks/evolver/small_real.yaml --yes
 #
 # bench 键使用 `appworld`，因为它是已注册模块路径
 # benchmarks.appworld.evolve.entry:build，注册表会从下方目标仓库导入它。
@@ -16,11 +16,11 @@ bench: appworld
 repo_root: subject                # 相对此文件；被 Git 忽略并由脚本创建
                                   # scripts/setup_small_real_subject.py
 # 省略 base_sha：目标恰有一个提交，启动时解析并在整个运行期间固定。
-work_dir: ../../.pico/evolver/small-real   # 位于目标仓库外、被 Git 忽略的
-                                           # .pico/ 证据根目录下
+work_dir: ../../.looprail/evolver/small-real   # 位于目标仓库外、被 Git 忽略的
+                                           # .looprail/ 证据根目录下
 
-# 完全省略 models：所有循环角色使用 Pico 自身配置的模型，即
-# ~/.pico/config.json 中的 agents.defaults.model。
+# 完全省略 models：所有循环角色使用 Looprail 自身配置的模型，即
+# ~/.looprail/config.json 中的 agents.defaults.model。
 
 funnel:                           # 规模适配一轮真实运行
   k_screen: 1

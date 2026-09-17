@@ -38,7 +38,7 @@ import { getUiState, patchUiState } from './uiStore.js'
 
 const usageFrom = (info: null | SessionInfo): Usage => (info?.usage ? { ...ZERO, ...info.usage } : ZERO)
 
-export const writeActiveSessionFile = (sessionId: null | string, file = process.env.PICO_TUI_ACTIVE_SESSION_FILE) => {
+export const writeActiveSessionFile = (sessionId: null | string, file = process.env.LOOPRAIL_TUI_ACTIVE_SESSION_FILE) => {
   if (!file || !sessionId) {
     return
   }

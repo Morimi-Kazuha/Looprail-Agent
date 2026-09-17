@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pico.agent.context.builder import ContextBuilder
-from pico.context_engine.segments import render
-from pico.memory_engine.backend import Memory
+from looprail.agent.context.builder import ContextBuilder
+from looprail.context_engine.segments import render
+from looprail.memory_engine.backend import Memory
 
 
 def test_tool_result_is_fenced_as_untrusted(tmp_path: Path) -> None:
@@ -72,7 +72,7 @@ def test_identity_text_resolves_conflicts_without_guessing(tmp_path: Path) -> No
 
 
 async def test_subagent_result_is_fenced(tmp_path: Path) -> None:
-    from pico.agent.subagent.manager import SubagentManager, SubagentStatus
+    from looprail.agent.subagent.manager import SubagentManager, SubagentStatus
 
     class _Provider:
         def get_default_model(self) -> str:

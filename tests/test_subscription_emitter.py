@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from pico.tui_rpc.subscriptions import (
+from looprail.tui_rpc.subscriptions import (
     COALESCE_WINDOW_S,
     QUEUE_CAPACITY,
     SubscriptionEmitter,

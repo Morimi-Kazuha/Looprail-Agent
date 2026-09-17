@@ -15,9 +15,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import pico.cli._helpers as helpers_mod
-from pico import _LiteLLMBotocorePreloadFilter
-from pico.providers.registry import PROVIDERS, find_by_model, find_by_name
+import looprail.cli._helpers as helpers_mod
+from looprail import _LiteLLMBotocorePreloadFilter
+from looprail.providers.registry import PROVIDERS, find_by_model, find_by_name
 
 
 def _record(msg: str) -> logging.LogRecord:

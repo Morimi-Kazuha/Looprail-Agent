@@ -1,4 +1,4 @@
-"""Tests for the ``pico sessions`` CLI subapp."""
+"""Tests for the ``looprail sessions`` CLI subapp."""
 
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from pico.cli.commands import app
-from pico.cli.session_commands import (
+from looprail.cli.commands import app
+from looprail.cli.session_commands import (
     resolve_session_cross_channel,
     session_app,
 )
-from pico.session.manager import SessionManager, new_chat_id
+from looprail.session.manager import SessionManager, new_chat_id
 
 runner = CliRunner()
 
@@ -28,7 +28,7 @@ def workspace(tmp_path: Path) -> Path:
 @pytest.fixture
 def patched_workspace(workspace: Path, monkeypatch) -> Path:
     monkeypatch.setattr(
-        "pico.cli.session_commands._active_session_state",
+        "looprail.cli.session_commands._active_session_state",
         lambda: workspace,
     )
     return workspace
@@ -42,7 +42,7 @@ def manager(workspace: Path) -> SessionManager:
 @pytest.fixture
 def two_sessions(manager: SessionManager, workspace: Path, monkeypatch) -> list[str]:
     monkeypatch.setattr(
-        "pico.cli.session_commands._active_session_state",
+        "looprail.cli.session_commands._active_session_state",
         lambda: workspace,
     )
     chat_id_a = new_chat_id()
@@ -64,16 +64,16 @@ def test_session_commands_use_current_project_state(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pico.config.schema import Config
+    from looprail.config.schema import Config
 
     project = tmp_path / "project"
     project.mkdir()
-    product_home = tmp_path / "pico-home"
-    monkeypatch.setenv("PICO_HOME", str(product_home))
+    product_home = tmp_path / "looprail-home"
+    monkeypatch.setenv("LOOPRAIL_HOME", str(product_home))
     monkeypatch.chdir(project)
-    monkeypatch.setattr("pico.cli.session_commands.load_config", lambda: Config())
+    monkeypatch.setattr("looprail.cli.session_commands.load_config", lambda: Config())
 
-    from pico.cli.session_commands import _open_manager
+    from looprail.cli.session_commands import _open_manager
 
     opened = _open_manager()
 
@@ -83,7 +83,7 @@ def test_session_commands_use_current_project_state(
 
 
 def test_group_registered_as_sessions_not_session() -> None:
-    """The group is mounted as ``pico sessions``; the legacy ``pico
+    """The group is mounted as ``looprail sessions``; the legacy ``looprail
     session`` name is gone (hard rename, no deprecated alias)."""
     ok = runner.invoke(app, ["sessions", "--help"])
     assert ok.exit_code == 0
@@ -369,9 +369,9 @@ def test_export_by_bare_id_writes_verified_portable_artifact(
     _seed(manager, f"cli:{cid}")
     r = runner.invoke(session_app, ["export", cid])
     assert r.exit_code == 0, r.output
-    files = list((patched_workspace / "exports").glob("*.pico-session.json"))
+    files = list((patched_workspace / "exports").glob("*.looprail-session.json"))
     assert len(files) == 1
-    from pico.session.export import verify_export
+    from looprail.session.export import verify_export
 
     assert verify_export(files[0]) is True
     assert "hi" in files[0].read_text(encoding="utf-8")
@@ -380,7 +380,7 @@ def test_export_by_bare_id_writes_verified_portable_artifact(
 def test_export_custom_output_path(patched_workspace: Path, manager: SessionManager, tmp_path: Path) -> None:
     cid = "20990101_000000_bbbbbb"
     _seed(manager, f"cli:{cid}")
-    dest = tmp_path / "custom" / "out.pico-session.json"
+    dest = tmp_path / "custom" / "out.looprail-session.json"
     r = runner.invoke(session_app, ["export", cid, "--output", str(dest)])
     assert r.exit_code == 0, r.output
     assert dest.exists()
@@ -400,7 +400,7 @@ def test_export_write_failure_exits_cleanly(patched_workspace: Path, manager: Se
     _seed(manager, f"cli:{cid}")
     blocker = tmp_path / "blocker"
     blocker.write_text("x")
-    dest = blocker / "out.pico-session.json"
+    dest = blocker / "out.looprail-session.json"
     r = runner.invoke(session_app, ["export", cid, "--output", str(dest)])
     assert r.exit_code != 0
     assert r.exception is None or isinstance(r.exception, SystemExit)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from pico.evolver.candidate_evidence import (
+from looprail.evolver.candidate_evidence import (
     EVALUATOR_BINDINGS,
     FIXTURE_BINDINGS,
     AcceptedRuntimeEvidence,
@@ -10,21 +10,21 @@ from pico.evolver.candidate_evidence import (
     evaluate_candidate_evidence,
     recompute_accepted_runtime_evidence,
 )
-from pico.evolver.candidate_manifest import (
+from looprail.evolver.candidate_manifest import (
     LABEL_POLICIES,
     CandidateLabel,
     manifest_for_patch,
 )
-from pico.evolver.judge.schema import PatchWhere, PatchWhy
-from pico.evolver.orchestrator.gates.pipeline import GateResult
-from pico.evolver.orchestrator.gates.policy import CandidateOutcome
-from pico.evolver.orchestrator.scoring import (
+from looprail.evolver.judge.schema import PatchWhere, PatchWhy
+from looprail.evolver.orchestrator.gates.pipeline import GateResult
+from looprail.evolver.orchestrator.gates.policy import CandidateOutcome
+from looprail.evolver.orchestrator.scoring import (
     EvaluationVerdict,
     MeasurementStatus,
     MeasurementValidity,
     TaskEval,
 )
-from pico.evolver.tree.node import AppliedPatch, NodeStatus, PatchComponent
+from looprail.evolver.tree.node import AppliedPatch, NodeStatus, PatchComponent
 
 TARGET = "benchmarks/appworld/agent_cli.py"
 BEFORE = {TARGET: b"VALUE = 1\n"}
@@ -84,7 +84,7 @@ def test_fabricated_accepted_status_without_bound_gate_is_rejected() -> None:
 def test_bound_runtime_gate_produces_accepted_evidence() -> None:
     candidate = {"task-1": TaskEval("task-1", passes=1, attempts=1)}
     control = {"task-1": TaskEval("task-1", passes=0, attempts=1)}
-    from pico.evolver.orchestrator.gates.pipeline import run_gates
+    from looprail.evolver.orchestrator.gates.pipeline import run_gates
 
     gate = run_gates(
         candidate_evals=candidate,
@@ -151,7 +151,7 @@ def test_fabricated_gate_cannot_hide_partial_k_measurements() -> None:
 def test_reported_full_lift_is_recomputed_from_raw_measurements() -> None:
     candidate = {"task-1": TaskEval("task-1", passes=1, attempts=1)}
     control = {"task-1": TaskEval("task-1", passes=0, attempts=1)}
-    from pico.evolver.orchestrator.gates.pipeline import run_gates
+    from looprail.evolver.orchestrator.gates.pipeline import run_gates
 
     outcome = CandidateOutcome(
         node_id="candidate-1",

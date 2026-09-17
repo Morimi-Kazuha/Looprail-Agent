@@ -22,13 +22,13 @@ from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
-SCHEMA = "pico.turn.evidence.v1"
+SCHEMA = "looprail.turn.evidence.v1"
 GATE = "V-TE0"
 RERUN = "make verify-turn-evidence"
 REPORT_FILENAME = "turn-evidence-report.json"
 MANIFEST_FILENAME = "turn-evidence-manifest.json"
 SCENARIO_TEST = "tests/test_turn_evidence_scenario.py"
-CALL_EFFICIENCY_HEALTH_SCHEMA = "pico.call-efficiency.ledger-health.v1"
+CALL_EFFICIENCY_HEALTH_SCHEMA = "looprail.call-efficiency.ledger-health.v1"
 
 PASSED = "passed"
 FAILED = "failed"

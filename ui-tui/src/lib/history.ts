@@ -6,11 +6,11 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { getPicoHome } from '../config/paths.js'
+import { getLooprailHome } from '../config/paths.js'
 
 const MAX = 1000
-const dir = getPicoHome()
-const file = join(dir, '.pico_history')
+const dir = getLooprailHome()
+const file = join(dir, '.looprail_history')
 
 let cache: string[] | null = null
 

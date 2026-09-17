@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pico.config.schema import ModelEndpoint, RoutingConfig
+from looprail.config.schema import ModelEndpoint, RoutingConfig
 
 
 def test_model_endpoint_defaults():

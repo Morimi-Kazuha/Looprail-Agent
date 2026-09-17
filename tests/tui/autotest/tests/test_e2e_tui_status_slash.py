@@ -1,8 +1,8 @@
-"""E2E: `pico` alt-screen `/status` round-trip — ACCEPTANCE.
+"""E2E: `looprail` alt-screen `/status` round-trip — ACCEPTANCE.
 
 This is the **live ACCEPTANCE gate**. It exercises the full harness
 path:
-1. spawn production `uv run pico` (Python parent + Node child + unix
+1. spawn production `uv run looprail` (Python parent + Node child + unix
    socket RPC + Ink alt-screen renderer)
 2. wait readiness in alt-screen via Harness.wait (proves snapshot polling works
    against Ink-rendered content)
@@ -10,11 +10,11 @@ path:
    PTY → Ink useInput hook)
 4. press enter (proves named-key delivery)
 5. wait for the locally rendered retained status panel
-6. press ctrl+c twice (cancel input then exit per Pico UX)
+6. press ctrl+c twice (cancel input then exit per Looprail UX)
 7. expect_exit 0 (proves Ink autonomy)
 
 Zero LLM cost; exercises everything except chat streaming — see
-test_e2e_pico_tui_chat.py for the chat streaming path.
+test_e2e_looprail_tui_chat.py for the chat streaming path.
 """
 
 from __future__ import annotations
@@ -24,9 +24,9 @@ import pytest
 
 @pytest.mark.e2e
 def test_tui_status_slash_round_trip(harness):
-    harness.spawn("uv run pico")
-    assert harness.wait(r"Pico", timeout=25.0), (
-        f"TUI Pico readiness banner not seen in 25s; screen=\n{harness.screen()}"
+    harness.spawn("uv run looprail")
+    assert harness.wait(r"Looprail", timeout=25.0), (
+        f"TUI Looprail readiness banner not seen in 25s; screen=\n{harness.screen()}"
     )
     harness.type("/status")
     harness.press("enter")

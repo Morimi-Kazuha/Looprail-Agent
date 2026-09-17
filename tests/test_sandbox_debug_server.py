@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pico.sandbox.debug_server import (
+from looprail.sandbox.debug_server import (
     SandboxDebugServer,
     SandboxDebugServerError,
 )
@@ -26,6 +26,8 @@ def sock_dir():
     macOS limits Unix socket paths to 104 bytes. pytest's tmp_path often
     exceeds this, so we use a short path under /tmp instead.
     """
+    if os.name == "nt":
+        pytest.skip("Unix-domain socket fixture uses a POSIX /tmp path and permissions")
     d = tempfile.mkdtemp(prefix="ec_dbg_", dir="/tmp")
     yield Path(d)
     shutil.rmtree(d, ignore_errors=True)

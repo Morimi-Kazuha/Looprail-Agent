@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from pico.memory_engine.consolidate.consolidator import (
+from looprail.memory_engine.consolidate.consolidator import (
     MemoryStore,
     _parse_user_md_sections,
     _score_section_relevance,

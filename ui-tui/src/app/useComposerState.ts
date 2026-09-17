@@ -285,7 +285,7 @@ export function useComposerState({
   )
 
   const openEditor = useCallback(async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'pico-'))
+    const dir = mkdtempSync(join(tmpdir(), 'looprail-'))
     const file = join(dir, 'prompt.md')
     const [cmd, ...args] = resolveEditor()
 

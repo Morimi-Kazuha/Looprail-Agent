@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from pico.proactive_engine.schedulers.cron.service import CronSchedule, CronService
+from looprail.proactive_engine.schedulers.cron.service import CronSchedule, CronService
 
 
 def test_reload_detects_rewrite_within_float_mtime_collision(tmp_path: Path):

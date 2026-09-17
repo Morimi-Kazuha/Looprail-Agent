@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pico 的 PinchBench 直接模式执行器。
+# Looprail 的 PinchBench 直接模式执行器。
 #
 # 用法：
 #   ./benchmarks/pinchbench/direct/run.sh                                          # 运行所有任务
@@ -16,10 +16,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR/../../.."
 
 echo "=================================================="
-echo "  PinchBench for Pico (DIRECT MODE)"
+echo "  PinchBench for Looprail (DIRECT MODE)"
 echo "=================================================="
 
-# 使用 Anaconda Python 3.13（Pico 要求 >=3.11）。
+# 使用 Anaconda Python 3.13（Looprail 要求 >=3.11）。
 PYTHON="${PYTHON:-$HOME/anaconda3/bin/python3}"
 if [ ! -x "$PYTHON" ]; then
     PYTHON="python3"
