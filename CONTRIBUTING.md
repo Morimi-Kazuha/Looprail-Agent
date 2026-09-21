@@ -6,9 +6,10 @@ smallest test or documentation change needed to explain the result.
 
 ## Before you start
 
-For a bug fix or feature, open an issue in the repository's issue tracker when
-possible. Describe the problem, the affected contract, and how you plan to
-verify it. Keep unrelated cleanup out of the same change.
+For a bug fix or feature, open an issue in the
+[Looprail issue tracker](https://github.com/Morimi-Kazuha/Looprail-Agent/issues)
+when possible. Describe the problem, the affected contract, and how you plan
+to verify it. Keep unrelated cleanup out of the same change.
 
 ## Development setup
 

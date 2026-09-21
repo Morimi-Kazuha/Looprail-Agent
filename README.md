@@ -3,6 +3,8 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12%2B-3776AB.svg)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
+[Repository](https://github.com/Morimi-Kazuha/Looprail-Agent) · [Issues](https://github.com/Morimi-Kazuha/Looprail-Agent/issues)
+
 **A local-first Coding Agent Runtime for long-running tasks in real code repositories.**
 
 [中文说明](README.zh-CN.md)
@@ -57,6 +59,8 @@ not assume a package has been published to PyPI.
 From the repository root:
 
 ```bash
+git clone https://github.com/Morimi-Kazuha/Looprail-Agent.git
+cd Looprail-Agent
 uv sync --frozen --extra dev --dev
 uv run --frozen looprail --version
 ```

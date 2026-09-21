@@ -27,4 +27,5 @@ reproduction steps, impact, and any suggested mitigation. Do not include live
 credentials or unrelated private data.
 
 For ordinary installation, configuration, compatibility, or feature questions,
-use the repository's public issue tracker instead.
+use the [Looprail public issue tracker](https://github.com/Morimi-Kazuha/Looprail-Agent/issues)
+instead.

@@ -2,7 +2,7 @@
 # Looprail 国内一键安装脚本（macOS/Linux）。
 #
 #   源码：从可信源码检出后运行 ./install.sh（README 中的公开流程）。
-#   远程：当前预公开发布端点仅为 R7 完成前的兼容路径，不在 README 中作为公开安装地址推荐。
+#   远程：从最终公开 GitHub 仓库的 latest release API 获取发布 wheel。
 #
 # 目标：让全新机器无需手工步骤即可从任意目录运行 `looprail`。脚本具备幂等性，
 # 会探测已有内容并只补齐缺项：
@@ -10,7 +10,7 @@
 #   2. Node.js >= 22 （TUI 运行时；系统缺少时私有安装）
 #   3. looprail          （作为全局 uv 工具安装到 ~/.local/bin/looprail）
 #
-# 当前预公开远程路径可能需要 LOOPRAIL_GITEE_TOKEN；也可用 LOOPRAIL_WHEEL_URL 固定 wheel。
+# 如果尚未发布 GitHub Release，也可以用 LOOPRAIL_WHEEL_URL 固定一个受信任的 wheel。
 #
 # 刻意使用 POSIX sh，使脚本不仅能在 Bash 下运行，也支持 dash/ash。
 set -eu
@@ -19,15 +19,12 @@ set -eu
 MIN_NODE_MAJOR=22
 LOOPRAIL_HOME="${LOOPRAIL_HOME:-${HOME:?HOME is required, or set LOOPRAIL_HOME explicitly}/.looprail}"
 NODE_RUNTIME_DIR="$LOOPRAIL_HOME/runtime"
-LOOPRAIL_GITEE_OWNER="${LOOPRAIL_GITEE_OWNER:-htxoffical}"
-# Keep the current release endpoint until the final public repository URL is finalized.
-LOOPRAIL_GITEE_REPO="${LOOPRAIL_GITEE_REPO:-pico-harness}"
+LOOPRAIL_GITHUB_RELEASE_API="https://api.github.com/repos/Morimi-Kazuha/Looprail-Agent/releases/latest"
 LOOPRAIL_NODE_MIRROR="${LOOPRAIL_NODE_MIRROR:-https://mirrors.aliyun.com/nodejs-release}"
 LOOPRAIL_NODE_CHECKSUM_BASE="${LOOPRAIL_NODE_CHECKSUM_BASE:-https://nodejs.org/dist}"
 LOOPRAIL_NPM_REGISTRY="${LOOPRAIL_NPM_REGISTRY:-https://registry.npmmirror.com}"
 LOOPRAIL_PYPI_INDEX="${LOOPRAIL_PYPI_INDEX:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 LOOPRAIL_UV_INSTALL_URL="${LOOPRAIL_UV_INSTALL_URL:-https://astral.sh/uv/install.sh}"
-LOOPRAIL_INSTALL_TMP=""
 
 # --- 格式化输出 ------------------------------------------------------------
 info()  { printf '\033[1;34m>\033[0m %s\n' "$1"; }
@@ -35,15 +32,13 @@ ok()    { printf '\033[1;32m+\033[0m %s\n' "$1"; }
 warn()  { printf '\033[1;33m!\033[0m %s\n' "$1" >&2; }
 die()   { printf '\033[1;31mx\033[0m %s\n' "$1" >&2; exit 1; }
 have()  { command -v "$1" >/dev/null 2>&1; }
-gitee_curl() {
-  printf 'Authorization: Bearer %s\n' "$LOOPRAIL_GITEE_TOKEN" | curl -fsSL -H @- "$@"
+github_curl() {
+  curl -fsSL \
+    -H 'Accept: application/vnd.github+json' \
+    -H 'X-GitHub-Api-Version: 2022-11-28' \
+    -H 'User-Agent: Looprail-installer' \
+    "$@"
 }
-cleanup() {
-  if [ -n "$LOOPRAIL_INSTALL_TMP" ] && [ -d "$LOOPRAIL_INSTALL_TMP" ]; then
-    rm -rf "$LOOPRAIL_INSTALL_TMP"
-  fi
-}
-trap cleanup EXIT
 
 # --- 0. 平台探测 -----------------------------------------------------------
 detect_platform() {
@@ -103,6 +98,22 @@ private_node_bin() {
     "$n" --version >/dev/null 2>&1 && { printf '%s' "$n"; return 0; }
   done
   return 1
+}
+
+resolve_looprail_wheel() {
+  wheel_url="${LOOPRAIL_WHEEL_URL:-}"
+  if [ -n "$wheel_url" ]; then
+    return 0
+  fi
+
+  info "Resolving the current Looprail GitHub release..."
+  if ! release_json="$(github_curl "$LOOPRAIL_GITHUB_RELEASE_API" 2>/dev/null)"; then
+    die "Could not query the GitHub latest release at $LOOPRAIL_GITHUB_RELEASE_API. The repository may not have a published release yet, or GitHub is unavailable. Set LOOPRAIL_WHEEL_URL to a trusted wheel URL."
+  fi
+  wheel_url="$(printf '%s' "$release_json" |
+    grep -oE 'https://github\.com/Morimi-Kazuha/Looprail-Agent/releases/download/[^" ]+/looprail-[^"/ ]+\.whl' |
+    head -n1)"
+  [ -n "$wheel_url" ] || die "The GitHub latest release does not contain a Looprail wheel. Publish a release asset or set LOOPRAIL_WHEEL_URL to a trusted wheel URL."
 }
 
 ensure_node() {
@@ -185,40 +196,12 @@ install_looprail() {
       UV_DEFAULT_INDEX="$LOOPRAIL_PYPI_INDEX" uv tool install --force -e "$script_dir"
     fi
   else
-    # 远程模式：安装最新发布的 wheel，其中包含由 CI 构建的
+    # 远程模式：安装最新 GitHub Release 中由 CI 构建的 wheel，其中包含
     # ui-tui/dist/entry.js。此处刻意不从 Git 安装，因为 TUI 包是被 Git 忽略的
     # 构建产物，Git 安装会得到无法启动 `looprail` 的包。可通过 LOOPRAIL_WHEEL_URL
     # 固定特定 wheel。
-    wheel_url="${LOOPRAIL_WHEEL_URL:-}"
-    if [ -z "$wheel_url" ]; then
-      release_api="https://gitee.com/api/v5/repos/${LOOPRAIL_GITEE_OWNER}/${LOOPRAIL_GITEE_REPO}/releases/latest"
-      info "Resolving the current Looprail release..."
-      if [ -n "${LOOPRAIL_GITEE_TOKEN:-}" ]; then
-        release_json="$(gitee_curl "$release_api" 2>/dev/null || true)"
-      else
-        release_json="$(curl -fsSL "$release_api" 2>/dev/null || true)"
-      fi
-      wheel_url="$(printf '%s' "$release_json" | grep -oE 'https://[^"]*/looprail-[^"]*\.whl' | head -n1)"
-    fi
-    [ -n "$wheel_url" ] || die "Could not resolve the current Looprail wheel. For the transitional remote path, set LOOPRAIL_GITEE_TOKEN; alternatively set LOOPRAIL_WHEEL_URL."
+    resolve_looprail_wheel
     wheel_source="$wheel_url"
-    if [ -n "${LOOPRAIL_GITEE_TOKEN:-}" ]; then
-      case "$wheel_url" in
-        https://gitee.com/*)
-          LOOPRAIL_INSTALL_TMP="$(mktemp -d)"
-          wheel_name="${wheel_url%%\?*}"
-          wheel_name="${wheel_name##*/}"
-          case "$wheel_name" in
-            *.whl) ;;
-            *) die "Resolved Gitee asset is not a wheel: $wheel_name" ;;
-          esac
-          wheel_path="$LOOPRAIL_INSTALL_TMP/$wheel_name"
-          info "Downloading the current release wheel..."
-          gitee_curl "$wheel_url" -o "$wheel_path"
-          wheel_source="$wheel_path"
-          ;;
-      esac
-    fi
     info "  installing $wheel_source"
     install_result=0
     UV_DEFAULT_INDEX="$LOOPRAIL_PYPI_INDEX" uv tool install --force "looprail[channels] @ $wheel_source" || install_result=$?
@@ -250,4 +233,6 @@ main() {
   fi
 }
 
-main "$@"
+if [ "${LOOPRAIL_INSTALLER_TEST_MODE:-0}" != "1" ]; then
+  main "$@"
+fi

@@ -1,7 +1,7 @@
 # Looprail 国内 Windows PowerShell 一键安装脚本。
 #
 # 源码检出：README 中记录了公开的源码检出流程。
-# 远程 release 解析仅为 R7 完成前的兼容路径；最终公开仓库地址确定后再替换。
+# 远程 release 从最终公开 GitHub 仓库的 latest release API 解析。
 #
 # 目标：让全新 Windows 机器无需管理员权限即可运行 `looprail`。脚本具备幂等性，
 # 会复用已有工具并只补齐缺项：
@@ -9,16 +9,20 @@
 #   2. Node.js >= 22 （TUI 运行时；系统缺少时私有安装）
 #   3. looprail          （作为全局 uv 工具安装）
 #
-# 当前预公开远程路径可能需要 LOOPRAIL_GITEE_TOKEN；也可用 LOOPRAIL_WHEEL_URL 固定 wheel。
+# 如果尚未发布 GitHub Release，也可以用 LOOPRAIL_WHEEL_URL 固定一个受信任的 wheel。
 
 $ErrorActionPreference = "Stop"
 
 $MinNodeMajor = 22
 $LooprailHome = if ($env:LOOPRAIL_HOME) { $env:LOOPRAIL_HOME } else { Join-Path $HOME ".looprail" }
 $NodeRuntimeDir = Join-Path $LooprailHome "runtime"
-$LooprailGiteeOwner = if ($env:LOOPRAIL_GITEE_OWNER) { $env:LOOPRAIL_GITEE_OWNER } else { "htxoffical" }
-# Keep the current release endpoint until the final public repository URL is finalized.
-$LooprailGiteeRepo = if ($env:LOOPRAIL_GITEE_REPO) { $env:LOOPRAIL_GITEE_REPO } else { "pico-harness" }
+$LooprailGithubRepository = "Morimi-Kazuha/Looprail-Agent"
+$LooprailGithubReleaseApi = "https://api.github.com/repos/Morimi-Kazuha/Looprail-Agent/releases/latest"
+$LooprailGithubHeaders = @{
+    Accept = "application/vnd.github+json"
+    "X-GitHub-Api-Version" = "2022-11-28"
+    "User-Agent" = "Looprail-installer"
+}
 $LooprailNodeMirror = if ($env:LOOPRAIL_NODE_MIRROR) { $env:LOOPRAIL_NODE_MIRROR.TrimEnd('/') } else { "https://mirrors.aliyun.com/nodejs-release" }
 $LooprailNodeChecksumBase = if ($env:LOOPRAIL_NODE_CHECKSUM_BASE) { $env:LOOPRAIL_NODE_CHECKSUM_BASE.TrimEnd('/') } else { "https://nodejs.org/dist" }
 $LooprailNpmRegistry = if ($env:LOOPRAIL_NPM_REGISTRY) { $env:LOOPRAIL_NPM_REGISTRY } else { "https://registry.npmmirror.com" }
@@ -200,19 +204,27 @@ function Ensure-Node {
 }
 
 function Resolve-LooprailReleaseAssets {
-    if ($env:LOOPRAIL_WHEEL_URL) {
-        return $env:LOOPRAIL_WHEEL_URL
+    $wheelOverride = $env:LOOPRAIL_WHEEL_URL
+    if (-not [string]::IsNullOrWhiteSpace($wheelOverride)) {
+        return $wheelOverride.Trim()
     }
+
     Write-Info "Resolving the current Looprail release..."
-    $headers = @{}
-    if ($env:LOOPRAIL_GITEE_TOKEN) {
-        $headers["Authorization"] = "Bearer $env:LOOPRAIL_GITEE_TOKEN"
+    try {
+        $release = Invoke-RestMethod -Uri $LooprailGithubReleaseApi -Headers $LooprailGithubHeaders -Method Get
+    } catch {
+        Fail "Could not query the GitHub latest release at $LooprailGithubReleaseApi. The repository may not have a published release yet, or GitHub is unavailable. Set LOOPRAIL_WHEEL_URL to a trusted wheel URL. Details: $($_.Exception.Message)"
     }
-    $releaseApi = "https://gitee.com/api/v5/repos/$LooprailGiteeOwner/$LooprailGiteeRepo/releases/latest"
-    $release = Invoke-RestMethod $releaseApi -Headers $headers
-    $looprailAsset = $release.assets | Where-Object { $_.browser_download_url -match "/looprail-[^/]+\.whl$" } | Select-Object -First 1
+
+    $assetUrlPattern = "^https://github\.com/$([regex]::Escape($LooprailGithubRepository))/releases/download/[^/]+/looprail-[^/]+\.whl$"
+    $looprailAsset = @($release.assets) |
+        Where-Object {
+            $_.name -match '^looprail-[^/]+\.whl$' -and
+            $_.browser_download_url -match $assetUrlPattern
+        } |
+        Select-Object -First 1
     if (-not $looprailAsset) {
-        Fail "Could not resolve the current Looprail wheel. For the transitional remote path, set LOOPRAIL_GITEE_TOKEN; alternatively set LOOPRAIL_WHEEL_URL."
+        Fail "The GitHub latest release does not contain a Looprail wheel. Publish a release asset or set LOOPRAIL_WHEEL_URL to a trusted wheel URL."
     }
     return $looprailAsset.browser_download_url
 }
@@ -255,20 +267,6 @@ function Install-Looprail([string]$UvPath, [string]$NodePath) {
     } else {
         $wheelUrl = Resolve-LooprailReleaseAssets
         $wheelSource = $wheelUrl
-        $wheelTemp = $null
-        if ($env:LOOPRAIL_GITEE_TOKEN -and $wheelUrl.StartsWith("https://gitee.com/")) {
-            $wheelName = [IO.Path]::GetFileName(([uri]$wheelUrl).AbsolutePath)
-            if (-not $wheelName.EndsWith(".whl")) {
-                Fail "Resolved Gitee asset is not a wheel: $wheelName"
-            }
-            $wheelTemp = Join-Path ([IO.Path]::GetTempPath()) ("looprail-wheel-" + [guid]::NewGuid().ToString("N"))
-            New-Item -ItemType Directory -Path $wheelTemp -Force | Out-Null
-            $wheelPath = Join-Path $wheelTemp $wheelName
-            $headers = @{ "Authorization" = "Bearer $env:LOOPRAIL_GITEE_TOKEN" }
-            Write-Info "Downloading the current release wheel..."
-            Invoke-WebRequest $wheelUrl -Headers $headers -OutFile $wheelPath
-            $wheelSource = $wheelPath
-        }
         Write-Info "  installing $wheelSource"
         $previousIndex = $env:UV_DEFAULT_INDEX
         $env:UV_DEFAULT_INDEX = $LooprailPyPIIndex
@@ -281,9 +279,6 @@ function Install-Looprail([string]$UvPath, [string]$NodePath) {
             if ($LASTEXITCODE -ne 0) { Fail "Looprail install failed." }
         } finally {
             $env:UV_DEFAULT_INDEX = $previousIndex
-            if ($wheelTemp -and (Test-Path $wheelTemp)) {
-                Remove-Item $wheelTemp -Recurse -Force -ErrorAction SilentlyContinue
-            }
         }
     }
     & $UvPath tool update-shell | Out-Null
@@ -310,4 +305,6 @@ function Main {
     }
 }
 
-Main
+if ($MyInvocation.InvocationName -ne '.') {
+    Main
+}

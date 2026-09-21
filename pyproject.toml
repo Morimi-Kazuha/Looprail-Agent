@@ -76,6 +76,11 @@ eval = []
 [project.scripts]
 looprail = "looprail.cli.commands:run"
 
+[project.urls]
+Homepage = "https://github.com/Morimi-Kazuha/Looprail-Agent"
+Repository = "https://github.com/Morimi-Kazuha/Looprail-Agent"
+Issues = "https://github.com/Morimi-Kazuha/Looprail-Agent/issues"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

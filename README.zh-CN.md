@@ -3,6 +3,8 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12%2B-3776AB.svg)](https://www.python.org/)
 [![许可证：Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
+[代码仓库](https://github.com/Morimi-Kazuha/Looprail-Agent) · [问题反馈](https://github.com/Morimi-Kazuha/Looprail-Agent/issues)
+
 **Looprail 是一个面向真实代码仓库长链路任务的 local-first Coding Agent Runtime。**
 
 [English README](README.md)
@@ -47,6 +49,8 @@ flowchart TD
 在仓库根目录执行：
 
 ```bash
+git clone https://github.com/Morimi-Kazuha/Looprail-Agent.git
+cd Looprail-Agent
 uv sync --frozen --extra dev --dev
 uv run --frozen looprail --version
 ```
