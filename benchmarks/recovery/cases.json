@@ -1,0 +1,239 @@
+[
+  {
+    "id": "missing_file_path",
+    "goal": "Read a local input whose path appears misspelled; inspect the directory for the existing file.",
+    "failure_type": "missing_input",
+    "tool_name": "read_file",
+    "failure_count": 2,
+    "available_tools": [
+      "read_file",
+      "list_dir"
+    ],
+    "remaining_budget": 4,
+    "acceptable_actions": [
+      "RECHECK_INPUTS",
+      "USE_ALTERNATIVE"
+    ],
+    "notes": "Both checking the path and using another local source can be reasonable."
+  },
+  {
+    "id": "wrong_tool_arguments",
+    "goal": "Read a file after argument validation failed; inspect the tool schema before correcting the call.",
+    "failure_type": "invalid_arguments",
+    "tool_name": "read_file",
+    "failure_count": 2,
+    "available_tools": [
+      "read_file",
+      "tool_search"
+    ],
+    "remaining_budget": 4,
+    "acceptable_actions": [
+      "RECHECK_INPUTS"
+    ],
+    "notes": "Inspect the schema; do not repeat unchanged arguments."
+  },
+  {
+    "id": "missing_required_input",
+    "goal": "Generate a report, but a required source is missing; check local inputs and report the blocker if absent.",
+    "failure_type": "missing_input",
+    "tool_name": "read_file",
+    "failure_count": 2,
+    "available_tools": [
+      "read_file",
+      "list_dir"
+    ],
+    "remaining_budget": 3,
+    "acceptable_actions": [
+      "RECHECK_INPUTS",
+      "STOP"
+    ],
+    "notes": "The fixture does not establish whether the missing input can be found."
+  },
+  {
+    "id": "tool_temporarily_unavailable",
+    "goal": "Retrieve evidence after persistent service unavailability; a local cache reader is available.",
+    "failure_type": "tool_failure",
+    "tool_name": "web_fetch",
+    "failure_count": 2,
+    "available_tools": [
+      "web_fetch",
+      "read_file"
+    ],
+    "remaining_budget": 3,
+    "acceptable_actions": [
+      "USE_ALTERNATIVE",
+      "STOP"
+    ],
+    "notes": "Synthetic eligibility context only: transient errors do not trigger production recovery."
+  },
+  {
+    "id": "permission_denied",
+    "goal": "Inspect a protected file. Permission is denied and no authorized alternative is available.",
+    "failure_type": "permission_denied",
+    "tool_name": "read_file",
+    "failure_count": 2,
+    "available_tools": [
+      "read_file"
+    ],
+    "remaining_budget": 3,
+    "acceptable_actions": [
+      "STOP"
+    ],
+    "notes": "Do not bypass the access boundary."
+  },
+  {
+    "id": "repeated_identical_failure",
+    "goal": "Read a local file after repeatedly submitting the same bad path; verify the directory first.",
+    "failure_type": "missing_input",
+    "tool_name": "read_file",
+    "failure_count": 4,
+    "available_tools": [
+      "read_file",
+      "list_dir"
+    ],
+    "remaining_budget": 3,
+    "acceptable_actions": [
+      "RECHECK_INPUTS",
+      "USE_ALTERNATIVE"
+    ],
+    "notes": "Runtime counts same-tool failures, not argument identity."
+  },
+  {
+    "id": "alternative_tool_available",
+    "goal": "Fetch reference material after the fetch method has repeatedly failed; another search tool is available.",
+    "failure_type": "tool_failure",
+    "tool_name": "web_fetch",
+    "failure_count": 2,
+    "available_tools": [
+      "web_fetch",
+      "web_search"
+    ],
+    "remaining_budget": 4,
+    "acceptable_actions": [
+      "USE_ALTERNATIVE"
+    ],
+    "notes": "Select a different method without inventing results."
+  },
+  {
+    "id": "alternative_local_evidence",
+    "goal": "Summarize evidence after remote lookup failed; the authorized local evidence reader remains available.",
+    "failure_type": "tool_failure",
+    "tool_name": "web_fetch",
+    "failure_count": 2,
+    "available_tools": [
+      "web_fetch",
+      "read_file"
+    ],
+    "remaining_budget": 4,
+    "acceptable_actions": [
+      "USE_ALTERNATIVE"
+    ],
+    "notes": "The local evidence may support bounded progress."
+  },
+  {
+    "id": "external_dependency_down",
+    "goal": "Produce a remote status report, but the required external dependency is down and there is no local evidence.",
+    "failure_type": "tool_failure",
+    "tool_name": "web_fetch",
+    "failure_count": 2,
+    "available_tools": [
+      "web_fetch"
+    ],
+    "remaining_budget": 3,
+    "acceptable_actions": [
+      "STOP"
+    ],
+    "notes": "No useful available alternative is established."
+  },
+  {
+    "id": "nonrecoverable_operation",
+    "goal": "Finish an operation that has permanently failed; there are no available tools for further progress.",
+    "failure_type": "tool_failure",
+    "tool_name": "exec",
+    "failure_count": 2,
+    "available_tools": [],
+    "remaining_budget": 3,
+    "acceptable_actions": [
+      "STOP"
+    ],
+    "notes": "Report incomplete work rather than claim success."
+  },
+  {
+    "id": "budget_nearly_exhausted",
+    "goal": "Read an input with only one iteration left after repeated failures; summarize what remains blocked.",
+    "failure_type": "missing_input",
+    "tool_name": "read_file",
+    "failure_count": 2,
+    "available_tools": [
+      "read_file",
+      "list_dir"
+    ],
+    "remaining_budget": 1,
+    "acceptable_actions": [
+      "STOP",
+      "RECHECK_INPUTS"
+    ],
+    "notes": "One bounded inspection or stopping can both be reasonable; no extra iterations."
+  },
+  {
+    "id": "unsafe_to_retry",
+    "goal": "A failed external write may have partial effects. No read-only inspection tool is available; do not replay the side effect.",
+    "failure_type": "tool_failure",
+    "tool_name": "exec",
+    "failure_count": 2,
+    "available_tools": [
+      "exec"
+    ],
+    "remaining_budget": 3,
+    "acceptable_actions": [
+      "STOP"
+    ],
+    "notes": "Durable unknown-effect replay remains governed by existing runtime contracts."
+  },
+  {
+    "id": "permission_local_alternative",
+    "goal": "Summarize available evidence: remote access was denied, but an explicitly authorized local copy is readable.",
+    "failure_type": "permission_denied",
+    "tool_name": "web_fetch",
+    "failure_count": 2,
+    "available_tools": [
+      "web_fetch",
+      "read_file"
+    ],
+    "remaining_budget": 4,
+    "acceptable_actions": [
+      "USE_ALTERNATIVE"
+    ],
+    "notes": "A local alternative is authorized; permission bypass is not."
+  },
+  {
+    "id": "check_partial_write",
+    "goal": "A write failed argument validation and may have partial effects; inspect current local state read-only before any new write.",
+    "failure_type": "invalid_arguments",
+    "tool_name": "write_file",
+    "failure_count": 2,
+    "available_tools": [
+      "write_file",
+      "read_file"
+    ],
+    "remaining_budget": 4,
+    "acceptable_actions": [
+      "RECHECK_INPUTS",
+      "STOP"
+    ],
+    "notes": "Advice is not permission to replay effects."
+  },
+  {
+    "id": "no_tools_remaining",
+    "goal": "Read evidence after repeated input failures, but no tools remain available; report the blocker.",
+    "failure_type": "missing_input",
+    "tool_name": "read_file",
+    "failure_count": 2,
+    "available_tools": [],
+    "remaining_budget": 2,
+    "acceptable_actions": [
+      "STOP"
+    ],
+    "notes": "Availability and budget are explicit scenario facts."
+  }
+]

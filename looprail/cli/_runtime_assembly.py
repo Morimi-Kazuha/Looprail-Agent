@@ -126,7 +126,9 @@ def assemble_runtime(
         build_plugin_tools,
         maybe_build_memory_backend,
     )
+    from looprail.config.looprail import JevConfig
     from looprail.config.paths import RuntimePaths
+    from looprail.providers.jev_decision import build_recovery_policy
     from looprail.session.manager import SessionManager
 
     paths = paths or RuntimePaths(
@@ -154,6 +156,7 @@ def assemble_runtime(
             registry=plugin_registry,
         )
         defaults = config.agents.defaults
+        recovery_policy = build_recovery_policy(getattr(looprail_config.runtime, "jev", JevConfig()))
         agent_loop = AgentLoop(
             provider=runtime_provider,
             workspace=paths.workspace,
@@ -161,6 +164,7 @@ def assemble_runtime(
             model=defaults.model,
             max_iterations=defaults.max_tool_iterations,
             empty_recovery=limits_from_defaults(defaults),
+            **({"recovery_policy": recovery_policy} if recovery_policy is not None else {}),
             context_window_tokens=defaults.context_window_tokens,
             max_concurrent_subagents=defaults.max_concurrent_subagents,
             max_subagent_spawns_per_hour=defaults.max_subagent_spawns_per_hour,

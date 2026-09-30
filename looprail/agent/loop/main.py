@@ -29,6 +29,12 @@ from loguru import logger
 
 from looprail.agent.context import ContextBuilder
 from looprail.agent.effects import EffectJournal
+from looprail.agent.loop.adaptive_recovery import (
+    STRATEGY_HINTS,
+    RecoveryPolicy,
+    bounded_goal,
+    project_failure_kind,
+)
 from looprail.agent.loop.recovery import (
     POST_TOOL_NUDGE,
     RecoveryAction,
@@ -298,6 +304,7 @@ class AgentLoop:
         empty_recovery: RecoveryLimits | None = None,
         context_engine_factory: "ContextEngineFactory | None" = None,
         state: Path | None = None,
+        recovery_policy: RecoveryPolicy | None = None,
     ):
         from looprail.agent.hook import CompositeHook
         from looprail.call_efficiency import CallEfficiency
@@ -310,6 +317,7 @@ class AgentLoop:
         self.state = state or workspace
         self.model = model or provider.get_default_model()
         self.max_iterations = max_iterations
+        self.recovery_policy = recovery_policy
         # 空响应恢复预算。None 表示使用已启用的默认值。
         self._recovery_limits = empty_recovery if empty_recovery is not None else RecoveryLimits()
         self.context_window_tokens = context_window_tokens
@@ -1362,6 +1370,8 @@ class AgentLoop:
         session_key: str = "",
         on_token_delta: Callable[[str], Awaitable[None]] | None = None,
         on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
+        synthesis_prompt: str = _MAX_ITER_SYNTHESIS_PROMPT,
+        static_fallback: str | None = None,
     ) -> str:
         """迭代预算耗尽后，用一次禁用 Tool 的 LLM 调用生成本轮收尾回复。
 
@@ -1375,7 +1385,7 @@ class AgentLoop:
         未连接回调时使用 Provider 的 `chat_with_retry`。成功响应仍经 CallEfficiency 记录和
         `_strip_think` 清理，返回值是最终可交付文本，不包含新增 Tool 结果。
         """
-        synth_messages = messages + [{"role": "user", "content": _MAX_ITER_SYNTHESIS_PROMPT}]
+        synth_messages = messages + [{"role": "user", "content": synthesis_prompt}]
         try:
             if on_token_delta is not None or on_reasoning_delta is not None:
                 response = await self._llm_call_stream(
@@ -1408,7 +1418,7 @@ class AgentLoop:
             )
         except Exception as exc:
             logger.warning("Max-iter synthesis call failed: {}", exc)
-        fallback = _MAX_ITER_STATIC_FALLBACK.format(n=self.max_iterations)
+        fallback = static_fallback or _MAX_ITER_STATIC_FALLBACK.format(n=self.max_iterations)
         # 流式成功路径已通过 ``on_token_delta`` 交付文本，此回退路径则没有。因此也要将它推入流；
         # 否则一旦已有内容流出，run_turn 边界会抑制结尾 ``Text``，导致流式出口丢失回退文本。
         if on_token_delta is not None:
@@ -1492,6 +1502,11 @@ class AgentLoop:
         loop_fail_tool: str | None = None
         loop_fail_streak = 0
         loop_nudges = 0
+        recovery_advised = False
+        recovery_stopped = False
+        recovery_goal = next(
+            (str(m.get("content", "")) for m in reversed(initial_messages) if m.get("role") == "user"), ""
+        )
         # 空响应恢复状态属于当前 Turn。AgentLoop 是跨会话共享的长生命周期单例，
         # 实例级计数器会跨 Turn 泄漏；此处重置可为每个 Turn 提供干净预算。
         prev_had_tool_calls = False
@@ -1518,6 +1533,7 @@ class AgentLoop:
                         prefix = inj_text + "\n" if inj_text else ""
                         inj_text = f"{prefix}[injected message; attached files: {', '.join(inj_paths)}]"
                     if inj_text:
+                        recovery_goal = inj_text
                         messages.append({"role": "user", "content": inj_text})
                         logger.info("inject: merged a mid-turn user message")
 
@@ -1540,12 +1556,8 @@ class AgentLoop:
                     }
                     turn_start_idx -= compacted.removed_before_turn
                     if context_decision_sink is not None:
-                        context_decision_sink.setdefault("runtime_context_decisions", []).extend(
-                            compacted.decisions
-                        )
-                        context_decision_sink.setdefault("runtime_context_warnings", []).extend(
-                            compacted.warnings
-                        )
+                        context_decision_sink.setdefault("runtime_context_decisions", []).extend(compacted.decisions)
+                        context_decision_sink.setdefault("runtime_context_warnings", []).extend(compacted.warnings)
                     with trace.span(
                         "context.compact",
                         {
@@ -1796,12 +1808,47 @@ class AgentLoop:
                     and messages[-1].get("role") == "tool"
                 ):
                     loop_nudges += 1
-                    messages[-1]["content"] = (
-                        str(messages[-1].get("content", ""))
-                        + "\n\n"
-                        + _loop_break_nudge(loop_fail_tool, loop_fail_streak)
-                    )
+                    nudge = _loop_break_nudge(loop_fail_tool, loop_fail_streak)
+                    if self.recovery_policy is not None and not recovery_advised and iteration < self.max_iterations:
+                        recovery_advised = True
+                        recovery_context = {
+                            "user_goal": bounded_goal(recovery_goal),
+                            "failed_tool": str(loop_fail_tool)[:128],
+                            "failure_kind": project_failure_kind(result),
+                            "consecutive_failures": loop_fail_streak,
+                            "remaining_iterations": self.max_iterations - iteration,
+                            "available_tools": tuple(self.tools.tool_names[:64]),
+                        }
+                        with trace.span(
+                            "agent.recovery.decision",
+                            {"trigger": "repeated_hard_tool_failure", "iteration": iteration},
+                            kind="model",
+                            session_key=session_key,
+                            turn_id=turn_id,
+                        ) as decision_span:
+                            decision = await self.recovery_policy.decide(recovery_context)
+                            attributes = decision.attributes()
+                            decision_span.set(attributes)
+                            decision_span.event("JEV_DECISION")
+                        if context_decision_sink is not None:
+                            context_decision_sink.setdefault("recovery_decisions", []).append(attributes)
+                        logger.info(
+                            "JEV_DECISION type=TOOL_RECOVERY source={} action={} confidence={} reason={} "
+                            "fallback={} latency_ms={}",
+                            decision.decision_source,
+                            decision.selected_action,
+                            decision.confidence,
+                            decision.reason,
+                            decision.fallback_used,
+                            decision.latency_ms,
+                        )
+                        if decision.selected_action != "BASELINE":
+                            nudge = STRATEGY_HINTS[decision.selected_action]
+                            recovery_stopped = decision.selected_action == "STOP"
+                    messages[-1]["content"] = str(messages[-1].get("content", "")) + "\n\n" + nudge
                     loop_fail_streak = 0  # 每轮新的连续失败只触发一次
+                    if recovery_stopped:
+                        break
                 prev_had_tool_calls = True
             else:
                 clean = self._strip_think(response.content)
@@ -1876,7 +1923,20 @@ class AgentLoop:
                 final_content = clean
                 break
 
-        if final_content is None and iteration >= self.max_iterations:
+        if recovery_stopped:
+            status = "interrupted"
+            final_content = await self._synthesize_final_on_exhaustion(
+                messages,
+                effective_model,
+                fallback_models,
+                session_key,
+                on_token_delta=on_token_delta,
+                on_reasoning_delta=on_reasoning_delta,
+                synthesis_prompt=STRATEGY_HINTS["STOP"],
+                static_fallback="Repeated tool failures blocked this turn. The task remains incomplete; verify current state before continuing.",
+            )
+            messages = self.context.add_assistant_message(messages, final_content)
+        elif final_content is None and iteration >= self.max_iterations:
             logger.warning("Max iterations ({}) reached; synthesizing final answer", self.max_iterations)
             # 耗尽包含两个彼此独立的事实，并非二选一：
             #   1. 本轮尚未完成——将其标记为 ``interrupted``，让影子 Git 检查点提交带上

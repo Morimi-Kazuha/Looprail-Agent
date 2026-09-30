@@ -55,6 +55,8 @@ ALLOWED_EVALUATION_DOCS = {
     "docs/evaluation/tracing-overhead.md",
 }
 ALLOWED_PUBLIC_DOCS = {
+    "docs/JEV_INTEGRATION.md",
+    "docs/JEV_VALIDATION.md",
     "docs/runtime-baseline.md",
     "docs/tool-runtime-contract.md",
 }

@@ -100,6 +100,63 @@ LooprailBench provides additional deterministic evaluation infrastructure; its
 source and reproducibility helpers live under
 [`benchmarks/looprailbench/`](benchmarks/looprailbench/).
 
+## Policy-Guarded Semantic Recovery
+
+```text
+Deterministic failure detection → semantic recovery advice
+→ local policy validation → bounded runtime execution
+```
+
+**Trigger:** only consecutive hard failures of the same tool, at the existing
+recovery boundary, at most once per turn while iteration budget remains.
+**Advisor:** Jev recommends only `RECHECK_INPUTS`, `USE_ALTERNATIVE`, or `STOP`.
+**Guard:** local schema, enum, probability and confidence validation; Runtime
+checks trigger eligibility, available actions and remaining budget.
+**Authority:** Runtime owns every subsequent tool call and its permissions.
+
+```mermaid
+flowchart TD
+    D[Tool failure detector] --> T[Recovery trigger and budget check]
+    T --> A[Jev DecisionAdvisorPort]
+    A --> C[Structured Choice]
+    C --> P[Local Policy Guard]
+    P --> R[RECHECK_INPUTS]
+    P --> U[USE_ALTERNATIVE]
+    P --> S[STOP]
+    R --> X[Runtime authority]
+    U --> X
+    S --> X
+    X --> Tools[Governed tools]
+    X --> I[Tool-free summary; interrupted]
+    A -. unavailable .-> F[Original deterministic recovery]
+    P -. invalid / low confidence .-> F
+    F --> X
+```
+
+Disabled mode, missing keys, timeout, network errors, invalid responses/schema
+and low confidence preserve Looprail's original deterministic recovery. Optional
+advisor failures do not crash the Agent Runtime. Cancellation still propagates.
+Jev cannot directly invoke tools, replay side effects, bypass budgets, or mark
+interrupted work as successful. RECHECK/ALTERNATIVE inject fixed local hints;
+the main model can ignore them. Policy-accepted STOP disables future tool batches
+for this turn, produces a tool-free summary, and persists `interrupted`.
+The current batch has already finished when recovery is considered.
+
+Enable with `LOOPRAIL_JEV_ENABLED=true` and `LOOPRAIL_OPENROUTER_API_KEY` for
+OpenRouter, or `LOOPRAIL_JEV_API_KEY` for direct TypeSafe with an explicit model.
+Only Looprail's configuration contract is read. The default OpenRouter model is
+`typesafe/jev-1.13`; text-provider configuration remains independent. Decisions
+appear as `agent.recovery.decision` / `JEV_DECISION` with confidence, fallback,
+local reason and latency. Credentials stay in the environment.
+
+The configurable **0.65** confidence threshold is a conservative default,
+not a benchmarked optimum. The [15-case recovery scaffold](benchmarks/recovery/README.md)
+compares decisions against acceptable action sets and records distributions,
+fallbacks and latency. `python -m scripts.eval_jev_recovery` defaults to an
+offline fake; its results validate the harness, not Jev accuracy or task-success
+gains. See [architecture and demos](docs/JEV_INTEGRATION.md) and
+[validation evidence](docs/JEV_VALIDATION.md).
+
 ## Roadmap
 
 - Broader cross-platform validation.

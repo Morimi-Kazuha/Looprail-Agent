@@ -518,6 +518,17 @@ class CheckpointConfig(_Base):
     Workspace。Real Workspace 是 Work-tree，User Own ``.git`` **Never Touched**。"""
 
 
+class JevConfig(_Base):
+    """Optional semantic tool-recovery advisor. Credentials are environment-only."""
+
+    enabled: bool = False
+    transport: Literal["openrouter", "typesafe_direct"] = "openrouter"
+    model: str = Field(default="", max_length=256)
+    endpoint: str = Field(default="https://api.typesafe.ai/v1/systemone", max_length=512)
+    timeout_seconds: float = Field(default=2.0, gt=0, le=30, allow_inf_nan=False)
+    confidence_threshold: float = Field(default=0.65, ge=0, le=1, allow_inf_nan=False)
+
+
 class RuntimeConfig(_Base):
     """Runtime Discipline，即 4th Feature Pillar。
 
@@ -527,6 +538,7 @@ class RuntimeConfig(_Base):
     """
 
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
+    jev: JevConfig = Field(default_factory=JevConfig)
 
 
 class TracingConfig(_Base):
