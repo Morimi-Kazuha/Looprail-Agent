@@ -159,10 +159,16 @@ class HistoryTrimmer:
         errors: list[str] = []
         open_calls: set[str] = set()
         for msg in messages:
+            if open_calls and msg.get("role") != "tool":
+                errors.append(f"tool results must immediately follow their assistant call: {sorted(open_calls)}")
             if msg.get("role") == "assistant" and msg.get("tool_calls"):
                 for tc in msg.get("tool_calls") or []:
                     if isinstance(tc, dict) and tc.get("id"):
+                        if str(tc["id"]) in open_calls:
+                            errors.append(f"duplicate open tool_call id: {tc['id']}")
                         open_calls.add(str(tc["id"]))
+                    else:
+                        errors.append("assistant tool_call is missing its id")
             if msg.get("role") == "tool":
                 call_id = str(msg.get("tool_call_id", ""))
                 if call_id not in open_calls:
@@ -236,11 +242,7 @@ class HistoryTrimmer:
             protected_ids,
             priority_scores or {},
         )
-        decision_by_ids = {
-            tuple(item.get("message_ids", [])): item
-            for item in decisions
-            if item.get("message_ids")
-        }
+        decision_by_ids = {tuple(item.get("message_ids", [])): item for item in decisions if item.get("message_ids")}
         trimmed_ids = list(canon)
         while estimated > max_prompt and trimmed_ids:
             groups = [
@@ -356,6 +358,7 @@ class RuntimeTrimOutcome:
     original_tool_contents: dict[str, str] = field(default_factory=dict)
     decisions: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    compression_stages: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def changed(self) -> bool:
@@ -498,9 +501,7 @@ class RuntimeContextTrimmer:
                 dropped_original_group = [working_positions[index] for index in dropped_group]
                 decisions.append(
                     ContextDecision(
-                        source=(
-                            f"live_history[{dropped_original_group[0]}:{dropped_original_group[-1]}]"
-                        ),
+                        source=(f"live_history[{dropped_original_group[0]}:{dropped_original_group[-1]}]"),
                         layer="L5-old-history",
                         estimated_tokens=sum(estimate_message_tokens(working[i]) for i in dropped_group),
                         priority=0.0,

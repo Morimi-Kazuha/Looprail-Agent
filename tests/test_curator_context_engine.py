@@ -210,7 +210,7 @@ def test_agentloop_uses_curator_and_keeps_internal_tools_private(tmp_path: Path)
     loop = AgentLoop(
         provider=CuratorScriptProvider(),
         workspace=tmp_path,
-        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0),
+        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0, progressive_compression=False),
     )
 
     assert loop.context_engine.name == "context_assembler"
@@ -225,7 +225,7 @@ async def test_curator_slow_path_archives_and_writes_trace(tmp_path: Path):
     loop = AgentLoop(
         provider=provider,
         workspace=tmp_path,
-        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0),
+        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0, progressive_compression=False),
     )
 
     assembled = await loop.context_engine.assemble(
@@ -256,7 +256,7 @@ async def test_curator_fallback_when_internal_agent_does_not_finish(tmp_path: Pa
     loop = AgentLoop(
         provider=provider,
         workspace=tmp_path,
-        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0),
+        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0, progressive_compression=False),
     )
 
     assembled = await loop.context_engine.assemble(
@@ -283,6 +283,7 @@ async def test_curator_timeout_records_distinct_fallback_reason(tmp_path: Path):
             engine="curator",
             fast_path_threshold=0.0,
             curator_timeout_seconds=0.01,
+            progressive_compression=False,
         ),
     )
 
@@ -302,7 +303,7 @@ async def test_curator_provider_error_records_category(tmp_path: Path):
     loop = AgentLoop(
         provider=CuratorScriptProvider(curator_mode="error"),
         workspace=tmp_path,
-        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0),
+        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0, progressive_compression=False),
     )
 
     assembled = await loop.context_engine.assemble(
@@ -320,7 +321,7 @@ async def test_curator_provider_error_records_category(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_concurrent_curator_builds_keep_multimodal_prefixes_turn_local(tmp_path: Path):
     provider = ConcurrentCuratorProvider()
-    config = ContextConfig(engine="curator", fast_path_threshold=0.0)
+    config = ContextConfig(engine="curator", fast_path_threshold=0.0, progressive_compression=False)
     curator = CuratorSegmentBuilder(
         tmp_path,
         config,
@@ -365,7 +366,7 @@ async def test_process_message_records_main_and_curator_trajectories(tmp_path: P
     loop = AgentLoop(
         provider=provider,
         workspace=tmp_path,
-        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0),
+        context_config=ContextConfig(engine="curator", fast_path_threshold=0.0, progressive_compression=False),
     )
     session = loop.sessions.get_or_create("cli:trace-test")
     session.messages.extend(_session_messages())

@@ -98,6 +98,21 @@ class ContextConfig(_Base):
     archive_dir: str = "memory/.curator/archive"
     """Workspace 下 Lossless Message Archives 的 Relative Path；目录创建与写入由 Context Engine 负责。"""
 
+    progressive_compression: bool = True
+    """Budget-driven five-stage path; False retains the legacy Curator tool loop."""
+
+    tool_offload_chars: int = Field(default=12_000, ge=1_024)
+    """Stage 1 per-result cap; archive before durable Session truncation."""
+
+    compression_recent_turns: int = Field(default=2, ge=1)
+    """Complete recent Turns retained by snip and collapse."""
+
+    compaction_max_input_tokens: int = Field(default=8_192, ge=256)
+    """Bound the summary-model request independently of the main context."""
+
+    compaction_max_tokens: int = Field(default=2_048, ge=128)
+    """Summary-model output cap; Harness still validates the resulting context."""
+
 
 # 功能 2：调用效率
 # ---------------------------------------------------------------------------

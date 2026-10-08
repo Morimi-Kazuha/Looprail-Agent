@@ -166,6 +166,12 @@ class ContextAssembler(ContextEngine):
         decisions = fixed_decisions + history_decisions
         validation = meta.get("validation")
         if isinstance(validation, dict):
+            # The old comparison rebuilds raw history with the final System
+            # (including newly added Working State). Progressive Curator has
+            # measured the actual original prompt before adding that state.
+            if "compression_stages" in meta and type(validation.get("estimated_tokens_before")) is int:
+                estimated_before = validation["estimated_tokens_before"]
+                source_before = validation.get("estimate_source_before", source_before)
             validation.setdefault("estimated_tokens_before", estimated_before)
             validation.setdefault("estimated_tokens_after", estimated_after)
             validation.setdefault("estimate_source_before", source_before)
@@ -203,9 +209,7 @@ class ContextAssembler(ContextEngine):
             "context.reserved_output": budget.reserved_output,
             "context.runtime_margin": budget.runtime_margin,
             "context.items_kept": sum(1 for item in decisions if item.get("decision") == "KEEP"),
-            "context.items_compacted": sum(
-                1 for item in decisions if item.get("decision") in {"COMPACT", "SUMMARIZE"}
-            ),
+            "context.items_compacted": sum(1 for item in decisions if item.get("decision") in {"COMPACT", "SUMMARIZE"}),
             "context.items_dropped": sum(1 for item in decisions if item.get("decision") == "DROP"),
             "context.summary_used": any(item.get("decision") == "SUMMARIZE" for item in decisions),
             "context.reason": "assembled",
@@ -310,9 +314,7 @@ class ContextAssembler(ContextEngine):
                 ContextDecision(
                     source="recovery_evidence",
                     layer="L2",
-                    estimated_tokens=estimate_prompt_tokens(
-                        [{"role": "user", "content": recovery_evidence}]
-                    ),
+                    estimated_tokens=estimate_prompt_tokens([{"role": "user", "content": recovery_evidence}]),
                     priority=1.0,
                     decision="KEEP",
                     reason="active recovery warning is protected in the current Turn",
@@ -332,6 +334,32 @@ class ContextAssembler(ContextEngine):
             hook = getattr(builder, "after_turn", None)
             if hook is not None:
                 await hook(session_key, outcome, usage)
+
+    async def fit_runtime(self, trimmer, messages, **kwargs):
+        """Keep history ownership in Curator when in-flight Tool output grows."""
+        estimated, _ = trimmer._estimate(messages)
+        for builder in self._phase_b:
+            fit = getattr(builder, "fit_runtime", None)
+            if fit is not None and builder.config.progressive_compression:
+                oversized = any(
+                    msg.get("role") == "tool"
+                    and isinstance(msg.get("content"), str)
+                    and len(msg["content"]) > builder.config.tool_offload_chars
+                    and not trimmer._is_compacted(msg["content"])
+                    for msg in messages
+                )
+                if estimated <= trimmer.input_context_budget and not oversized:
+                    break
+                return await fit(trimmer, messages, **kwargs)
+        return trimmer.fit(messages, **{k: v for k, v in kwargs.items() if k != "session_key"})
+
+    def archive_reader(self):
+        from looprail.context_engine.curator import ContextArchiveReadTool
+
+        for builder in self._phase_b:
+            if getattr(getattr(builder, "config", None), "progressive_compression", False):
+                return ContextArchiveReadTool(builder.archive)
+        return None
 
     def _build_user(self, ctx: AssemblyContext) -> dict[str, Any]:
         """构造唯一结构化 User message，把运行时上下文放在真实内容之前。

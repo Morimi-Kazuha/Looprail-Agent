@@ -221,11 +221,7 @@ def test_runtime_compaction_deduplicates_success_without_breaking_call_result_bo
         observation_meta=observation_meta,
         protected_positions={len(messages) - 1},
     )
-    by_call_id = {
-        message.get("tool_call_id"): message
-        for message in outcome.messages
-        if message.get("role") == "tool"
-    }
+    by_call_id = {message.get("tool_call_id"): message for message in outcome.messages if message.get("role") == "tool"}
 
     assert outcome.changed is True
     assert "call-a" in outcome.compacted_tool_call_ids
@@ -267,9 +263,7 @@ def test_runtime_compaction_retains_latest_failure_and_current_task() -> None:
         protected_positions={len(messages) - 1},
     )
     tool_messages = {
-        message.get("tool_call_id"): message
-        for message in outcome.messages
-        if message.get("role") == "tool"
+        message.get("tool_call_id"): message for message in outcome.messages if message.get("role") == "tool"
     }
 
     assert outcome.changed is True
@@ -277,8 +271,7 @@ def test_runtime_compaction_retains_latest_failure_and_current_task() -> None:
     assert "call-failure" in tool_messages
     assert "failure evidence" in tool_messages["call-failure"]["content"]
     assert any(
-        message.get("role") == "user" and "current task" in message.get("content", "")
-        for message in outcome.messages
+        message.get("role") == "user" and "current task" in message.get("content", "") for message in outcome.messages
     )
     assert HistoryTrimmer.structural_errors(outcome.messages) == []
 
@@ -414,6 +407,7 @@ async def test_real_agentloop_mainline_handles_long_deterministic_task(tmp_path:
         context_window_tokens=8_192,
         context_config=ContextConfig(
             engine="curator",
+            progressive_compression=False,
             fast_path_threshold=0.0,
             runtime_margin_tokens=512,
         ),

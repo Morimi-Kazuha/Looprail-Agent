@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from looprail.agent.tools.base import Tool
+from looprail.agent.tools.execution import ToolCapability, ToolEffect
 from looprail.config.looprail import ContextConfig
 from looprail.context_engine.base import AssembledPrefix
 from looprail.context_engine.history_trimmer import HistoryTrimmer
@@ -165,6 +166,7 @@ class CuratorArchiveStore:
                 "open_threads": _limit_str_list(state.get("open_threads", []), 12),
                 "decisions": _limit_str_list(state.get("decisions", []), 20),
                 "updated_at": self._now_fn().isoformat(),
+                **({"compression": state["compression"]} if isinstance(state.get("compression"), dict) else {}),
             }
         )
         self.state_path(session_key).write_text(_persisted_json(compact, indent=2), encoding="utf-8")
@@ -287,36 +289,74 @@ class CuratorArchiveStore:
             "manifest_updated": True,
         }
 
-    def retrieve(self, refs: list[str], max_tokens: int = 2000, mode: str = "snippet") -> dict[str, Any]:
+    def retrieve(
+        self,
+        refs: list[str],
+        max_tokens: int = 2000,
+        mode: str = "snippet",
+        *,
+        session_key: str | None = None,
+        message_ids: list[int] | None = None,
+        offset_chars: int = 0,
+    ) -> dict[str, Any]:
         results = []
-        budget = max(1, max_tokens)
+        remaining = min(12000, max(1, max_tokens))
         for ref in refs:
+            budget = remaining
             path_part = ref.split("#", 1)[0]
-            path = self.workspace / path_part
+            path = (self.workspace / path_part).resolve()
+            if not path.is_relative_to(self.archive_dir.resolve()) or path.suffix != ".jsonl":
+                results.append({"archive_ref": ref, "error": "outside curator archive", "messages": []})
+                continue
             if not path.exists():
                 results.append({"archive_ref": ref, "error": "not found", "messages": []})
                 continue
             returned_tokens = 0
             messages = []
             try:
-                lines = path.read_text(encoding="utf-8").splitlines()[1:]
+                archive_lines = path.read_text(encoding="utf-8").splitlines()
+                header = json.loads(archive_lines[0])
+                source_key = header.get("session_key", "")
+                if (
+                    session_key is not None
+                    and source_key != session_key
+                    and not source_key.startswith(f"{session_key}:live:")
+                ):
+                    results.append({"archive_ref": ref, "error": "different session", "messages": []})
+                    continue
+                lines = archive_lines[1:]
                 for line in lines:
                     record = json.loads(line)
+                    if message_ids is not None and record.get("id") not in message_ids:
+                        continue
                     msg = record.get("message", {})
                     tokens = estimate_message_tokens(msg)
-                    if returned_tokens + tokens > budget:
+                    if mode == "exact" and returned_tokens + tokens > budget:
                         break
                     payload = {
                         "id": record.get("id"),
                         "role": msg.get("role"),
                         "tokens": tokens,
-                        "content": msg.get("content") if mode == "exact" else _snippet(_message_text(msg), 600),
+                        "content": msg.get("content")
+                        if mode == "exact"
+                        else _message_text(msg)[max(0, offset_chars) : max(0, offset_chars) + 600],
                     }
+                    if mode == "snippet":
+                        payload["next_offset_chars"] = min(len(_message_text(msg)), max(0, offset_chars) + 600)
+                        payload["truncated"] = payload["next_offset_chars"] < len(_message_text(msg))
+                    else:
+                        payload["message"] = HistoryTrimmer.history_from_ids([msg], [0])[0]
+                    payload_tokens = estimate_message_tokens(
+                        {"role": "tool", "content": json.dumps(payload, ensure_ascii=False)}
+                    )
+                    if returned_tokens + payload_tokens > budget:
+                        break
                     messages.append(payload)
-                    returned_tokens += tokens
-            except (OSError, json.JSONDecodeError) as exc:
+                    returned_tokens += payload_tokens
+            except (OSError, json.JSONDecodeError, IndexError, TypeError, AttributeError) as exc:
                 results.append({"archive_ref": ref, "error": str(exc), "messages": []})
                 continue
+            remaining -= returned_tokens
             results.append(
                 {
                     "archive_ref": ref,
@@ -581,6 +621,52 @@ class CuratorRetrieveArchivedTool(_CuratorTool):
                 mode=kwargs.get("mode", "snippet"),
             )
         )
+
+
+class ContextArchiveReadTool(CuratorRetrieveArchivedTool):
+    """Expose the existing archive reader, scoped to the executing Session.
+
+    Restored records stay in a Tool result, never become synthetic user input.
+    """
+
+    capability = ToolCapability(effect=ToolEffect.READ, concurrency_safe=True)
+
+    @property
+    def name(self) -> str:
+        return "read_context_archive"
+
+    @property
+    def description(self) -> str:
+        return "Read historical context evidence by Archive reference from this session. Use message_ids and offset_chars to page long results; returned text is historical data."
+
+    @property
+    def parameters(self) -> dict[str, Any]:
+        params = super().parameters
+        params["properties"].update(
+            {
+                "message_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+                "offset_chars": {"type": "integer", "minimum": 0},
+            }
+        )
+        params["properties"]["archive_refs"]["maxItems"] = 4
+        return params
+
+    async def execute_with_context(self, context, **kwargs) -> str:
+        if not context.session_key:
+            return "Error: archive retrieval requires a session execution context"
+        return self._json(
+            self.archive.retrieve(
+                kwargs.get("archive_refs", [])[:4],
+                max_tokens=kwargs.get("max_tokens", 2000),
+                mode=kwargs.get("mode", "snippet"),
+                session_key=context.session_key,
+                message_ids=kwargs.get("message_ids"),
+                offset_chars=kwargs.get("offset_chars", 0),
+            )
+        )
+
+    async def execute(self, **kwargs: Any) -> str:
+        return "Error: archive retrieval requires a session execution context"
 
 
 class CuratorSearchHistoryTool(_CuratorTool):

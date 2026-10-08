@@ -55,8 +55,8 @@ from looprail.agent.tools.skill import SkillReadTool
 from looprail.agent.tools.spawn import SpawnTool
 from looprail.agent.tools.web import WebFetchTool, WebSearchTool
 from looprail.call_efficiency.pricing import resolve_context_window
-from looprail.context_engine.budget import resolve_context_limits
-from looprail.context_engine.history_trimmer import RuntimeContextTrimmer
+from looprail.context_engine.budget import ContextBudgetError, resolve_context_limits
+from looprail.context_engine.history_trimmer import HistoryTrimmer, RuntimeContextTrimmer
 from looprail.memory_engine.base import TokenBudget
 from looprail.memory_engine.consolidate.consolidator import MemoryConsolidator
 from looprail.providers.base import ErrorClassification, LLMProvider, LLMResponse, ToolCallRequest
@@ -65,7 +65,7 @@ from looprail.session.manager import Session, SessionManager
 from looprail.spine.message import Media
 from looprail.spine.turn import Origin
 from looprail.tracing import semconv, trace
-from looprail.utils.helpers import estimate_prompt_tokens
+from looprail.utils.helpers import estimate_prompt_tokens, estimate_prompt_tokens_chain
 from looprail.utils.persisted_payload import sanitize_persisted_payload
 
 # 刻意在 ``__init__`` 和 ``_assemble_context_messages`` 内延迟导入 ``looprail.context_engine``，以打破运行时
@@ -572,6 +572,9 @@ class AgentLoop:
         for cls in (ReadFileTool, WriteFileTool, EditFileTool, ListDirTool, GrepTool, FindTool):
             self.tools.register(cls(workspace=self.workspace, allowed_dir=allowed_dir))
         self.tools.register(SkillReadTool(self.context.skills))
+        archive_reader = getattr(self.context_engine, "archive_reader", None)
+        if archive_reader is not None and (reader := archive_reader()) is not None:
+            self.tools.register(reader)
         self.tools.register(
             ExecTool(
                 working_dir=str(self.workspace),
@@ -1382,6 +1385,7 @@ class AgentLoop:
         on_reasoning_delta: Callable[[str], Awaitable[None]] | None = None,
         synthesis_prompt: str = _MAX_ITER_SYNTHESIS_PROMPT,
         static_fallback: str | None = None,
+        context_budget: TokenBudget | None = None,
     ) -> str:
         """迭代预算耗尽后，用一次禁用 Tool 的 LLM 调用生成本轮收尾回复。
 
@@ -1397,6 +1401,24 @@ class AgentLoop:
         """
         synth_messages = messages + [{"role": "user", "content": synthesis_prompt}]
         try:
+            if context_budget is not None:
+                limits = resolve_context_limits(
+                    self.provider,
+                    model or self.model,
+                    configured_context_limit=context_budget.context_length,
+                    reserved_output=context_budget.reserved_output,
+                    runtime_margin=context_budget.runtime_margin,
+                )
+                tokens, _ = estimate_prompt_tokens_chain(self.provider, model or self.model, synth_messages, [])
+                if HistoryTrimmer.structural_errors(synth_messages) or tokens > limits.input_context_budget:
+                    raise ContextBudgetError(
+                        estimated_tokens=tokens,
+                        input_context_budget=limits.input_context_budget,
+                        context_limit=limits.effective_context_limit,
+                        reserved_output=limits.reserved_output,
+                        runtime_margin=limits.runtime_margin,
+                        reason="synthesis_context_overflow_or_invalid",
+                    )
             if on_token_delta is not None or on_reasoning_delta is not None:
                 response = await self._llm_call_stream(
                     messages=synth_messages,
@@ -1548,11 +1570,16 @@ class AgentLoop:
                         logger.info("inject: merged a mid-turn user message")
 
             if runtime_compactor is not None:
-                compacted = runtime_compactor.fit(
-                    messages,
+                fit_runtime = getattr(self.context_engine, "fit_runtime", None)
+                fit_kwargs = dict(
                     turn_start_idx=turn_start_idx,
                     observation_meta=tool_observation_meta,
                     protected_positions=protected_positions,
+                )
+                compacted = (
+                    await fit_runtime(runtime_compactor, messages, session_key=session_key, **fit_kwargs)
+                    if fit_runtime is not None
+                    else runtime_compactor.fit(messages, **fit_kwargs)
                 )
                 if compacted.changed:
                     messages = compacted.messages
@@ -1568,6 +1595,9 @@ class AgentLoop:
                     if context_decision_sink is not None:
                         context_decision_sink.setdefault("runtime_context_decisions", []).extend(compacted.decisions)
                         context_decision_sink.setdefault("runtime_context_warnings", []).extend(compacted.warnings)
+                        context_decision_sink.setdefault("runtime_compression_stages", []).extend(
+                            compacted.compression_stages
+                        )
                     with trace.span(
                         "context.compact",
                         {
@@ -1594,6 +1624,38 @@ class AgentLoop:
                 tool_defs,
                 effective_model,
             )
+            if context_budget is not None:
+                limits = resolve_context_limits(
+                    self.provider,
+                    call_model,
+                    configured_context_limit=context_budget.context_length,
+                    reserved_output=context_budget.reserved_output,
+                    runtime_margin=context_budget.runtime_margin,
+                )
+                final_tokens, final_source = estimate_prompt_tokens_chain(
+                    self.provider,
+                    call_model,
+                    call_messages,
+                    call_tools,
+                )
+                errors = HistoryTrimmer.structural_errors(call_messages)
+                if context_decision_sink is not None:
+                    context_decision_sink["provider_context_validation"] = {
+                        "estimated_tokens": final_tokens,
+                        "input_context_budget": limits.input_context_budget,
+                        "estimate_source": final_source,
+                        "structural_errors": errors,
+                        "ok": not errors and final_tokens <= limits.input_context_budget,
+                    }
+                if errors or final_tokens > limits.input_context_budget:
+                    raise ContextBudgetError(
+                        estimated_tokens=final_tokens,
+                        input_context_budget=limits.input_context_budget,
+                        context_limit=limits.effective_context_limit,
+                        reserved_output=limits.reserved_output,
+                        runtime_margin=limits.runtime_margin,
+                        reason="tool_pair_integrity" if errors else "provider_context_overflow_after_strategies",
+                    )
             if on_token_delta is not None or on_reasoning_delta is not None:
                 response = await self._llm_call_stream(
                     messages=call_messages,
@@ -1944,6 +2006,7 @@ class AgentLoop:
                 on_reasoning_delta=on_reasoning_delta,
                 synthesis_prompt=STRATEGY_HINTS["STOP"],
                 static_fallback="Repeated tool failures blocked this turn. The task remains incomplete; verify current state before continuing.",
+                context_budget=context_budget,
             )
             messages = self.context.add_assistant_message(messages, final_content)
         elif final_content is None and iteration >= self.max_iterations:
@@ -1962,6 +2025,7 @@ class AgentLoop:
                 session_key,
                 on_token_delta=on_token_delta,
                 on_reasoning_delta=on_reasoning_delta,
+                context_budget=context_budget,
             )
             # 像普通最终回复一样，把收尾内容持久化到历史中。下游持久化只读取返回的
             # ``messages`` 列表；若不这样做，生成的答案虽会经由流到达用户，却不会进入

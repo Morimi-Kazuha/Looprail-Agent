@@ -136,6 +136,11 @@ class CuratorSegmentBuilder:
             },
         )
 
+        if self.config.progressive_compression:
+            from looprail.context_engine.compression import CuratorCompression
+
+            return await CuratorCompression(self, state, turn_id).run()
+
         history_tokens = sum(item.tokens for item in manifest)
         threshold = int(ctx.budget.available_history * self.config.fast_path_threshold)
         if history_tokens < threshold:
@@ -229,6 +234,76 @@ class CuratorSegmentBuilder:
                 "response": traced_response,
                 "usage": usage or {},
             },
+        )
+
+    async def fit_runtime(self, trimmer, messages, *, session_key, turn_start_idx, **kwargs):
+        """Use the same Curator policy for pressure accumulating inside a Turn.
+
+        Active exchanges cannot collapse. Original contents are returned to the
+        existing AgentLoop restoration path before Session persistence.
+        """
+        from looprail.context_engine.base import AssembledPrefix
+        from looprail.context_engine.compression import CuratorCompression
+        from looprail.context_engine.history_trimmer import RuntimeTrimOutcome
+        from looprail.memory_engine.base import TokenBudget
+
+        turn_id = uuid.uuid4().hex
+        live_key = f"{session_key}:live:{turn_id}"
+        history = messages[1:]
+        manifest = self.archive.build_manifest(live_key, history)
+        state = CuratorState(
+            session_key=live_key,
+            session_messages=history,
+            budget=TokenBudget(
+                trimmer.context_limit,
+                trimmer.reserved_output,
+                0,
+                0,
+                trimmer.input_context_budget,
+                runtime_margin=trimmer.runtime_margin,
+            ),
+            turn=TurnContext(current_message=str(messages[turn_start_idx].get("content", ""))),
+            manifest=manifest,
+            prefix=AssembledPrefix(
+                system_prefix=messages[0]["content"],
+                user_message=messages[turn_start_idx],
+                tool_defs=trimmer.get_tool_definitions(),
+            ),
+        )
+        policy = CuratorCompression(self, state, turn_id, live_start=max(0, turn_start_idx - 1))
+        # Use lifecycle metadata (ToolResult.failed is stronger than textual
+        # inference) when available and protect explicit recovery positions.
+        for position in kwargs.get("protected_positions") or set():
+            if 0 < position < turn_start_idx:
+                policy.recent_ids.add(position - 1)
+        policy.observation_meta = kwargs.get("observation_meta") or {}
+        segment = await policy.run()
+        projected = policy.messages()
+        # Provider projections strip internal keys, but persistence still needs
+        # to recognize Harness-only recovery nudges and thinking prefills.
+        for mid, message in zip(policy.ids, projected[1:], strict=True):
+            if history[mid].get("_recovery_synthetic"):
+                message["_recovery_synthetic"] = True
+        removed = [index for index in range(1, turn_start_idx) if index - 1 not in policy.ids]
+        originals = {}
+        for message in messages:
+            call_id = message.get("tool_call_id")
+            if message.get("role") == "tool" and call_id:
+                updated = next((msg for msg in projected if msg.get("tool_call_id") == call_id), None)
+                if updated is not None and updated.get("content") != message.get("content"):
+                    originals[call_id] = message["content"]
+        decisions = segment.meta["validation"]["decisions"]
+        return RuntimeTrimOutcome(
+            messages=projected if policy.events else messages,
+            estimated_tokens=policy.estimate(),
+            input_context_budget=trimmer.input_context_budget,
+            source=trimmer._estimate(projected)[1],
+            compacted_tool_call_ids=list(originals),
+            original_tool_contents=originals,
+            dropped_history_positions=removed,
+            removed_before_turn=len(removed),
+            decisions=decisions,
+            compression_stages=policy.events,
         )
 
     # ------------------------------------------------------------------
