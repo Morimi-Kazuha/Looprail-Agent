@@ -351,6 +351,14 @@ class AgentLoop:
             user_id=getattr(memory_config, "user_id", "default"),
         )
         self.sessions = session_manager or SessionManager(self.state)
+        from looprail.config.looprail import AutoCaptureConfig
+        from looprail.memory_engine.capture import MemoryCapture
+
+        self.memory_capture = MemoryCapture(
+            self.context.memory,
+            self.sessions,
+            getattr(memory_config, "auto_capture", AutoCaptureConfig()),
+        )
         # 从注册表中排除的工具名称。在默认工具注册和 MCP 连接后均应用，因此可同时限制两组。
         # 供 BCP 等需要严格工具子集的评测框架使用。
         self._disabled_tools = set(disabled_tools or [])
@@ -522,7 +530,8 @@ class AgentLoop:
         时无法持久化学习结果，即使传入 ``True`` 也会保持关闭。功能默认禁用，可由配置
         ``agents.defaults.enable_personalization: true`` 开启。方法只更新实例状态并记录日志。
         """
-        self.enable_personalization = bool(enable and self.memory_enabled)
+        # Capture is the sole automatic preference writer when explicitly enabled.
+        self.enable_personalization = bool(enable and self.memory_enabled and not self.memory_capture.config.enabled)
         logger.info("Personalization flow: {}", "enabled" if self.enable_personalization else "disabled")
 
     def _start_personalization_task(self, factory: Callable[[], Awaitable[Any]]) -> None:
@@ -540,6 +549,7 @@ class AgentLoop:
         `cancel()`，整个过程不发生 ``await``，所以调用方可在进入异步 drain 前建立清晰屏障。
         重复调用是 no-op；真正等待取消完成由 `close` 负责。
         """
+        self.memory_capture.begin_close()
         if self._personalization_closed:
             return
         self._personalization_closed = True
@@ -2071,6 +2081,7 @@ class AgentLoop:
             tasks = tuple(self._personalization_tasks)
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
+            await self.memory_capture.close()
             await self.close_mcp()
             self._closed = True
 
@@ -2406,6 +2417,20 @@ class AgentLoop:
         )
         if not self.context_engine.owns_compaction:
             await self.memory_consolidator.maybe_consolidate_by_tokens(session)
+
+        if self.memory_capture.config.enabled:
+            try:
+                await self.memory_capture.capture(
+                    session=session,
+                    turn_id=req.turn_id or f"session-message-{len(session.messages)}",
+                    messages=turn_artifact_messages,
+                    origin=req.origin,
+                    status=outcome.status,
+                    provider=self.provider,
+                    model=self.model,
+                )
+            except Exception:
+                logger.warning("Optional memory capture failed after Session commit")
 
             # ── 步骤 4：行动后学习（后台、非阻塞）──────────────────────────────
             # 子智能体结果回注时跳过（参见上方轮次前流程）：其内容是系统生成的通知，

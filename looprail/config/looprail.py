@@ -426,6 +426,28 @@ class PluginsConfig(_Base):
     ``ctx.config = plugins.config.get(<id>, {})``；Missing ID 得到 Empty Dict。"""
 
 
+class AutoCaptureConfig(_Base):
+    """Opt-in, bounded extraction into the existing local Structured Memory."""
+
+    enabled: bool = False
+    model: str | None = Field(default=None, min_length=1, max_length=256)
+    max_input_tokens: int = Field(default=2048, ge=256, le=8192)
+    max_output_tokens: int = Field(default=512, ge=64, le=2048)
+    max_candidates: int = Field(default=3, ge=1, le=8)
+    timeout_seconds: float = Field(default=3.0, gt=0, le=30, allow_inf_nan=False)
+
+
+class MemoryRerankConfig(_Base):
+    """Optional ID selection after deterministic, scoped Structured Memory recall."""
+
+    enabled: bool = False
+    model: str | None = Field(default=None, min_length=1, max_length=256)
+    candidate_top_k: int = Field(default=10, ge=1, le=32)
+    max_input_tokens: int = Field(default=4096, ge=256, le=8192)
+    max_output_tokens: int = Field(default=256, ge=32, le=1024)
+    timeout_seconds: float = Field(default=2.0, gt=0, le=10, allow_inf_nan=False)
+
+
 class MemoryConfig(_Base):
     """选择 Active Memory Backend，并配置 Recall Identity/Top-K。
 
@@ -454,6 +476,12 @@ class MemoryConfig(_Base):
 
     structured_max_chars: int = Field(default=6_000, ge=0, le=32_000)
     """本地结构化 Memory 每 Turn 的文本预算；不能挤占 L0/L1/L2 保护层。"""
+
+    auto_capture: AutoCaptureConfig = Field(default_factory=AutoCaptureConfig)
+    """Local capture is independent of backend; disabled unless explicitly enabled."""
+
+    rerank: MemoryRerankConfig = Field(default_factory=MemoryRerankConfig)
+    """Small-model ID selection; off by default, with deterministic recall fallback."""
 
 
 class SkillForgeRouterConfig(_Base):

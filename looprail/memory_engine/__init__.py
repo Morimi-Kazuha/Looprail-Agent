@@ -12,6 +12,7 @@ Contract Test Classes 采用 Lazy Export，避免 Production ``import looprail.m
 from typing import TYPE_CHECKING
 
 from looprail.memory_engine.backend import (
+    MEMORY_CATEGORIES,
     MEMORY_ITEM_SCHEMA,
     MEMORY_KINDS,
     MEMORY_SCOPES,
@@ -19,6 +20,7 @@ from looprail.memory_engine.backend import (
     MEMORY_VERIFICATIONS,
     Memory,
     MemoryBackend,
+    MemoryCategory,
     MemoryItem,
     MemoryKind,
     MemoryProvenance,
@@ -42,6 +44,7 @@ if TYPE_CHECKING:
 __all__ = [
     "AssembledContext",
     "MEMORY_ITEM_SCHEMA",
+    "MEMORY_CATEGORIES",
     "MEMORY_KINDS",
     "MEMORY_SCOPES",
     "MEMORY_STATUSES",
@@ -49,6 +52,7 @@ __all__ = [
     "LifecycleContractTests",
     "Memory",
     "MemoryBackend",
+    "MemoryCategory",
     "MemoryBackendContractTests",
     "MemoryItem",
     "MemoryKind",

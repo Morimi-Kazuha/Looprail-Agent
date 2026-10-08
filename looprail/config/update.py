@@ -306,6 +306,7 @@ def set_memory_backend(
     backend: str | None,
     *,
     config_path: Path | None = None,
+    disable_auto_capture: bool = False,
 ) -> str | None:
     """Patch On-disk ``memory.backend``，返回 Previous Value。
 
@@ -317,6 +318,12 @@ def set_memory_backend(
     section = data.setdefault("memory", {})
     prev = section.get("backend")
     section["backend"] = backend
+    if disable_auto_capture:
+        # Explicit onboard --skip-memory overrides both snake/camel spellings.
+        capture = section.pop("autoCapture", None)
+        capture = section.setdefault("auto_capture", capture or {})
+        capture["enabled"] = False
+        section.setdefault("rerank", {})["enabled"] = False
     _write_atomic(path, data)
     logger.info("config/update: memory.backend set to {!r} (was {!r})", backend, prev)
     return prev

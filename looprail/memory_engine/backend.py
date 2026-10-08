@@ -48,11 +48,22 @@ class MemoryKind(StrEnum):
 
     PROJECT_FACT = "project_fact"
     USER_PREFERENCE = "user_preference"
+    USER_FACT = "user_fact"
+    REFERENCE = "reference"
     REPO_CONVENTION = "repo_convention"
     SUCCESSFUL_PROCEDURE = "successful_procedure"
     FAILURE_LESSON = "failure_lesson"
     ENVIRONMENT_FACT = "environment_fact"
     UNCLASSIFIED = "unclassified"
+
+
+class MemoryCategory(StrEnum):
+    """Purpose of durable memory; independent of evidence kind and scope."""
+
+    USER = "user"
+    FEEDBACK = "feedback"
+    PROJECT = "project"
+    REFERENCE = "reference"
 
 
 class MemoryVerification(StrEnum):
@@ -78,6 +89,7 @@ class MemoryStatus(StrEnum):
 MEMORY_ITEM_SCHEMA = "looprail.memory.item.v1"
 MEMORY_SCOPES = frozenset(item.value for item in MemoryScope)
 MEMORY_KINDS = frozenset(item.value for item in MemoryKind)
+MEMORY_CATEGORIES = frozenset(item.value for item in MemoryCategory)
 MEMORY_VERIFICATIONS = frozenset(item.value for item in MemoryVerification)
 MEMORY_STATUSES = frozenset(item.value for item in MemoryStatus)
 
@@ -196,6 +208,7 @@ class MemoryProvenance:
             }
         )
 
+
 # ---------------------------------------------------------------------------
 # 数据载体
 # ---------------------------------------------------------------------------
@@ -260,6 +273,8 @@ class Memory:
     supersedes: str | None = None
     superseded_by: str | None = None
     invalidated_reason: str | None = None
+    category: str | None = None
+    """Optional additive R1 classification; legacy records retain their meaning."""
 
     @property
     def id(self) -> str | None:
@@ -274,6 +289,7 @@ class Memory:
             "schema": MEMORY_ITEM_SCHEMA,
             "text": self.text,
             "kind": self.kind,
+            "category": self.category,
             "scope": self.scope,
             "verification": self.verification,
             "confidence": self.confidence,

@@ -1426,7 +1426,9 @@ def _step3_sandbox(*, skip: bool, non_interactive: bool) -> object:
         ]
     )
 
-    picked = questionary.select(_t("Run location:", "运行位置:"), choices=choices, style=LOOPRAIL_STYLE, qmark=_QMARK).ask()
+    picked = questionary.select(
+        _t("Run location:", "运行位置:"), choices=choices, style=LOOPRAIL_STYLE, qmark=_QMARK
+    ).ask()
     if picked is None:
         raise typer.Exit(1)
     if picked is _BACK:
@@ -1616,7 +1618,9 @@ def _prompt_channel_fields(channel: str) -> Any:
                     prompt_label, placeholder=placeholder, style=LOOPRAIL_STYLE, qmark=_QMARK
                 ).ask()
             else:
-                value = questionary.text(prompt_label, placeholder=placeholder, style=LOOPRAIL_STYLE, qmark=_QMARK).ask()
+                value = questionary.text(
+                    prompt_label, placeholder=placeholder, style=LOOPRAIL_STYLE, qmark=_QMARK
+                ).ask()
             if value is None:
                 raise typer.Exit(1)
             value = value.strip()
@@ -1976,11 +1980,11 @@ def _step4_channel(*, channel: Optional[str], skip: bool, non_interactive: bool)
 # ---------------------------------------------------------------------------
 
 
-def _set_memory_backend(backend: Optional[str]) -> None:
+def _set_memory_backend(backend: Optional[str], *, disable_auto_capture: bool = False) -> None:
     """Set ``memory.backend`` through the config operations layer."""
     from looprail.config.update import set_memory_backend
 
-    set_memory_backend(backend)
+    set_memory_backend(backend, disable_auto_capture=disable_auto_capture)
 
 
 def _init_extension_block_defaults() -> None:
@@ -2149,7 +2153,7 @@ def _step2_memory(
     del main_model
     _step_header(2, _t("Prepare Memory and meet your agent", "准备记忆并完成首次对话"))
     if skip:
-        _set_memory_backend(None)
+        _set_memory_backend(None, disable_auto_capture=True)
         console.print(
             _t(
                 "  [dim]Memory disabled explicitly; Local Skills remain available.[/dim]",

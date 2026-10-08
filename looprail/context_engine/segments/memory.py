@@ -14,13 +14,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from looprail.config.looprail import MemoryRerankConfig
 from looprail.context_engine.base import AssemblyContext, Segment
 from looprail.context_engine.segments import render
+from looprail.memory_engine.select import MemorySelector
 from looprail.tracing import semconv, trace
 
 if TYPE_CHECKING:
     from looprail.memory_engine.backend import MemoryBackend
     from looprail.memory_engine.consolidate.consolidator import MemoryStore
+    from looprail.providers.base import LLMProvider
 
 
 class MemorySegmentBuilder:
@@ -39,6 +42,9 @@ class MemorySegmentBuilder:
         structured_top_k: int = 5,
         structured_max_chars: int = 6_000,
         allow_local_structured: bool = False,
+        rerank_config: MemoryRerankConfig | None = None,
+        provider: "LLMProvider | None" = None,
+        model: str | None = None,
     ) -> None:
         self._memory_store = memory_store
         self._backend = backend
@@ -49,17 +55,41 @@ class MemorySegmentBuilder:
         self._structured_top_k = structured_top_k
         self._structured_max_chars = structured_max_chars
         self._allow_local_structured = allow_local_structured
+        self._selector = (
+            MemorySelector(rerank_config, provider, model or provider.get_default_model())
+            if rerank_config is not None and rerank_config.enabled and provider is not None
+            else None
+        )
+
+    def replace_model(self, model: str) -> None:
+        if self._selector is not None:
+            self._selector.model = model
 
     async def build(self, ctx: AssemblyContext) -> Segment | None:
         local_file = getattr(self._memory_store, "memory_items_file", None)
-        local_structured_ready = (
-            self._allow_local_structured and local_file is not None and local_file.exists()
-        )
+        local_structured_ready = self._allow_local_structured and local_file is not None and local_file.exists()
         if not self._enabled and not local_structured_ready:
             return Segment(text="", meta={"memory_hits": 0})
         # 合并 Host 直接读取和插件召回。召回发生硬失败时继续向上传播，
         # 让后端故障在 AgentLoop 暴露，而不是静默丢弃记忆。
+        selected = None
+        selection_audit = None
+        if self._selector is not None and self._structured_top_k > 0:
+            candidates = self._memory_store.recall_memory(
+                ctx.current_message,
+                repo_identity=getattr(self._memory_store, "repository_identity", None),
+                project_id=self._project_id,
+                user_id=self._user_id,
+                top_k=max(self._structured_top_k, self._selector.config.candidate_top_k),
+                max_chars=self._structured_max_chars,
+            )
+            selected, selection_audit = await self._selector.select(
+                ctx.current_message,
+                candidates,
+                self._structured_top_k,
+            )
         try:
+            selected_kwargs = {"structured_hits": selected} if selected is not None else {}
             host = self._memory_store.get_memory_context(
                 current_message=ctx.current_message,
                 repo_identity=getattr(self._memory_store, "repository_identity", None),
@@ -67,6 +97,7 @@ class MemorySegmentBuilder:
                 user_id=self._user_id,
                 structured_top_k=self._structured_top_k,
                 structured_max_chars=self._structured_max_chars,
+                **selected_kwargs,
             )
         except TypeError:
             # Keep the pre-Phase-5 MemoryStore seam usable for tiny external
@@ -83,6 +114,8 @@ class MemorySegmentBuilder:
             "structured_memory_hits": structured_hits,
             "structured_memory_diagnostics": structured_diagnostics,
         }
+        if selection_audit is not None:
+            meta["memory_rerank"] = selection_audit
         if not sections:
             return Segment(text="", meta=meta)
         return Segment(text="# Memory\n\n" + "\n\n".join(sections), meta=meta)

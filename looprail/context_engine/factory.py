@@ -138,6 +138,9 @@ def build_context_engine(
             structured_top_k=getattr(memory_config, "structured_top_k", 5),
             structured_max_chars=getattr(memory_config, "structured_max_chars", 6_000),
             allow_local_structured=True,
+            rerank_config=getattr(memory_config, "rerank", None),
+            provider=provider,
+            model=model,
         ),
         ActiveSkillsSegmentBuilder(builder.skills),
         SkillsSegmentBuilder(

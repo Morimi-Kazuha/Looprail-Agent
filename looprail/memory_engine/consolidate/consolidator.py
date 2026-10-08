@@ -28,12 +28,14 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator
 from loguru import logger
 
 from looprail.memory_engine.backend import (
+    MEMORY_CATEGORIES,
     MEMORY_ITEM_SCHEMA,
     MEMORY_KINDS,
     MEMORY_SCOPES,
     MEMORY_STATUSES,
     MEMORY_VERIFICATIONS,
     Memory,
+    MemoryCategory,
     MemoryKind,
     MemoryScope,
     MemoryStatus,
@@ -45,6 +47,7 @@ from looprail.memory_engine.backend import (
 )
 from looprail.tracing import semconv, trace
 from looprail.utils.helpers import ensure_dir, estimate_message_tokens, estimate_prompt_tokens_chain
+from looprail.utils.portable_lock import LockTimeoutError, file_lock
 
 if TYPE_CHECKING:
     from looprail.providers.base import LLMProvider
@@ -66,6 +69,8 @@ _STRUCTURED_MEMORY_ELIGIBLE_KINDS = frozenset(
     {
         MemoryKind.PROJECT_FACT.value,
         MemoryKind.USER_PREFERENCE.value,
+        MemoryKind.USER_FACT.value,
+        MemoryKind.REFERENCE.value,
         MemoryKind.REPO_CONVENTION.value,
         MemoryKind.SUCCESSFUL_PROCEDURE.value,
         MemoryKind.FAILURE_LESSON.value,
@@ -95,6 +100,7 @@ _STRUCTURED_MEMORY_METADATA_KEYS = frozenset(
         "tags",
         "reusable",
         "explicit_durable",
+        "declared_by_user",
         "transient",
         "one_off",
         "hypothesis",
@@ -174,7 +180,7 @@ def _memory_source_label(provenance: Mapping[str, Any]) -> str:
 
 def _memory_identity_payload(item: Memory) -> dict[str, Any]:
     provenance = normalize_memory_provenance(item.provenance)
-    return {
+    payload = {
         "scope": item.scope,
         "kind": item.kind,
         "normalized_key": item.normalized_key,
@@ -184,6 +190,9 @@ def _memory_identity_payload(item: Memory) -> dict[str, Any]:
         "project_id": provenance.get("project_id"),
         "user_id": provenance.get("user_id"),
     }
+    if item.category is not None:
+        payload["category"] = item.category
+    return payload
 
 
 def _memory_id(item: Memory) -> str:
@@ -221,6 +230,7 @@ def _memory_write_metadata(item: Memory) -> dict[str, Any]:
         "schema": MEMORY_ITEM_SCHEMA,
         "memory_id": item.memory_id,
         "kind": item.kind,
+        "category": item.category,
         "scope": item.scope,
         "verification": item.verification,
         "status": item.status,
@@ -251,10 +261,36 @@ def _memory_eligibility(item: Memory, *, repository_identity: str) -> tuple[bool
         MemoryVerification.DERIVED.value,
     }:
         return False, "verification_not_eligible", {"verification": item.verification}
-    if item.verification == MemoryVerification.USER_PROVIDED.value and item.kind != MemoryKind.USER_PREFERENCE.value:
-        return False, "user_provided_only_for_preference", {"kind": item.kind}
-
     provenance = normalize_memory_provenance(item.provenance)
+    if item.category is not None:
+        category_contract = {
+            "user": ({"user_preference", "user_fact"}, {"user", "repo_local"}),
+            "feedback": ({"user_preference"}, {"user", "repo_local"}),
+            "project": ({"project_fact"}, {"project", "repo_local"}),
+            "reference": ({"reference"}, {"user", "project", "repo_local"}),
+        }
+        contract = category_contract.get(item.category)
+        if contract is None or item.kind not in contract[0] or item.scope not in contract[1]:
+            return False, "category_contract_mismatch", {}
+    if item.verification == MemoryVerification.USER_PROVIDED.value and item.kind != MemoryKind.USER_PREFERENCE.value:
+        # A user declaration proves what the user specified, not external truth.
+        # Only new classified declarations with bounded source evidence qualify;
+        # the old generic project_fact/user_provided rejection remains intact.
+        declared = (
+            (item.category, item.kind)
+            in {
+                (MemoryCategory.USER.value, MemoryKind.USER_FACT.value),
+                (MemoryCategory.PROJECT.value, MemoryKind.PROJECT_FACT.value),
+                (MemoryCategory.REFERENCE.value, MemoryKind.REFERENCE.value),
+            }
+            and provenance.get("source_type") == "explicit_user_declaration"
+            and item.metadata.get("declared_by_user") is True
+            and all(provenance.get(key) for key in ("session_id", "turn_id", "result_ref", "user_id"))
+            and re.fullmatch(r"[0-9a-f]{64}", provenance.get("source_digest", "")) is not None
+            and provenance.get("evidence_digest") == provenance.get("source_digest")
+        )
+        if not declared:
+            return False, "user_provided_only_for_preference", {"kind": item.kind}
     source_type = provenance.get("source_type", "").casefold()
     if source_type in {
         "tool_result",
@@ -272,27 +308,38 @@ def _memory_eligibility(item: Memory, *, repository_identity: str) -> tuple[bool
         return False, "recovery_evidence_not_memory", {}
 
     if item.scope in {"project", "repo_local"} and provenance.get("repo_identity") != repository_identity:
-        return False, "wrong_repository_scope", {
-            "expected_repo_identity": repository_identity,
-            "item_repo_identity": provenance.get("repo_identity"),
-        }
+        return (
+            False,
+            "wrong_repository_scope",
+            {
+                "expected_repo_identity": repository_identity,
+                "item_repo_identity": provenance.get("repo_identity"),
+            },
+        )
     if item.scope == "user" and not provenance.get("user_id"):
         return False, "user_scope_requires_identity", {}
 
     metadata = item.metadata
-    if any(metadata.get(key) is True or str(metadata.get(key, "")).casefold() == "true" for key in ("transient", "one_off", "hypothesis", "recovery_only")):
+    if any(
+        metadata.get(key) is True or str(metadata.get(key, "")).casefold() == "true"
+        for key in ("transient", "one_off", "hypothesis", "recovery_only")
+    ):
         return False, "not_reusable", {}
     if metadata.get("reusable") is False or str(metadata.get("reusable", "")).casefold() == "false":
         return False, "not_reusable", {}
     if metadata.get("explicit_durable") is False:
         return False, "not_explicitly_durable", {}
-    return True, "eligible", {
-        "eligible": True,
-        "kind": item.kind,
-        "scope": item.scope,
-        "verification": item.verification,
-        "source_type": source_type or "manual",
-    }
+    return (
+        True,
+        "eligible",
+        {
+            "eligible": True,
+            "kind": item.kind,
+            "scope": item.scope,
+            "verification": item.verification,
+            "source_type": source_type or "manual",
+        },
+    )
 
 
 def _ensure_text(value: Any) -> str:
@@ -988,6 +1035,7 @@ class MemoryStore:
                 "score": item.score,
                 "metadata": dict(item.metadata),
                 "kind": item.kind,
+                "category": item.category,
                 "scope": item.scope,
                 "verification": item.verification,
                 "confidence": item.confidence,
@@ -1098,8 +1146,11 @@ class MemoryStore:
             ):
                 raise ValueError(f"{timestamp_name} must be an ISO timestamp")
 
+        if data.get("category") is not None and not isinstance(data["category"], str):
+            raise ValueError("memory item category must be a string")
         return Memory(
             text=claim,
+            category=data.get("category"),
             score=score,
             metadata=_bounded_memory_metadata(data.get("metadata")),
             kind=normalized_kind,
@@ -1140,6 +1191,8 @@ class MemoryStore:
         for key, choices in fields.items():
             if not isinstance(record.get(key), str) or record[key] not in choices:
                 raise ValueError(f"memory item {key} is invalid")
+        if record.get("category") is not None and record["category"] not in MEMORY_CATEGORIES:
+            raise ValueError("memory item category is invalid")
         if not isinstance(record.get("memory_id"), str) or not record["memory_id"]:
             raise ValueError("memory item id is invalid")
         if not isinstance(record.get("normalized_key"), str) or not record["normalized_key"]:
@@ -1160,6 +1213,7 @@ class MemoryStore:
             raise ValueError("memory item metadata is invalid")
         return Memory(
             text=text,
+            category=record.get("category"),
             kind=record["kind"],
             scope=record["scope"],
             verification=record["verification"],
@@ -1241,6 +1295,7 @@ class MemoryStore:
         project_id: str | None = None,
         user_id: str | None = None,
         repo_identity: str | None = None,
+        lock_blocking: bool = True,
     ) -> MemoryWriteResult:
         """Apply the explicit write policy and persist one structured item.
 
@@ -1248,6 +1303,8 @@ class MemoryStore:
         ``scope/kind/normalized_key/source/content_digest``.  A later
         eligible claim with the same conflict key supersedes the active older
         version.  No LLM extraction or semantic similarity is performed.
+        Automatic capture can fail fast on lock contention; ordinary callers
+        retain the existing blocking lock behavior and identical write gates.
         """
 
         try:
@@ -1280,7 +1337,13 @@ class MemoryStore:
             self._last_memory_write = result
             return result
 
-        raw_metadata = item.metadata if isinstance(item, Memory) else item.get("metadata", {}) if isinstance(item, Mapping) else metadata
+        raw_metadata = (
+            item.metadata
+            if isinstance(item, Memory)
+            else item.get("metadata", {})
+            if isinstance(item, Mapping)
+            else metadata
+        )
         raw_provenance = (
             item.provenance
             if isinstance(item, Memory)
@@ -1307,13 +1370,16 @@ class MemoryStore:
         )
 
         try:
-            with self.locked():
+            lock = self.locked() if lock_blocking else file_lock(self.memory_lock_path, blocking=False)
+            with lock:
                 items, errors = self._read_structured_memory_items()
                 if errors:
                     result = MemoryWriteResult(
                         False,
                         "error",
-                        "store_corrupt" if any(error.startswith("line_") for error in errors) else "storage_unavailable",
+                        "store_corrupt"
+                        if any(error.startswith("line_") for error in errors)
+                        else "storage_unavailable",
                         diagnostics={"errors": errors[:16]},
                     )
                     self._last_memory_write = result
@@ -1381,7 +1447,10 @@ class MemoryStore:
                     canonical = replace(
                         canonical,
                         version=max(canonical.version, latest_version + 1),
-                        supersedes=max(conflicts, key=lambda entry: (_memory_timestamp_key(entry.updated_at), entry.memory_id or "")).memory_id,
+                        supersedes=max(
+                            conflicts,
+                            key=lambda entry: (_memory_timestamp_key(entry.updated_at), entry.memory_id or ""),
+                        ).memory_id,
                     )
                 superseded_ids = tuple(existing.memory_id for existing in conflicts if existing.memory_id)
                 if conflicts:
@@ -1399,6 +1468,10 @@ class MemoryStore:
                     ]
                 items.append(canonical)
                 self._write_structured_memory_items(items)
+        except LockTimeoutError:
+            result = MemoryWriteResult(False, "error", "storage_busy")
+            self._last_memory_write = result
+            return result
         except OSError as exc:
             result = MemoryWriteResult(False, "error", "storage_unavailable", diagnostics={"error": str(exc)[:160]})
             self._last_memory_write = result
@@ -1504,7 +1577,9 @@ class MemoryStore:
         payload.pop("schema", None)
         return self.write(payload)
 
-    def update(self, memory_id: str, item: Memory | Mapping[str, Any] | str | None = None, **kwargs: Any) -> MemoryWriteResult:
+    def update(
+        self, memory_id: str, item: Memory | Mapping[str, Any] | str | None = None, **kwargs: Any
+    ) -> MemoryWriteResult:
         """Short compatibility alias for :meth:`update_memory`."""
 
         return self.update_memory(memory_id, item, **kwargs)
@@ -1678,7 +1753,13 @@ class MemoryStore:
             }.get(item.verification, 0.0)
             age_days = max(0.0, (now - (_memory_timestamp(item.updated_at) or now)).total_seconds() / 86_400)
             freshness = 1.0 / (1.0 + age_days / 365.0)
-            score = round(min(1.0, 0.65 * min(1.0, relevance) + 0.20 * scope_weight + 0.10 * verification_weight + 0.05 * freshness), 6)
+            score = round(
+                min(
+                    1.0,
+                    0.65 * min(1.0, relevance) + 0.20 * scope_weight + 0.10 * verification_weight + 0.05 * freshness,
+                ),
+                6,
+            )
             scored.append((score, _memory_timestamp_key(item.updated_at), item.memory_id or "", item))
 
         scored.sort(key=lambda entry: (-entry[0], -entry[1], entry[2]))
@@ -1945,6 +2026,7 @@ class MemoryStore:
         user_id: str | None = None,
         structured_top_k: int = _STRUCTURED_MEMORY_DEFAULT_TOP_K,
         structured_max_chars: int = _STRUCTURED_MEMORY_DEFAULT_MAX_CHARS,
+        structured_hits: list[Memory] | None = None,
     ) -> str:
         """返回要嵌入 Agent System Prompt 的 Memory Block。
 
@@ -1959,7 +2041,15 @@ class MemoryStore:
         # this existing Store and returned to the single Memory segment.  The
         # item recall is bounded and fail-closed; it never reads Session,
         # EffectJournal, Recovery, or ToolResult payloads.
-        if self.structured_file.exists():
+        if structured_hits is not None:
+            # Memory Segment may select IDs from this Store's scoped recall.
+            self._last_memory_diagnostics = {
+                **self._last_memory_diagnostics,
+                "selected": len(structured_hits),
+                "selected_count": len(structured_hits),
+                "selected_ids": [item.memory_id for item in structured_hits],
+            }
+        elif self.structured_file.exists():
             structured_hits = self.recall_memory(
                 current_message or "",
                 repo_identity=repo_identity,
