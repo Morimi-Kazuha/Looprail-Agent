@@ -141,6 +141,7 @@ def build_context_engine(
             rerank_config=getattr(memory_config, "rerank", None),
             provider=provider,
             model=model,
+            file_working=getattr(builder, "file_working", None),
         ),
         ActiveSkillsSegmentBuilder(builder.skills),
         SkillsSegmentBuilder(

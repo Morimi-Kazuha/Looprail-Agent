@@ -45,7 +45,9 @@ class MemorySegmentBuilder:
         rerank_config: MemoryRerankConfig | None = None,
         provider: "LLMProvider | None" = None,
         model: str | None = None,
+        file_working=None,
     ) -> None:
+        self._file_working = file_working
         self._memory_store = memory_store
         self._backend = backend
         self._user_id = user_id
@@ -66,6 +68,19 @@ class MemorySegmentBuilder:
             self._selector.model = model
 
     async def build(self, ctx: AssemblyContext) -> Segment | None:
+        segment = await self._build_long_term(ctx)
+        if self._file_working is None:
+            return segment
+        try:
+            text, metrics = self._file_working.recall(ctx.current_message, ctx.session_key)
+        except Exception:
+            text, metrics = "", {"file_working_hits": 0}
+        # File evidence remains optional and separate from the R1 text.
+        segment.meta.update(metrics)
+        segment.meta["file_working_optional_text"] = text
+        return segment
+
+    async def _build_long_term(self, ctx: AssemblyContext) -> Segment | None:
         local_file = getattr(self._memory_store, "memory_items_file", None)
         local_structured_ready = self._allow_local_structured and local_file is not None and local_file.exists()
         if not self._enabled and not local_structured_ready:

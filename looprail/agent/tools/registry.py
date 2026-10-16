@@ -67,10 +67,19 @@ class ToolRegistry:
     ):
         if max_parallel < 1:
             raise ValueError("max_parallel must be positive")
+        self._file_observer_binding = None
         self._tools: dict[str, Tool] = {}
         self._max_parallel = max_parallel
         self._effect_journal = effect_journal
         self._effect_crash_hook = crash_hook
+
+    def bind_file_observer(self, tool, service):
+        from looprail.agent.tools.filesystem import ReadFileTool
+
+        if type(tool) is not ReadFileTool:
+            raise TypeError("only the builtin ReadFileTool can issue observations")
+        tool.bind_file_observer(service)
+        self._file_observer_binding = (tool, service)
 
     @property
     def effect_journal(self) -> EffectJournal | None:
@@ -365,10 +374,30 @@ class ToolRegistry:
             except Exception:
                 logger.exception("Effect terminal state could not be journaled for {}", name)
                 return self._annotate_result(
-                    ToolResult("Error: tool outcome is unknown because the journal is unavailable." + _hint, failed=True),
+                    ToolResult(
+                        "Error: tool outcome is unknown because the journal is unavailable." + _hint, failed=True
+                    ),
                     running_record.effect_id,
                 )
             self._effect_hook("terminal", terminal)
+
+        binding = self._file_observer_binding
+        if binding is not None and tool is binding[0] and not normalized.failed:
+            from looprail.memory_engine.file_working import FileObservationReceipt
+
+            receipt = getattr(normalized, "file_observation", None)
+            if (
+                type(receipt) is FileObservationReceipt
+                and getattr(normalized, "_file_issuer", None) is tool._receipt_issuer
+                and receipt.session_key == effect_invocation.context.session_key
+                and receipt.call_id == effect_invocation.context.call_id
+                and receipt.turn_id == effect_invocation.context.turn_id
+                and (running_record is None or terminal_status is EffectStatus.COMMITTED)
+            ):
+                try:
+                    binding[1].observe(receipt)
+                except Exception:
+                    pass
 
         return self._annotate_result(normalized, effect_record.effect_id if effect_record is not None else None)
 

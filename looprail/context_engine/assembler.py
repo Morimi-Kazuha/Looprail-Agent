@@ -62,6 +62,7 @@ class ContextAssembler(ContextEngine):
         self._now_fn = now_fn or datetime.now
         self.provider = provider
         self.model = model
+        self._file_evidence: dict[str, tuple[str, list]] = {}
         # The first local tokenizer lookup can take a few hundred milliseconds
         # while cl100k_base is loaded.  Warm it during engine construction so
         # the Phase-A concurrency contract measures the two independent lanes,
@@ -121,6 +122,26 @@ class ContextAssembler(ContextEngine):
 
         user_msg = self._build_user(ctx)
 
+        self._file_evidence.pop(session_key, None)
+        optional = meta.pop("file_working_optional_text", "")
+        quote_blocks = meta.pop("file_working_quote_blocks", [])
+        if optional:
+            # Reserve ALL original history, including Recovery, before Curator.
+            # Under pressure discard optional evidence before any R2 operation.
+            candidate = system_prefix + "\n\n" + optional
+            tokens, _ = self._estimate(
+                [
+                    {"role": "system", "content": candidate},
+                    *HistoryTrimmer.history_from_ids(session_messages, list(range(len(session_messages)))),
+                    user_msg,
+                ],
+                self.get_tool_definitions(),
+            )
+            if tokens > budget.input_context_budget:
+                optional = ""
+            if not optional:
+                meta.update(file_working_hits=0, file_working_tokens=0, file_working_budget_dropped=True)
+
         # ── 阶段 B——依赖前缀的构建器（Curator），串行执行 ───
         ctx_b = replace(
             ctx,
@@ -145,6 +166,37 @@ class ContextAssembler(ContextEngine):
                 history = seg.history
         for text in seg6_parts:
             system = system + "\n\n---\n\n" + text
+
+        if optional and quote_blocks:
+            visible = [
+                m.get("content", "") for m in history if m.get("role") == "tool" and isinstance(m.get("content"), str)
+            ]
+            if all(
+                any(all(quote in result.splitlines() for quote in block) for result in visible)
+                for block in quote_blocks
+            ):
+                optional = ""
+                meta.update(file_working_hits=0, file_working_tokens=0, file_working_duplicate_dropped=True)
+        if optional:
+            optional_tokens, _ = self._estimate([{"role": "system", "content": optional}], [])
+            if optional_tokens > 1500:
+                optional = ""
+                meta.update(file_working_hits=0, file_working_tokens=0, file_working_budget_dropped=True)
+            else:
+                meta["file_working_tokens"] = optional_tokens
+
+        if optional:
+            # Curator sees the original prefix budget, so optional evidence can
+            # never cause history compression. Admit only after Phase B fits.
+            candidate = system + "\n\n" + optional
+            tokens, _ = self._estimate(
+                [{"role": "system", "content": candidate}, *history, user_msg], self.get_tool_definitions()
+            )
+            if tokens <= budget.input_context_budget:
+                system = candidate
+                self._file_evidence[session_key] = (optional, quote_blocks)
+            else:
+                meta.update(file_working_hits=0, file_working_tokens=0, file_working_budget_dropped=True)
 
         messages = [{"role": "system", "content": system}, *history, user_msg]
         tool_defs = self.get_tool_definitions()
@@ -329,15 +381,41 @@ class ContextAssembler(ContextEngine):
         outcome: dict[str, Any],
         usage: dict[str, int] | None = None,
     ) -> None:
+        self._file_evidence.pop(session_key, None)
         # 委托给需要维护每 Turn 账目的 builder（例如 Curator）。
         for builder in self._builders:
             hook = getattr(builder, "after_turn", None)
             if hook is not None:
                 await hook(session_key, outcome, usage)
 
+    def drop_file_evidence(self, messages, session_key):
+        evidence = self._file_evidence.get(session_key)
+        if not evidence:
+            return False
+        text = evidence[0]
+        for index, message in enumerate(messages):
+            content = message.get("content")
+            if message.get("role") == "system" and isinstance(content, str) and "\n\n" + text in content:
+                messages[index] = dict(message, content=content.replace("\n\n" + text, "", 1))
+                return True
+        return False
+
     async def fit_runtime(self, trimmer, messages, **kwargs):
         """Keep history ownership in Curator when in-flight Tool output grows."""
+        evidence = self._file_evidence.get(kwargs.get("session_key"))
+        # Once this Turn has fresh tool results, retire the optional historical
+        # prefix. In particular a write/exec may have invalidated its source.
+        if evidence and any(m.get("role") == "tool" for m in messages[kwargs.get("turn_start_idx", len(messages)) :]):
+            self.drop_file_evidence(messages, kwargs.get("session_key"))
+        if evidence and evidence[1]:
+            visible = [
+                m.get("content", "") for m in messages if m.get("role") == "tool" and isinstance(m.get("content"), str)
+            ]
+            if all(any(all(q in result.splitlines() for q in block) for result in visible) for block in evidence[1]):
+                self.drop_file_evidence(messages, kwargs.get("session_key"))
         estimated, _ = trimmer._estimate(messages)
+        if estimated > trimmer.input_context_budget and self.drop_file_evidence(messages, kwargs.get("session_key")):
+            estimated, _ = trimmer._estimate(messages)
         for builder in self._phase_b:
             fit = getattr(builder, "fit_runtime", None)
             if fit is not None and builder.config.progressive_compression:

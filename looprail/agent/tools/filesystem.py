@@ -6,10 +6,11 @@ READ effect，Write/Edit 声明 WRITE；返回值统一为模型可读文本，�
 """
 
 import difflib
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
-from looprail.agent.tools.base import Tool
+from looprail.agent.tools.base import Tool, ToolResult
 from looprail.agent.tools.execution import ToolCapability, ToolEffect
 
 
@@ -64,6 +65,31 @@ class ReadFileTool(_FsTool):
     _MAX_CHARS = 128_000
     _DEFAULT_LIMIT = 2000
 
+    _read_context = ContextVar("file_observation_context", default=None)
+
+    def bind_file_observer(self, service):
+        self._file_working = service
+        self._receipt_issuer = object()
+
+    async def execute_with_context(self, context, **kwargs):
+        token = self._read_context.set(context)
+        try:
+            return await self.execute(**kwargs)
+        finally:
+            self._read_context.reset(token)
+
+    def _observed_result(self, result, snapshot, start, end):
+        if snapshot is None:
+            return result
+        try:
+            path, raw = snapshot
+            receipt = self._file_working.receipt(path, raw, start, end, self._read_context.get())
+            output = ToolResult(result, file_observation=receipt)
+            output._file_issuer = self._receipt_issuer
+            return output
+        except Exception:
+            return result
+
     @property
     def name(self) -> str:
         return "read_file"
@@ -102,13 +128,25 @@ class ReadFileTool(_FsTool):
             if not fp.is_file():
                 return f"Error: Not a file: {path}"
 
-            all_lines = fp.read_text(encoding="utf-8").splitlines()
+            snapshot = None
+            service = getattr(self, "_file_working", None)
+            if service is not None and self._read_context.get() is not None:
+                try:
+                    snapshot = service.snapshot(path)
+                except Exception:
+                    pass
+            if snapshot is None:
+                all_lines = fp.read_text(encoding="utf-8").splitlines()
+            else:
+                from looprail.memory_engine.file_working import source_lines
+
+                all_lines = source_lines(snapshot[1])
             total = len(all_lines)
 
             if offset < 1:
                 offset = 1
             if total == 0:
-                return f"(Empty file: {path})"
+                return self._observed_result(f"(Empty file: {path})", snapshot, 0, 0)
             if offset > total:
                 return f"Error: offset {offset} is beyond end of file ({total} lines)"
 
@@ -131,7 +169,7 @@ class ReadFileTool(_FsTool):
                 result += f"\n\n(Showing lines {offset}-{end} of {total}. Use offset={end + 1} to continue.)"
             else:
                 result += f"\n\n(End of file — {total} lines total)"
-            return result
+            return self._observed_result(result, snapshot, start, end)
         except PermissionError as e:
             return f"Error: {e}"
         except Exception as e:

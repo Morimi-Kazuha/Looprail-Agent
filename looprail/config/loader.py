@@ -35,6 +35,8 @@ EXTENSION_KEYS = (
     # 偏好的 snake_case。
     "plugins",
     "memory",
+    "file_working",
+    "fileWorking",
     # Bug2 / runtime-discipline 第五支柱：checkpoint 策略等。
     "runtime",
     # 仓库内可观测性 tracing（looprail.tracing）。

@@ -24,6 +24,29 @@ Looprail 将模型推理与确定性的 Runtime 执行分开：模型决定下�
 - **Controlled Self-Evolution** —— 在明确的证据和人工激活控制下评估 Runtime 候选改进。
 - **Local-first execution** —— 从本地检出开始工作，并直接看到仓库及其开发工具。
 
+## 版本化文件工作记忆（可选）
+
+File Working Memory 可以跨 Session 复用有界且可信的文件观察。每条观察记录仓库和访问范围、源文件
+SHA-256，以及内置 `read_file` 实际返回的行范围。后续召回会重新读取当前源文件，校验完整 Hash 和
+摘录原文，再将其作为不可信的、有来源依据的上下文注入。Context Assembler 会去掉当前上下文中已有
+的摘录，并在预算不足时丢弃可选证据；文件变化后旧观察不再有效。
+
+该功能**默认关闭**。跨 Session 能力仅在 Windows 本地单用户 CLI 上完成验证，并要求仓库外的 Host State
+目录通过当前 Windows SID 与 ACL 检查。TUI、Gateway、非 Windows 主机以及所有 `--workspace` 配置均不
+声明具备同等跨 Session 能力。启用后也不保证模型会减少工具调用。详见[配置与安全说明](docs/file-working-memory.md)
+和[评测结果](docs/file-working-memory-evaluation.md)。
+
+在 Looprail `config.json` 的顶层加入 `"fileWorking": {"enabled": true}` 可显式启用。
+
+R1 结构化记忆保存较长期的用户或项目知识；R2 在上下文压缩时保留工作状态；File Working Memory 保存
+带源版本的文件观察证据；JEV 在工具失败后给出有界建议。它们用途不同，控制路径也相互独立。
+
+## File Working Memory 真实评测
+
+本次真实 A/B 只验证了跨 Session 证据注入：两组独立 Verifier 均通过，但目标 `billing.py` 两组都读取一次。
+Session B Token 与费用上升；全 Trial 的 Token 与费用观察值下降，但无法归因于 File Working Memory，
+因此生产功能继续默认关闭。详细数据见[评测报告](docs/file-working-memory-evaluation.md)。
+
 ## 简单架构
 
 ```mermaid

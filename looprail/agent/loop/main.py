@@ -305,6 +305,8 @@ class AgentLoop:
         context_engine_factory: "ContextEngineFactory | None" = None,
         state: Path | None = None,
         recovery_policy: RecoveryPolicy | None = None,
+        file_working_config: Any = None,
+        file_working_access_scope: str | None = None,
     ):
         from looprail.agent.hook import CompositeHook
         from looprail.call_efficiency import CallEfficiency
@@ -341,6 +343,15 @@ class AgentLoop:
         # 已激活插件贡献的工具，由 ``_register_default_tools`` 注册到 ToolRegistry。
         self.plugin_tools: "list[Tool]" = list(plugin_tools or [])
 
+        self.file_working = None
+        if getattr(file_working_config, "enabled", False):
+            from looprail.memory_engine.file_working import FileWorkingMemory
+
+            try:
+                self.file_working = FileWorkingMemory(workspace, self.state, access_scope_id=file_working_access_scope)
+            except (ValueError, OSError):
+                pass
+
         self.context = ContextBuilder(
             workspace,
             state=self.state,
@@ -350,6 +361,7 @@ class AgentLoop:
             project_id=getattr(memory_config, "project_id", None),
             user_id=getattr(memory_config, "user_id", "default"),
         )
+        self.context.file_working = self.file_working
         self.sessions = session_manager or SessionManager(self.state)
         from looprail.config.looprail import AutoCaptureConfig
         from looprail.memory_engine.capture import MemoryCapture
@@ -570,7 +582,10 @@ class AgentLoop:
         """
         allowed_dir = self.workspace if self.restrict_to_workspace else None
         for cls in (ReadFileTool, WriteFileTool, EditFileTool, ListDirTool, GrepTool, FindTool):
-            self.tools.register(cls(workspace=self.workspace, allowed_dir=allowed_dir))
+            tool = cls(workspace=self.workspace, allowed_dir=allowed_dir)
+            self.tools.register(tool)
+            if cls is ReadFileTool and self.file_working is not None:
+                self.tools.bind_file_observer(tool, self.file_working)
         self.tools.register(SkillReadTool(self.context.skills))
         archive_reader = getattr(self.context_engine, "archive_reader", None)
         if archive_reader is not None and (reader := archive_reader()) is not None:
@@ -1410,6 +1425,9 @@ class AgentLoop:
                     runtime_margin=context_budget.runtime_margin,
                 )
                 tokens, _ = estimate_prompt_tokens_chain(self.provider, model or self.model, synth_messages, [])
+                drop_files = getattr(self.context_engine, "drop_file_evidence", None)
+                if tokens > limits.input_context_budget and drop_files and drop_files(synth_messages, session_key):
+                    tokens, _ = estimate_prompt_tokens_chain(self.provider, model or self.model, synth_messages, [])
                 if HistoryTrimmer.structural_errors(synth_messages) or tokens > limits.input_context_budget:
                     raise ContextBudgetError(
                         estimated_tokens=tokens,
@@ -1638,6 +1656,11 @@ class AgentLoop:
                     call_messages,
                     call_tools,
                 )
+                drop_files = getattr(self.context_engine, "drop_file_evidence", None)
+                if final_tokens > limits.input_context_budget and drop_files and drop_files(call_messages, session_key):
+                    final_tokens, final_source = estimate_prompt_tokens_chain(
+                        self.provider, call_model, call_messages, call_tools
+                    )
                 errors = HistoryTrimmer.structural_errors(call_messages)
                 if context_decision_sink is not None:
                     context_decision_sink["provider_context_validation"] = {

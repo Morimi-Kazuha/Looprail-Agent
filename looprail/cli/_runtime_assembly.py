@@ -118,6 +118,7 @@ def assemble_runtime(
     session_manager: SessionManager | None = None,
     context_engine_factory: "ContextEngineFactory | None" = None,
     paths: "RuntimePaths | None" = None,
+    local_cli: bool = False,
 ) -> RuntimeAssembly:
     from looprail.agent.loop import AgentLoop
     from looprail.call_efficiency import CallEfficiency, CallEfficiencyProvider
@@ -157,6 +158,13 @@ def assemble_runtime(
         )
         defaults = config.agents.defaults
         recovery_policy = build_recovery_policy(getattr(looprail_config.runtime, "jev", JevConfig()))
+        file_scope = {}
+        if local_cli and getattr(getattr(looprail_config, "file_working", None), "enabled", False):
+            from looprail.cli._file_working_scope import local_cli_file_scope
+
+            scope = local_cli_file_scope(paths.state, paths.workspace)
+            if scope is not None:
+                file_scope["file_working_access_scope"] = scope
         agent_loop = AgentLoop(
             provider=runtime_provider,
             workspace=paths.workspace,
@@ -189,8 +197,15 @@ def assemble_runtime(
             interactive=interactive,
             backend=backend,
             memory_config=looprail_config.memory,
+            **(
+                {"file_working_config": looprail_config.file_working}
+                if getattr(getattr(looprail_config, "file_working", None), "enabled", False)
+                and (not local_cli or file_scope)
+                else {}
+            ),
             skill_forge_router_config=looprail_config.skill_forge.router,
             plugin_tools=plugin_tools,
+            **file_scope,
         )
         agent_loop.configure_personalization(
             defaults.enable_personalization,

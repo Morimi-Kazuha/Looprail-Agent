@@ -254,6 +254,7 @@ def register(app: typer.Typer) -> None:
             interactive=message is None,
             session_manager=session_manager,
             paths=paths,
+            local_cli=True,
         )
         agent_loop = runtime.agent_loop
         if recovery_requested:
@@ -330,7 +331,9 @@ def register(app: typer.Typer) -> None:
                         render_tool=_render_tool,
                         on_lifecycle=reporter.observe,
                         verbose_tools=run_verbosity is RunVerbosity.VERBOSE,
-                        send_progress=bool(ch.send_progress) if ch and run_verbosity is not RunVerbosity.QUIET else False,
+                        send_progress=bool(ch.send_progress)
+                        if ch and run_verbosity is not RunVerbosity.QUIET
+                        else False,
                         send_tool_hints=(
                             bool(ch.send_tool_hints) if ch and run_verbosity is not RunVerbosity.QUIET else False
                         ),

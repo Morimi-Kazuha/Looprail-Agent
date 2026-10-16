@@ -32,6 +32,40 @@ repository-aware execution loop that can keep working across many steps.
 - **Local-first execution** — Works from a local checkout with the repository
   and its normal development tools in view.
 
+## Versioned File Working Memory (opt-in)
+
+File Working Memory can reuse a bounded, trusted file observation across
+sessions. Each observation records the repository and access scope, source
+SHA-256, and the line range actually returned by the built-in `read_file`
+tool. A later recall reopens the current source and validates its hash and
+quoted lines before injecting an untrusted, grounded excerpt. Context assembly
+deduplicates visible excerpts and drops optional evidence when it exceeds the
+context budget. Changed files invalidate the old observation.
+
+It is **disabled by default**. Cross-session reuse has been verified for the
+Windows local single-user CLI when its external host-state directory passes
+the current Windows SID and ACL checks. The feature is not supported as an
+equivalent cross-session capability by TUI, Gateway, non-Windows hosts, or
+every `--workspace` setup. Enabling it does not guarantee fewer model tool
+calls. See [the configuration and security guide](docs/file-working-memory.md)
+and [the evaluation results](docs/file-working-memory-evaluation.md).
+
+Enable it at the top level of the Looprail `config.json` with
+`"fileWorking": {"enabled": true}`.
+
+## File Working Memory evaluation
+
+One real A/B pair verified cross-session evidence injection and passed both
+independent verifiers. Session B later reread `billing.py`; its token use and
+provider cost increased. Whole-trial tokens and cost were lower in B, but that
+difference cannot be attributed to File Working Memory. The feature remains
+off by default; see the [full evaluation](docs/file-working-memory-evaluation.md).
+
+R1 structured memory stores longer-lived user or project knowledge; R2 keeps
+working state through context compression; File Working Memory stores
+versioned evidence from file reads; JEV provides bounded suggestions after
+tool failures. They serve different purposes and have separate controls.
+
 ## Simple Architecture
 
 ```mermaid

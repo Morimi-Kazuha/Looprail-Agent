@@ -602,6 +602,12 @@ class TracingConfig(_Base):
 # ---------------------------------------------------------------------------
 
 
+class FileWorkingConfig(_Base):
+    """Optional bounded file evidence. Scope and state are supplied by Host."""
+
+    enabled: bool = False
+
+
 class LooprailConfig(_Base):
     """Looprail Root Config，把 Base `Config` 与 Feature Extensions Compose 在一起。
 
@@ -623,6 +629,7 @@ class LooprailConfig(_Base):
     # CFG-1：插件系统与记忆后端。
     plugins: PluginsConfig = Field(default_factory=PluginsConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    file_working: FileWorkingConfig = Field(default_factory=FileWorkingConfig)
 
     # 完整基础配置（agents、channels、providers、tools、routing）。
     # 保持为嵌套字段，以便与基础 loader 往返转换 YAML。

@@ -22,9 +22,10 @@ class ToolResult(str):
 
     failed: bool
 
-    def __new__(cls, value: object = "", *, failed: bool = False):
+    def __new__(cls, value: object = "", *, failed: bool = False, file_observation=None):
         result = super().__new__(cls, str(value))
         result.failed = failed
+        result.file_observation = file_observation
         return result
 
 
